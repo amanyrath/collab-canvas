@@ -1,53 +1,32 @@
 // ⚡ MINIMAL presence sidebar - just online users, no complex features
 import React, { useEffect, useState } from 'react'
-import { ref, onValue, set, onDisconnect } from 'firebase/database'
-import { rtdb } from '../../utils/firebase'
+import { subscribeToPresence, type PresenceData } from '../../utils/presenceUtils'
 import { useUserStore } from '../../store/userStore'
-
-interface FastPresence {
-  name: string
-  color: string
-  online: boolean
-}
 
 /**
  * ⚡ SUPER SIMPLE: Just shows who's online - minimal Firebase overhead
  */
 export const FastPresenceSidebar: React.FC = () => {
   const { user } = useUserStore()
-  const [users, setUsers] = useState<Record<string, FastPresence>>({})
+  const [users, setUsers] = useState<Record<string, PresenceData>>({})
 
   useEffect(() => {
     if (!user) return
 
-    // ⚡ Set our presence + auto-cleanup on disconnect
-    const userRef = ref(rtdb, `/presence/${user.uid}`)
-    set(userRef, {
-      name: user.displayName,
-      color: user.cursorColor,
-      online: true
-    })
-    
-    // ⚡ Auto-cleanup cursors and presence on disconnect
-    const cursorRef = ref(rtdb, `/cursors/${user.uid}`)
-    onDisconnect(userRef).remove()
-    onDisconnect(cursorRef).remove()
-
-    // ⚡ Listen to all presence
-    const presenceRef = ref(rtdb, '/presence')
-    const unsubscribe = onValue(presenceRef, (snapshot) => {
-      const data = snapshot.val() || {}
-      // Only show online users
-      const onlineUsers = Object.entries(data).reduce((acc, [uid, presence]) => {
-        if ((presence as FastPresence).online) {
-          acc[uid] = presence as FastPresence
+    // ⚡ UNIFIED: Use the centralized presence system
+    const unsubscribe = subscribeToPresence((presenceData) => {
+      // Filter for online users only
+      const onlineUsers = Object.entries(presenceData).reduce((acc, [userId, presence]) => {
+        if (presence.isOnline) {
+          acc[userId] = presence
         }
         return acc
-      }, {} as Record<string, FastPresence>)
+      }, {} as Record<string, PresenceData>)
+      
       setUsers(onlineUsers)
     })
 
-    return () => unsubscribe()
+    return unsubscribe
   }, [user])
 
   const userList = Object.entries(users)
@@ -63,23 +42,30 @@ export const FastPresenceSidebar: React.FC = () => {
       
       <div className="space-y-2">
         {userList.length === 0 ? (
-          <div className="text-xs text-gray-500 italic">No users online</div>
+          <div className="text-xs text-gray-500 italic">
+            {user ? `Waiting for presence data... (Current user: ${user.displayName})` : 'No users online'}
+          </div>
         ) : (
           userList.map(([userId, userPresence]) => (
             <div key={userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
               {/* User color dot */}
               <div 
                 className="w-3 h-3 rounded-full border border-white shadow-sm"
-                style={{ backgroundColor: userPresence.color }}
+                style={{ backgroundColor: userPresence.cursorColor }}
               />
               
               {/* User name */}
               <span className="text-sm font-medium text-gray-900 truncate">
-                {userPresence.name}
+                {userPresence.displayName}
                 {userId === user?.uid && (
                   <span className="text-xs text-blue-600 font-medium ml-1">(you)</span>
                 )}
               </span>
+              
+              {/* Editing status indicator */}
+              {userPresence.currentlyEditing && (
+                <span className="text-xs text-orange-600">✏️</span>
+              )}
               
               {/* Online indicator */}
               <div className="w-2 h-2 bg-green-500 rounded-full ml-auto"></div>

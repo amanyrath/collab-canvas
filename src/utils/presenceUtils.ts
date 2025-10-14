@@ -24,7 +24,7 @@ export interface PresenceData {
  */
 export const initializePresence = async (user: User): Promise<void> => {
   try {
-    console.log('🔄 Initializing presence for:', user.displayName, user.uid)
+    console.log(`🟢 Initializing presence for ${user.displayName}`)
     
     const presenceRef = ref(rtdb, `/sessions/global-canvas-v1/${user.uid}`)
     
@@ -33,14 +33,12 @@ export const initializePresence = async (user: User): Promise<void> => {
       displayName: user.displayName || 'Anonymous',
       email: user.email || '',
       cursorColor: user.cursorColor, // ✅ Use existing user color
-      cursorX: 0,
-      cursorY: 0,
+      cursorX: 300, // Start cursor at a more visible position
+      cursorY: 200, // Start cursor at a more visible position  
       lastSeen: serverTimestamp(),
       isOnline: true,
       currentlyEditing: null
     }
-    
-    console.log('📝 Writing presence data:', presenceData)
     
     // ✅ BUILT-IN: Set presence data
     await set(presenceRef, presenceData)
@@ -53,7 +51,7 @@ export const initializePresence = async (user: User): Promise<void> => {
       currentlyEditing: null
     })
     
-    console.log(`🟢 Presence initialized successfully for ${user.displayName}`)
+    console.log(`✅ Presence initialized for ${user.displayName}`)
   } catch (error) {
     console.error('❌ Failed to initialize presence:', error)
     throw error

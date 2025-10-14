@@ -1,6 +1,6 @@
 // ⚡ ULTRA-FAST cursor rendering - optimized Firebase structure
 import React, { useEffect, useState } from 'react'
-import { Layer, Group, Circle, Text, Rect } from 'react-konva'
+import { Layer, Group, Circle, Text, Rect, Line } from 'react-konva'
 import { ref, onValue } from 'firebase/database'
 import { rtdb } from '../../utils/firebase'
 import { useUserStore } from '../../store/userStore'
@@ -23,17 +23,25 @@ export const SimpleCursorLayer: React.FC = () => {
   useEffect(() => {
     if (!user) return
     
-    console.log('⚡ Setting up FAST cursor subscription')
-    
-    // ⚡ DIRECT Firebase subscription to /cursors path
-    const cursorsRef = ref(rtdb, '/cursors')
+    // Setting up cursor subscription
+    const cursorsRef = ref(rtdb, '/sessions/global-canvas-v1')
     
     const unsubscribe = onValue(cursorsRef, (snapshot) => {
       const data = snapshot.val() || {}
       
-      // ⚡ FAST: Filter out current user, keep all others
-      const { [user.uid]: _, ...otherCursors } = data
-      setCursors(otherCursors)
+      // Convert presence data to cursor format, include ALL online users (including self)
+      const cursorData: Record<string, FastCursor> = {}
+      Object.entries(data).forEach(([userId, presence]: [string, any]) => {
+        if (presence.isOnline && presence.cursorX !== undefined && presence.cursorY !== undefined) {
+          cursorData[userId] = {
+            x: presence.cursorX || 0,
+            y: presence.cursorY || 0,
+            name: presence.displayName || 'Anonymous',
+            color: presence.cursorColor || '#666'
+          }
+        }
+      })
+      setCursors(cursorData)
       
     }, { onlyOnce: false })
 
@@ -46,34 +54,53 @@ export const SimpleCursorLayer: React.FC = () => {
   return (
     <Layer listening={false}>
       {cursorList.map(([userId, cursor]) => (
-        <FastCursor key={userId} cursor={cursor} />
+        <FastCursor 
+          key={userId} 
+          cursor={cursor} 
+          isCurrentUser={userId === user?.uid}
+        />
       ))}
     </Layer>
   )
 }
 
 /**
- * ⚡ SUPER FAST: Minimal cursor component - just circle + name
+ * 👆 CURSOR COMPONENT: Different styles for current user vs others
  */
 interface FastCursorProps {
   cursor: FastCursor
+  isCurrentUser?: boolean
 }
 
-const FastCursor: React.FC<FastCursorProps> = ({ cursor }) => {
+const FastCursor: React.FC<FastCursorProps> = ({ cursor, isCurrentUser = false }) => {
   const { x, y, name, color } = cursor
+  
+  // Pointer shape coordinates for current user
+  const pointerPoints = [0, 0, 0, 14, 4, 10, 6, 16, 8, 15, 6, 9, 10, 9]
   
   return (
     <Group x={x} y={y}>
-      {/* ⚡ Simple cursor dot */}
-      <Circle
-        radius={6}
-        fill={color}
-        stroke="white"
-        strokeWidth={2}
-      />
+      {isCurrentUser ? (
+        // 👆 Pointer icon for current user (like a mouse cursor)
+        <Line
+          points={pointerPoints}
+          fill={color}
+          stroke="white"
+          strokeWidth={1}
+          closed={true}
+        />
+      ) : (
+        // ⚡ Simple cursor dot for other users
+        <Circle
+          radius={6}
+          fill={color}
+          stroke="white"
+          strokeWidth={2}
+        />
+      )}
       
       {/* ⚡ Name label */}
-      <Group x={12} y={-8}>
+      <Group x={isCurrentUser ? 16 : 12} y={-8}>
         <Rect
           width={name.length * 6 + 6}
           height={16}

@@ -1,7 +1,8 @@
 // Firestore transaction-based locking utilities
 import { doc, runTransaction, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore'
-import { getDatabase, ref, onDisconnect, set } from 'firebase/database'
+// Removed unused Firebase Realtime DB imports - presence is handled in presenceUtils.ts
 import { db } from './firebase'
+import { updateCurrentlyEditing } from './presenceUtils'
 
 const SHAPES_COLLECTION = 'canvas/global-canvas-v1/shapes'
 
@@ -51,6 +52,11 @@ export const acquireLock = async (
       })
       
       console.log(`🔒 Lock acquired by ${displayName} for shape:`, shapeId)
+      
+      // ✅ PHASE 8: Update presence to show what user is editing
+      updateCurrentlyEditing(userId, shapeId).catch(error => {
+        console.warn('Failed to update currently editing status:', error)
+      })
       
       return {
         success: true
@@ -115,6 +121,11 @@ export const releaseLock = async (
       
       console.log(`🔓 Lock released by ${displayName} for shape:`, shapeId, finalPosition ? `with position (${finalPosition.x}, ${finalPosition.y})` : 'without position update')
       
+      // ✅ PHASE 8: Update presence to show user is no longer editing
+      updateCurrentlyEditing(userId, null).catch(error => {
+        console.warn('Failed to clear currently editing status:', error)
+      })
+      
       return {
         success: true
       }
@@ -130,33 +141,7 @@ export const releaseLock = async (
   }
 }
 
-// Set up automatic lock cleanup on user disconnect
-export const setupDisconnectCleanup = async (userId: string, displayName: string) => {
-  try {
-    const database = getDatabase()
-    const userPresenceRef = ref(database, `presence/${userId}`)
-    
-    // Set user as online
-    await set(userPresenceRef, {
-      userId,
-      displayName,
-      online: true,
-      lastSeen: Date.now()
-    })
-    
-    // Set up disconnect cleanup - clear presence and trigger lock cleanup
-    await onDisconnect(userPresenceRef).set({
-      userId,
-      displayName,
-      online: false,
-      lastSeen: Date.now()
-    })
-    
-    console.log(`🔒 Set up disconnect cleanup for user: ${displayName}`)
-  } catch (error) {
-    console.error('Error setting up disconnect cleanup:', error)
-  }
-}
+// ✅ REMOVED: setupDisconnectCleanup - now handled by initializePresence() in presenceUtils.ts
 
 // ✅ REMOVED: syncShapeSelection (selection = locking now)
 
@@ -181,6 +166,11 @@ export const releaseAllUserLocks = async (userId: string) => {
             lastModifiedAt: serverTimestamp()
           })
           console.log(`🔓 Force unlocked shape: ${shapeDoc.id}`)
+          
+          // ✅ PHASE 8: Clear currently editing status when force releasing locks
+          updateCurrentlyEditing(userId, null).catch(error => {
+            console.warn('Failed to clear currently editing status on force unlock:', error)
+          })
         }
       })
     })
