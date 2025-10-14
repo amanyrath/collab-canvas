@@ -172,7 +172,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
   // ✅ SHAPE MODE: Track current shape type and color to create
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
-  const [currentColor, setCurrentColor] = useState<string>('#9ca3af') // Default to grey
+  const [currentColor, setCurrentColor] = useState<string>('#CCCCCC') // Default to original light grey
   
   // ✅ SHAPE MODE HANDLER: Update shape type from UI
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
@@ -184,7 +184,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   // ✅ COLOR HANDLER: Update color from UI or change selected shapes
   const handleColorChange = useCallback((color: string) => {
     setCurrentColor(color)
-    const colorName = color === '#9ca3af' ? 'Grey' : color === '#ef4444' ? 'Red' : color === '#22c55e' ? 'Green' : 'Blue'
+    const colorName = color === '#CCCCCC' ? 'Grey' : color === '#ef4444' ? 'Red' : color === '#22c55e' ? 'Green' : 'Blue'
     console.log(`🎨 Color mode: ${colorName} (${color})`)
     
     // ✅ SMART COLOR CHANGE: If shapes are selected, change their color
@@ -235,7 +235,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
           handleColorChange('#3b82f6') // Blue
           break
         case '4':
-          handleColorChange('#9ca3af') // Grey
+          handleColorChange('#CCCCCC') // Light Grey (original)
           break
       }
     }

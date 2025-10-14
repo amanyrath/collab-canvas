@@ -9,7 +9,7 @@ interface ShapeSelectorProps {
 }
 
 const colorOptions = [
-  { name: 'Grey', value: '#9ca3af', shortcut: '4' },
+  { name: 'Grey', value: '#CCCCCC', shortcut: '4' },
   { name: 'Red', value: '#ef4444', shortcut: '1' },
   { name: 'Green', value: '#22c55e', shortcut: '2' }, 
   { name: 'Blue', value: '#3b82f6', shortcut: '3' }
