@@ -123,23 +123,14 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       return
     }
     
-    // Always clean up dragging state, even if we don't have a lock
-    const wasDragging = isDragging
-    setIsDragging(false)
-    
-    // Set flag to prevent immediate re-selection after drag
-    if (wasDragging) {
-      setJustFinishedDrag(true)
-      setTimeout(() => {
-        setJustFinishedDrag(false)
-        console.log(`⏰ Re-enabled selection for ${shape.id}`)
-      }, 300) // 300ms delay before allowing selection again
-    }
-    
-    if (!wasDragging) {
+    // Prevent multiple calls to drag end
+    if (!isDragging) {
       console.log('Drag end called but was not dragging, ignoring')
       return
     }
+    
+    // IMMEDIATELY set dragging to false to prevent multiple calls
+    setIsDragging(false)
     
     try {
       // Get the dragged element's final position
@@ -182,6 +173,13 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       selectShape(null)
       console.log(`🔄 Deselected shape after drag: ${shape.id}`)
       
+      // Set flag to prevent immediate re-selection after drag
+      setJustFinishedDrag(true)
+      setTimeout(() => {
+        setJustFinishedDrag(false)
+        console.log(`⏰ Re-enabled selection for ${shape.id}`)
+      }, 300) // 300ms delay before allowing selection again
+      
     } catch (error) {
       console.error('Error in drag end:', error)
       // Reset position on error
@@ -201,7 +199,7 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         }
       }
     }
-  }, [shape.id, shape.width, shape.height, user, isDragging, dragStartPos, updateLocalShape, hasLock])
+  }, [shape.id, shape.width, shape.height, user, isDragging, dragStartPos, updateLocalShape, hasLock, selectShape])
 
   // Determine cursor style
   const getCursor = () => {
@@ -231,6 +229,8 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         })}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onMouseUp={handleDragEnd} // Fallback for when onDragEnd doesn't fire
+        onTouchEnd={handleDragEnd} // Fallback for touch devices
         onMouseEnter={(e) => {
           e.target.getStage()!.container().style.cursor = getCursor()
         }}
