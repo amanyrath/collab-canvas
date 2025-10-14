@@ -50,7 +50,6 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     originalScale: { x: 1, y: 1 },
     originalZIndex: 0
   })
-  const [cursor, setCursor] = useState<string>('default')
   const dragThrottleRef = useRef<NodeJS.Timeout | null>(null)
   
   const { viewport, setViewport, selectShape, shapes, updateShape: updateLocalShape } = useCanvasStore()
@@ -66,7 +65,6 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
   // Update cursor based on state
   const updateCursor = useCallback((newCursor: string) => {
-    setCursor(newCursor)
     const stage = stageRef.current
     if (stage) {
       stage.container().style.cursor = newCursor
