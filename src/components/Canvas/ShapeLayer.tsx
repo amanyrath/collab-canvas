@@ -4,7 +4,6 @@ import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
 import { acquireLock, releaseLock } from '../../utils/lockUtils'
-import Konva from 'konva'
 
 interface ShapeLayerProps {
   listening: boolean

@@ -124,7 +124,7 @@ export const releaseLock = async (
 }
 
 // Force release all locks held by a user (for disconnect cleanup)
-export const releaseAllUserLocks = async (userId: string, displayName: string) => {
+export const releaseAllUserLocks = async (displayName: string) => {
   try {
     // Note: This would require a collection query and batch update
     // For MVP, we'll handle this with onDisconnect in Realtime Database
