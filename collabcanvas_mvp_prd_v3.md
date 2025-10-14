@@ -676,7 +676,7 @@
 **Deliverable:** Rectangle creation syncs across users, persists in database
 
 ---
-yes
+
 ### Phase 5: Selection & Movement with Locking (MOVED UP)
 - Handle click on rectangle to select
 - Lock upon select
@@ -692,7 +692,7 @@ yes
 
 ---
 
-### Phase 6: Text Layer Implementation
+### Phase : Text Layer Implementation
 - Handle double-click on rectangle
 - Lock rectangle with transaction on text edit start
 - Show text input overlay

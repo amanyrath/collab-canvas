@@ -5,7 +5,7 @@ import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { useShapeSync } from '../../hooks/useShapeSync'
 import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
-import { createShape } from '../../utils/shapeUtils'
+import { createShape, deleteShape } from '../../utils/shapeUtils'
 import { acquireLock, releaseLock } from '../../utils/lockUtils'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
@@ -30,9 +30,49 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   useShapeSync()
   usePresenceMonitor()
 
-  // ✅ HYBRID: Custom space handling + Konva draggable
+  // ✅ PHASE 7: Delete currently locked shape with OPTIMISTIC updates
+  const handleDeleteShape = useCallback(async () => {
+    if (!user) return
+
+    const { shapes, deleteShape: deleteShapeLocal } = useCanvasStore.getState()
+    const userLockedShape = shapes.find(shape => shape.lockedBy === user.uid)
+    
+    if (!userLockedShape) {
+      console.log('No shape selected for deletion')
+      return
+    }
+
+    // ✅ INSTANT: Optimistic deletion (remove from UI immediately)
+    deleteShapeLocal(userLockedShape.id)
+    console.log(`⚡ Instantly deleted: ${userLockedShape.id}`)
+
+    // ✅ BACKGROUND: Sync to Firestore (doesn't block UI)
+    try {
+      await deleteShape(userLockedShape.id)
+      console.log(`🗑️ Deletion synced to Firestore: ${userLockedShape.id}`)
+    } catch (error) {
+      console.error('Deletion sync failed:', error)
+      
+      // ✅ ROLLBACK: Restore shape on error (rare but important)
+      const { addShape } = useCanvasStore.getState()
+      addShape(userLockedShape)
+      console.log(`🔄 Restored shape after sync failure: ${userLockedShape.id}`)
+      
+      // TODO: Show error toast to user
+    }
+  }, [user])
+
+  // ✅ COMBINED: Space key + Delete key handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle Delete/Backspace for shape deletion
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.repeat) {
+        e.preventDefault()
+        handleDeleteShape()
+        return
+      }
+      
+      // Handle Space for panning
       if (e.code === 'Space' && !e.repeat && !isSpacePressed) {
         e.preventDefault()
         setIsSpacePressed(true)
@@ -87,7 +127,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [isSpacePressed, user])
+  }, [isSpacePressed, user, handleDeleteShape])
 
   // ✅ HYBRID: Custom boundary constraints for stage dragging
   const stageDragBound = useCallback((pos: { x: number; y: number }) => {
