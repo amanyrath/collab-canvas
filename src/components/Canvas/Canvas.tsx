@@ -207,7 +207,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         console.log(`🎯 ${selectedShapes.length} shapes selected (same color) - Color picker updated to: ${colorName} (${firstColor})`)
       }
     }
-  }, [currentColor])
+  }, [currentColor, lastShapeCreationRef])
 
   // ✅ SUBSCRIBE TO STORE CHANGES: Update color picker when selection changes
   useEffect(() => {
@@ -346,7 +346,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     lastShapeCreationRef.current = now
     
     // ✅ CREATE SHAPE: No selection, so create new shape
-    console.log(`🎯 No selection - creating new ${currentShapeType}`)
+    console.log(`🎯 No selection - creating new ${currentShapeType} with color ${currentColor}`)
     
     // ✅ INSTANT: Create shape optimistically
     const stage = stageRef.current!
@@ -376,6 +376,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       lockedByName: null,
       lockedByColor: null
     }
+    
+    console.log(`🚀 Creating optimistic ${optimisticShape.type} shape with fill ${optimisticShape.fill}`)
     
     // ✅ FASTEST: Direct store update without validation delays
     addShape(optimisticShape)
