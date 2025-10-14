@@ -23,9 +23,9 @@ interface CanvasProps {
 
 const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const stageRef = useRef<Konva.Stage>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
   const [isCreatingShape, setIsCreatingShape] = useState(false)
-  const [dragStartTime, setDragStartTime] = useState(0)
+  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 })
   
   const { viewport, setViewport, selectShape } = useCanvasStore()
   const { user } = useUserStore()
@@ -92,52 +92,67 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // Handle drag start
-  const handleDragStart = useCallback(() => {
-    setIsDragging(true)
-    setDragStartTime(Date.now())
+  // Handle mouse down for middle-click panning
+  const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Only start panning on middle mouse button (button 1)
+    if (e.evt.button === 1) {
+      e.evt.preventDefault()
+      setIsPanning(true)
+      const pos = e.target.getStage()?.getPointerPosition()
+      if (pos) {
+        setLastPanPoint(pos)
+      }
+    }
   }, [])
 
-  // Handle drag end
-  const handleDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-    const dragDuration = Date.now() - dragStartTime
+  // Handle mouse move for panning
+  const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (!isPanning) return
     
-    // Only consider it a drag if it lasted more than 100ms
-    setTimeout(() => {
-      setIsDragging(false)
-    }, dragDuration > 100 ? 0 : 150)
+    e.evt.preventDefault()
+    const stage = e.target.getStage()
+    if (!stage) return
     
-    const stage = e.target as Konva.Stage
-    const pos = stage.position()
-    const scale = stage.scaleX()
+    const pos = stage.getPointerPosition()
+    if (!pos) return
+    
+    const dx = pos.x - lastPanPoint.x
+    const dy = pos.y - lastPanPoint.y
+    
+    const newPos = {
+      x: viewport.x + dx,
+      y: viewport.y + dy
+    }
     
     // Apply constraints
-    const constrainedPos = constrainViewport(pos.x, pos.y, scale)
+    const constrainedPos = constrainViewport(newPos.x, newPos.y, viewport.scale)
     
-    // Update viewport
     setViewport({
       x: constrainedPos.x,
       y: constrainedPos.y,
-      scale
+      scale: viewport.scale
     })
+    
+    setLastPanPoint(pos)
+  }, [isPanning, lastPanPoint, viewport, constrainViewport, setViewport])
 
-    // Update stage if position changed
-    if (constrainedPos.x !== pos.x || constrainedPos.y !== pos.y) {
-      stage.position(constrainedPos)
+  // Handle mouse up to stop panning
+  const handleMouseUp = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (e.evt.button === 1) {
+      setIsPanning(false)
     }
-  }, [constrainViewport, setViewport, dragStartTime])
+  }, [])
 
   // Handle stage click (deselect or create shape)
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
-    // Only handle clicks on the stage itself (empty area)
-    if (e.target !== stageRef.current) {
-      console.log('Click not on stage, ignoring:', e.target.getClassName())
+    // Only handle left clicks on the stage itself (empty area)
+    if (e.target !== stageRef.current || e.evt.button !== 0) {
       return
     }
     
-    // Don't create shapes if we were dragging
-    if (isDragging) {
-      console.log('Was dragging, ignoring click')
+    // Don't create shapes if we were panning
+    if (isPanning) {
+      console.log('Was panning, ignoring click')
       return
     }
     
@@ -195,10 +210,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         y={viewport.y}
         scaleX={viewport.scale}
         scaleY={viewport.scale}
-        draggable
         onWheel={handleWheel}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         onClick={handleStageClick}
         onTap={handleStageClick}
       >
@@ -225,11 +240,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       </div>
       
       {/* Drag indicator */}
-      {isDragging && (
-        <div className="absolute bottom-2 left-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded shadow">
-          Panning canvas...
-        </div>
-      )}
+          {isPanning && (
+            <div className="absolute bottom-2 left-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded shadow">
+              Panning canvas...
+            </div>
+          )}
       
       {/* Shape creation indicator */}
       {isCreatingShape && (

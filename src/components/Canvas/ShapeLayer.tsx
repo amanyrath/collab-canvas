@@ -111,8 +111,10 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       e.target.y(dragStartPos.y)
     } finally {
       setIsDragging(false)
+      // Always notify parent when drag ends, even on error
+      onShapeDragEnd?.()
     }
-  }, [shape.id, shape.width, shape.height, user, isDragging, dragStartPos])
+  }, [shape.id, shape.width, shape.height, user, isDragging, dragStartPos, onShapeDragEnd])
 
   // Determine cursor style
   const getCursor = () => {

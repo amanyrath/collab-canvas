@@ -3,6 +3,11 @@ import Canvas from './components/Canvas/Canvas'
 import Navbar from './components/Layout/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 
+// Load dev utils in development mode
+if (import.meta.env.DEV) {
+  import('./utils/devUtils')
+}
+
 function App() {
   // Authentication fallback component
   const authFallback = (
@@ -42,10 +47,10 @@ function App() {
               <div className="w-64 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Canvas Tools</h3>
                 <div className="space-y-2 text-sm text-gray-600">
-                  <div>• Click empty space to create rectangles</div>
-                  <div>• Drag rectangles to move them</div>
-                  <div>• Click shapes to select them</div>
-                  <div>• Drag empty space to pan canvas</div>
+                  <div>• Left-click empty space to create rectangles</div>
+                  <div>• Left-drag rectangles to move them</div>
+                  <div>• Left-click shapes to select them</div>
+                  <div>• Middle-click drag to pan canvas</div>
                   <div>• Mouse wheel to zoom</div>
                   <div>• Canvas size: 5000×5000px</div>
                 </div>
@@ -58,9 +63,20 @@ function App() {
                     <div>✅ Real-time Sync</div>
                     <div>✅ Drag & Drop</div>
                     <div>✅ Transaction Locking</div>
-                    <div>⏳ Text Editing</div>
+                    <div>✅ Middle-click Pan</div>
                   </div>
                 </div>
+                
+                {import.meta.env.DEV && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <h4 className="text-sm font-semibold text-yellow-800 mb-2">🛠️ Dev Tools:</h4>
+                    <div className="space-y-1 text-xs text-yellow-700">
+                      <div>Open console and run:</div>
+                      <code className="block bg-yellow-100 p-1 rounded mt-1">clearAllLocks()</code>
+                      <div className="text-xs">Clear stuck locks</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </main>
