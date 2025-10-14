@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Layer, Rect, Text } from 'react-konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
@@ -15,10 +15,31 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   const { user } = useUserStore()
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
+  const [hasLock, setHasLock] = useState(false)
   
   const isSelected = selectedShapeId === shape.id
   const isLocked = shape.isLocked
   const isLockedByOthers = isLocked && shape.lockedBy !== user?.uid
+  
+  // Clean up lock when component unmounts or shape is deselected
+  useEffect(() => {
+    return () => {
+      // Cleanup lock on unmount
+      if (hasLock && user) {
+        releaseLock(shape.id, user.uid, user.displayName)
+        setHasLock(false)
+      }
+    }
+  }, [])
+  
+  // Release lock when shape is deselected
+  useEffect(() => {
+    if (!isSelected && hasLock && user) {
+      releaseLock(shape.id, user.uid, user.displayName)
+      setHasLock(false)
+      console.log(`🔓 Released lock due to deselection: ${shape.id}`)
+    }
+  }, [isSelected, hasLock, user, shape.id])
   
   // Handle shape click (selection)
   const handleClick = useCallback((e: any) => {
@@ -47,6 +68,7 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         return
       }
       
+      setHasLock(true)
       setIsDragging(true)
       setDragStartPos({ x: shape.x, y: shape.y })
       selectShape(shape.id)
@@ -63,19 +85,25 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
     if (!user || !isDragging) return
     
     try {
+      // Get the dragged element's position
+      const draggedRect = e.target
+      
+      // The position from Konva drag is already in canvas coordinates
+      // We just need to apply boundary constraints
       const newPos = {
-        x: Math.max(0, Math.min(5000 - shape.width, e.target.x())),
-        y: Math.max(0, Math.min(5000 - shape.height, e.target.y()))
+        x: Math.max(0, Math.min(5000 - shape.width, draggedRect.x())),
+        y: Math.max(0, Math.min(5000 - shape.height, draggedRect.y()))
       }
       
-      // Snap to final position (boundary constraint)
-      e.target.x(newPos.x)
-      e.target.y(newPos.y)
+      // Update the visual position (snap to boundaries)
+      draggedRect.x(newPos.x)
+      draggedRect.y(newPos.y)
       
       // Release lock with final position
       await releaseLock(shape.id, user.uid, user.displayName, newPos)
       
       console.log(`✅ Drag completed for shape: ${shape.id}`, newPos)
+      setHasLock(false)
     } catch (error) {
       console.error('Error in drag end:', error)
       // Reset position on error
@@ -108,6 +136,10 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         onClick={handleClick}
         onTap={handleClick}
         draggable={!isLockedByOthers}
+        dragBoundFunc={(pos) => ({
+          x: Math.max(0, Math.min(5000 - shape.width, pos.x)),
+          y: Math.max(0, Math.min(5000 - shape.height, pos.y))
+        })}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onMouseEnter={(e) => {

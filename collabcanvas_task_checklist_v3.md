@@ -250,7 +250,36 @@ Each section represents a vertical slice of functionality that should be complet
 
 ---
 
-## ✏️ Phase 6: Text Layer Implementation
+## 🗑️ Phase 6: Shape Deletion
+
+### Delete Functionality
+- [ ] Listen for Delete/Backspace key events
+- [ ] Check if a shape is currently selected
+- [ ] Check if selected shape is locked
+- [ ] Show error message if shape is locked
+- [ ] Delete shape from Firestore subcollection if unlocked
+- [ ] Remove shape from Zustand store
+- [ ] Clear selection after deletion
+
+### Real-Time Deletion Sync
+- [ ] Firestore listener handles deleted snapshots
+- [ ] Shape disappears for all users immediately
+- [ ] No ghost shapes remain after deletion
+- [ ] Deleted shapes don't reappear on refresh
+
+**Test Checklist:**
+- [ ] Select rectangle and press Delete → disappears
+- [ ] Other users see deletion within 100ms
+- [ ] Cannot delete locked shape (shows error)
+- [ ] Deleted shapes removed from Firestore
+- [ ] No ghost shapes after refresh
+- [ ] Backspace key also works for deletion
+
+**Deliverable:** Delete functionality with lock checking
+
+---
+
+## ✏️ Phase 7: Text Layer Implementation
 
 ### Text Edit Mode
 - [ ] Handle double-click event on rectangle
@@ -294,34 +323,6 @@ Each section represents a vertical slice of functionality that should be complet
 
 **Deliverable:** Text editing with debounced sync and locking
 
----
-
-## 🗑️ Phase 7: Shape Deletion
-
-### Delete Functionality
-- [ ] Listen for Delete/Backspace key events
-- [ ] Check if a shape is currently selected
-- [ ] Check if selected shape is locked
-- [ ] Show error message if shape is locked
-- [ ] Delete shape from Firestore subcollection if unlocked
-- [ ] Remove shape from Zustand store
-- [ ] Clear selection after deletion
-
-### Real-Time Deletion Sync
-- [ ] Firestore listener handles deleted snapshots
-- [ ] Shape disappears for all users immediately
-- [ ] No ghost shapes remain after deletion
-- [ ] Deleted shapes don't reappear on refresh
-
-**Test Checklist:**
-- [ ] Select rectangle and press Delete → disappears
-- [ ] Other users see deletion within 100ms
-- [ ] Cannot delete locked shape (shows error)
-- [ ] Deleted shapes removed from Firestore
-- [ ] No ghost shapes after refresh
-- [ ] Backspace key also works for deletion
-
-**Deliverable:** Delete functionality with lock checking
 
 ---
 
