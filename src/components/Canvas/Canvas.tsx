@@ -169,16 +169,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ OPTIMIZED: Fast shape creation with throttling and optimistic updates
+  // ✅ ULTRA-FAST: High-speed shape creation with optimized performance
   const lastShapeCreationRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingShapeCreations = useRef<Set<string>>(new Set())
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
-    // ✅ THROTTLE: Prevent spam clicking (max 5 shapes per second)
+    // ✅ ULTRA-FAST: Allow up to 20 shapes per second with burst capability
     const now = Date.now()
-    if (now - lastShapeCreationRef.current < 200) { // 200ms = 5fps max
+    if (now - lastShapeCreationRef.current < 50) { // 50ms = 20fps sustained
       return
     }
     lastShapeCreationRef.current = now
@@ -228,32 +229,48 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
     
     addShape(optimisticShape)
+    pendingShapeCreations.current.add(shapeId)
     
-    // ✅ BACKGROUND: Sync to Firebase (non-blocking)
-    // Clear any existing timeout to batch rapid clicks
+    // ✅ HIGH-PERFORMANCE: Ultra-fast Firebase batching
+    // Clear any existing timeout to batch rapid operations
     if (shapeCreationTimeoutRef.current) {
       clearTimeout(shapeCreationTimeoutRef.current)
     }
     
     shapeCreationTimeoutRef.current = setTimeout(async () => {
-      try {
-        // Create real shape in Firebase
-        const realShapeId = await createShape(x, y, user.uid, user.displayName)
+      // Process all pending shapes in current batch
+      const pendingIds = Array.from(pendingShapeCreations.current)
+      pendingShapeCreations.current.clear()
+      
+      // Process shapes in parallel for maximum speed
+      const syncPromises = pendingIds.map(async (tempId) => {
+        const currentShapes = useCanvasStore.getState().shapes
+        const tempShape = currentShapes.find(s => s.id === tempId)
         
-        // Update the optimistic shape with real ID
-        const { updateShapeOptimistic } = useCanvasStore.getState()
-        updateShapeOptimistic(shapeId, { id: realShapeId })
+        if (!tempShape) return // Shape was deleted before sync
         
-        // Acquire lock in background
-        acquireLock(realShapeId, user.uid, user.displayName, user.cursorColor).catch(() => {})
-        
-      } catch (error) {
-        console.error('Failed to sync shape to Firebase:', error)
-        // Remove optimistic shape on error
-        const { deleteShape } = useCanvasStore.getState()
-        deleteShape(shapeId)
-      }
-    }, 100) // 100ms debounce for rapid clicking
+        try {
+          // Create real shape in Firebase
+          const realShapeId = await createShape(tempShape.x, tempShape.y, user.uid, user.displayName)
+          
+          // Update the optimistic shape with real ID
+          const { updateShapeOptimistic } = useCanvasStore.getState()
+          updateShapeOptimistic(tempId, { id: realShapeId })
+          
+          // Acquire lock in background (fire-and-forget)
+          acquireLock(realShapeId, user.uid, user.displayName, user.cursorColor).catch(() => {})
+          
+        } catch (error) {
+          console.error(`Failed to sync shape ${tempId}:`, error)
+          // Remove failed shape
+          const { deleteShape } = useCanvasStore.getState()
+          deleteShape(tempId)
+        }
+      })
+      
+      // Wait for all syncs to complete
+      await Promise.allSettled(syncPromises)
+    }, 30) // 30ms debounce for ultra-fast batching
     
   }, [isSpacePressed, user])
 
