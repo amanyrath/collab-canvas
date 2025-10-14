@@ -191,43 +191,58 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   }, [])
   
   const handleColorChange = useCallback((color: string) => {
-    console.log(`🎨 Color button clicked: ${color}`)
+    console.log(`🎨 [${user?.displayName}] Color button clicked: ${color}`)
     setIsUpdatingState(true)
     setCurrentColor(color)
-    console.log(`🎨 Color mode updated to: ${color}`)
+    console.log(`🎨 [${user?.displayName}] My color mode updated to: ${color}`)
     
     // ✅ MULTIPLAYER-SAFE: Only change MY selected shapes
     if (user) {
       const { shapes, updateShapeOptimistic } = useCanvasStore.getState()
-      const mySelectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
       
-      if (mySelectedShapes.length > 0) {
-        console.log(`🎨 Updating MY ${mySelectedShapes.length} selected shapes to ${color}`)
-      }
+      // ✅ CRITICAL: Double-check user filtering with detailed logging
+      console.log(`🔍 [${user.displayName}] Total shapes: ${shapes.length}`)
+      console.log(`🔍 [${user.displayName}] My UID: ${user.uid}`)
       
-      // ✅ FAST: Batch update all my selected shapes
-      mySelectedShapes.forEach(shape => {
-        updateShapeOptimistic(shape.id, { 
-          fill: color,
-          isLocked: true, // Keep selected
-          lockedBy: user.uid,
-          lockedByName: user.displayName,
-          lockedByColor: user.cursorColor
-        })
+      const mySelectedShapes = shapes.filter(shape => {
+        const isMyShape = shape.lockedBy === user.uid
+        console.log(`🔍 Shape ${shape.id.slice(-4)}: lockedBy=${shape.lockedBy?.slice(-4)}, isMyShape=${isMyShape}`)
+        return isMyShape
       })
       
-      // ✅ EFFICIENT: Single Firebase batch for all updates
+      console.log(`🔍 [${user.displayName}] Found ${mySelectedShapes.length} of MY selected shapes`)
+      
       if (mySelectedShapes.length > 0) {
+        console.log(`🎨 [${user.displayName}] Updating MY ${mySelectedShapes.length} selected shapes to ${color}`)
+        
+        // ✅ FAST: Batch update all my selected shapes
+        mySelectedShapes.forEach(shape => {
+          console.log(`🎨 [${user.displayName}] Changing MY shape ${shape.id.slice(-4)} to ${color}`)
+          updateShapeOptimistic(shape.id, { 
+            fill: color,
+            isLocked: true, // Keep selected
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          })
+        })
+        
+        // ✅ EFFICIENT: Single Firebase batch for all updates
         Promise.all(
-          mySelectedShapes.map(shape => updateShape(shape.id, { fill: color }, user.uid))
+          mySelectedShapes.map(shape => {
+            console.log(`🔥 [${user.displayName}] Firebase update for MY shape ${shape.id.slice(-4)}`)
+            return updateShape(shape.id, { fill: color }, user.uid)
+          })
         )
+      } else {
+        console.log(`ℹ️ [${user.displayName}] No shapes selected by me - only updating my picker`)
       }
     }
     
     // Allow creation after state settles
     setTimeout(() => {
       setIsUpdatingState(false)
-      console.log(`✅ Color creation ready for: ${color}`)
+      console.log(`✅ [${user?.displayName}] Color creation ready for: ${color}`)
     }, 100)
   }, [user])
   
