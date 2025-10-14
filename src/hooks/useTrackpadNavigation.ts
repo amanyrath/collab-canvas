@@ -58,7 +58,7 @@ export const useTrackpadNavigation = (stageRef: React.RefObject<any>) => {
   }, [detectTrackpad, stageRef])
 
   // ✅ BUILT-IN: Zoom with pointer focus (same as current)
-  const handleZoom = useCallback((e: any, stage: any, deltaY: number) => {
+  const handleZoom = useCallback((_e: any, stage: any, deltaY: number) => {
     const scaleBy = 1.05
     const oldScale = stage.scaleX()
     const newScale = deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy

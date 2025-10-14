@@ -76,7 +76,7 @@ export const useCursorTracking = (user: User | null, currentlyEditing: string | 
  * Accounts for canvas pan/zoom state
  */
 export const getCanvasCoordinates = (
-  event: MouseEvent | React.MouseEvent,
+  _event: MouseEvent | React.MouseEvent,
   stageRef: React.RefObject<any>
 ): { x: number; y: number } | null => {
   if (!stageRef.current) return null

@@ -170,71 +170,49 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ MULTIPLAYER-SAFE STATE: Each player has independent picker state
+  // ✅ Picker state and creation preferences
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
   const [currentColor, setCurrentColor] = useState<string>('#CCCCCC')
   const [isUpdatingState, setIsUpdatingState] = useState(false)
-  const [lastSelectedShapeId, setLastSelectedShapeId] = useState<string | null>(null) // Track what we're editing
+  const [lastSelectedShapeId, setLastSelectedShapeId] = useState<string | null>(null)
   
-  // ✅ CREATION PREFERENCES: User's actual creation settings (separate from display)
+  // ✅ Track user's creation preferences (separate from current picker display)
   const [creationShapeType, setCreationShapeType] = useState<ShapeType>('rectangle')
   const [creationColor, setCreationColor] = useState<string>('#CCCCCC')
   
-  // ✅ SIMPLE HANDLERS: Update both display and creation preferences
+  // Shape and color change handlers
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
-    console.log(`🔲 Shape button clicked: ${shapeType}`)
     setIsUpdatingState(true)
     setCurrentShapeType(shapeType)
     
-    // ✅ UPDATE CREATION PREFERENCES: Only when not editing a selected shape
+    // Update creation preferences when not editing a selected shape
     if (!lastSelectedShapeId) {
       setCreationShapeType(shapeType)
-      console.log(`🔲 Creation shape type updated to: ${shapeType}`)
     }
     
-    // Allow creation after state settles
-    setTimeout(() => {
-      setIsUpdatingState(false)
-      console.log(`✅ Shape picker ready`)
-    }, 100)
+    setTimeout(() => setIsUpdatingState(false), 100)
   }, [lastSelectedShapeId])
   
   const handleColorChange = useCallback((color: string) => {
-    console.log(`🎨 [${user?.displayName}] Color button clicked: ${color}`)
     setIsUpdatingState(true)
     setCurrentColor(color)
     
     // ✅ UPDATE CREATION PREFERENCES: Only when not editing a selected shape  
     if (!lastSelectedShapeId) {
       setCreationColor(color)
-      console.log(`🎨 Creation color updated to: ${color}`)
     }
-    
-    console.log(`🎨 [${user?.displayName}] My color mode updated to: ${color}`)
     
     // ✅ MULTIPLAYER-SAFE: Only change MY selected shapes
     if (user) {
       const { shapes, updateShapeOptimistic } = useCanvasStore.getState()
       
-      // ✅ CRITICAL: Double-check user filtering with detailed logging
-      console.log(`🔍 [${user.displayName}] Total shapes: ${shapes.length}`)
-      console.log(`🔍 [${user.displayName}] My UID: ${user.uid}`)
-      
       const mySelectedShapes = shapes.filter(shape => {
-        const isMyShape = shape.lockedBy === user.uid
-        console.log(`🔍 Shape ${shape.id.slice(-4)}: lockedBy=${shape.lockedBy?.slice(-4)}, isMyShape=${isMyShape}`)
-        return isMyShape
+        return shape.lockedBy === user.uid
       })
       
-      console.log(`🔍 [${user.displayName}] Found ${mySelectedShapes.length} of MY selected shapes`)
-      
       if (mySelectedShapes.length > 0) {
-        console.log(`🎨 [${user.displayName}] Updating MY ${mySelectedShapes.length} selected shapes to ${color}`)
-        
         // ✅ FAST: Batch update all my selected shapes
         mySelectedShapes.forEach(shape => {
-          console.log(`🎨 [${user.displayName}] Changing MY shape ${shape.id.slice(-4)} to ${color}`)
-          console.log(`🔒 [${user.displayName}] Shape ${shape.id.slice(-4)} locked by: ${shape.lockedBy?.slice(-4)} (should be ${user.uid.slice(-4)})`)
           
           updateShapeOptimistic(shape.id, { 
             fill: color,
@@ -248,89 +226,76 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         // ✅ EFFICIENT: Single Firebase batch for all updates
         Promise.all(
           mySelectedShapes.map(shape => {
-            console.log(`🔥 [${user.displayName}] Firebase update for MY shape ${shape.id.slice(-4)}`)
             return updateShape(shape.id, { fill: color }, user.uid)
           })
         )
-      } else {
-        console.log(`ℹ️ [${user.displayName}] No shapes selected by me - updating my picker and creation preferences`)
         // ✅ UPDATE CREATION PREFERENCES: When not editing any selected shapes
         setCreationColor(color)
-        console.log(`🎨 Creation color updated to: ${color}`)
       }
     }
     
     // Allow creation after state settles
     setTimeout(() => {
       setIsUpdatingState(false)
-      console.log(`✅ [${user?.displayName}] Color creation ready for: ${color}`)
     }, 100)
   }, [user, lastSelectedShapeId])
   
-  // ✅ MULTIPLAYER-SAFE PICKER SYNC: Only sync when THIS player selects shapes
+  // Picker sync: Update picker state when shapes are selected/deselected
   const { shapes } = useCanvasStore()
   useEffect(() => {
     if (user) {
       const mySelectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
       
       if (mySelectedShapes.length === 1) {
-        // ✅ I SELECTED A SHAPE: Update MY pickers to match MY selection
+        // Update picker to match selected shape
         const mySelectedShape = mySelectedShapes[0]
         
-        // Only update if this is a new selection (not just a re-render)
         if (mySelectedShape.id !== lastSelectedShapeId) {
           setLastSelectedShapeId(mySelectedShape.id)
           
           if (mySelectedShape.fill !== currentColor) {
             setCurrentColor(mySelectedShape.fill)
-            console.log(`🎯 I selected shape - My color picker updated to: ${mySelectedShape.fill}`)
           }
           
           if (mySelectedShape.type !== currentShapeType) {
             setCurrentShapeType(mySelectedShape.type)
-            console.log(`🎯 I selected shape - My shape picker updated to: ${mySelectedShape.type}`)
           }
         }
         
       } else if (mySelectedShapes.length === 0 && lastSelectedShapeId) {
-        // ✅ I DESELECTED: Reset MY pickers to MY actual creation preferences
+        // Reset picker to creation preferences on deselect
         setLastSelectedShapeId(null)
         
         if (currentColor !== creationColor) {
           setCurrentColor(creationColor)
-          console.log(`🔄 I deselected - My color picker reset to my creation color: ${creationColor}`)
         }
         if (currentShapeType !== creationShapeType) {
           setCurrentShapeType(creationShapeType)
-          console.log(`🔄 I deselected - My shape picker reset to my creation type: ${creationShapeType}`)
         }
       }
-      
-      // ✅ MULTIPLAYER: Other players' selections don't affect MY pickers
-      // When Player B selects a blue circle, Player A's pickers stay unchanged
     }
   }, [shapes, user, currentColor, currentShapeType, lastSelectedShapeId, creationColor, creationShapeType])
   
-  // ✅ SIMPLE KEYBOARD SHORTCUTS
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       
       switch (e.key.toLowerCase()) {
-        case 'r': setCurrentShapeType('rectangle'); break
-        case 'c': setCurrentShapeType('circle'); break
-        case '1': handleColorChange('#ef4444'); break // Red
-        case '2': handleColorChange('#22c55e'); break // Green  
-        case '3': handleColorChange('#3b82f6'); break // Blue
-        case '4': handleColorChange('#CCCCCC'); break // Grey
+        case 'r': handleShapeTypeChange('rectangle'); break
+        case 'c': handleShapeTypeChange('circle'); break
+        case '1': handleColorChange('#ef4444'); break
+        case '2': handleColorChange('#22c55e'); break  
+        case '3': handleColorChange('#3b82f6'); break
+        case '4': handleColorChange('#CCCCCC'); break
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleColorChange])
+  }, [handleColorChange, handleShapeTypeChange])
 
-  // ✅ SMART UX: Deselect first, then allow creation
+  // Shape creation and deselection
   const lastShapeCreationRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
