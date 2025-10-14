@@ -1,5 +1,6 @@
 import React from 'react'
 import Auth from './components/Auth/Auth'
+import Canvas from './components/Canvas/Canvas'
 import { useAuth } from './hooks/useAuth'
 
 function App() {
@@ -50,56 +51,78 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold text-center text-gray-800 mb-8">
-          CollabCanvas MVP
-        </h1>
-        
-        {isAuthenticated ? (
-          // Show authenticated user interface
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-semibold text-green-600 mb-2">
-                🎉 Firebase Connected!
-              </h2>
-              <p className="text-gray-600">
-                Welcome back, <span className="font-semibold">{user?.displayName}</span>!
-              </p>
-              <div className="mt-2 text-sm text-gray-500">
-                User ID: {user?.uid}
+      {isAuthenticated ? (
+        // Show canvas workspace for authenticated users
+        <div className="h-screen flex flex-col">
+          {/* Header */}
+          <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-xl font-semibold text-gray-800">CollabCanvas</h1>
+              <div className="text-sm text-gray-500">
+                Real-Time Collaborative Design Tool
               </div>
-              <div className="mt-1 text-sm text-gray-500">
-                Cursor Color: <span 
-                  className="inline-block w-4 h-4 rounded-full ml-1 align-middle"
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div 
+                  className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: user?.cursorColor }}
-                ></span> {user?.cursorColor}
+                ></div>
+                <span className="text-sm font-medium text-gray-700">
+                  {user?.displayName}
+                </span>
+              </div>
+              <Auth />
+            </div>
+          </header>
+
+          {/* Canvas Area */}
+          <main className="flex-1 p-4">
+            <div className="h-full flex">
+              {/* Main Canvas */}
+              <div className="flex-1 mr-4">
+                <Canvas width={800} height={600} />
+              </div>
+              
+              {/* Sidebar */}
+              <div className="w-64 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Canvas Tools</h3>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div>• Click empty space to pan</div>
+                  <div>• Mouse wheel to zoom</div>
+                  <div>• Canvas size: 5000×5000px</div>
+                </div>
+                
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Coming Next:</h4>
+                  <div className="space-y-1 text-sm text-gray-500">
+                    <div>✅ Pan & Zoom</div>
+                    <div>⏳ Shape Creation</div>
+                    <div>⏳ Real-time Sync</div>
+                    <div>⏳ Multiplayer Cursors</div>
+                  </div>
+                </div>
               </div>
             </div>
-            
-            <div className="text-center">
-              <p className="text-lg text-gray-600 mb-4">
-                Real-Time Collaborative Design Tool
-              </p>
-              <p className="text-sm text-gray-500">
-                Ready to build the canvas component! 🚀
-              </p>
-            </div>
+          </main>
+        </div>
+      ) : (
+        // Show authentication interface
+        <div className="container mx-auto px-4 py-8">
+          <h1 className="text-4xl font-bold text-center text-gray-800 mb-8">
+            CollabCanvas MVP
+          </h1>
+          <div className="text-center mb-8">
+            <p className="text-lg text-gray-600 mb-2">
+              Real-Time Collaborative Design Tool
+            </p>
+            <p className="text-sm text-gray-500">
+              Please sign in to continue
+            </p>
           </div>
-        ) : (
-          // Show authentication interface
-          <div>
-            <div className="text-center mb-8">
-              <p className="text-lg text-gray-600 mb-2">
-                Real-Time Collaborative Design Tool
-              </p>
-              <p className="text-sm text-gray-500">
-                Please sign in to continue
-              </p>
-            </div>
-            <Auth />
-          </div>
-        )}
-      </div>
+          <Auth />
+        </div>
+      )}
     </div>
   )
 }
