@@ -102,11 +102,12 @@ export const releaseLock = async (
       if (finalPosition) {
         updates.x = finalPosition.x
         updates.y = finalPosition.y
+        console.log(`📍 Updating position in releaseLock: (${finalPosition.x}, ${finalPosition.y})`)
       }
       
       transaction.update(shapeRef, updates)
       
-      console.log(`🔓 Lock released by ${displayName} for shape:`, shapeId)
+      console.log(`🔓 Lock released by ${displayName} for shape:`, shapeId, finalPosition ? `with position (${finalPosition.x}, ${finalPosition.y})` : 'without position update')
       
       return {
         success: true
