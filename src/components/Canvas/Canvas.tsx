@@ -7,7 +7,7 @@ import { useSimpleCursorTracking, getCanvasCoordinates } from '../../hooks/useSi
 import { useFigmaNavigation } from '../../hooks/useFigmaNavigation'
 import { useShapeSync } from '../../hooks/useShapeSync'
 import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
-import { createShape, deleteShape } from '../../utils/shapeUtils'
+import { createShape, deleteShape, updateShape } from '../../utils/shapeUtils'
 import { releaseLock } from '../../utils/lockUtils'
 import { Shape, ShapeType } from '../../utils/types'
 import GridLayer from './GridLayer'
@@ -172,7 +172,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
   // ✅ SHAPE MODE: Track current shape type and color to create
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
-  const [currentColor, setCurrentColor] = useState<string>('#ef4444') // Default to red
+  const [currentColor, setCurrentColor] = useState<string>('#9ca3af') // Default to grey
   
   // ✅ SHAPE MODE HANDLER: Update shape type from UI
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
@@ -181,12 +181,32 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     console.log(`${shapeIcon} Shape mode: ${shapeType}`)
   }, [])
   
-  // ✅ COLOR HANDLER: Update color from UI
+  // ✅ COLOR HANDLER: Update color from UI or change selected shapes
   const handleColorChange = useCallback((color: string) => {
     setCurrentColor(color)
-    const colorName = color === '#ef4444' ? 'Red' : color === '#22c55e' ? 'Green' : 'Blue'
+    const colorName = color === '#9ca3af' ? 'Grey' : color === '#ef4444' ? 'Red' : color === '#22c55e' ? 'Green' : 'Blue'
     console.log(`🎨 Color mode: ${colorName} (${color})`)
-  }, [])
+    
+    // ✅ SMART COLOR CHANGE: If shapes are selected, change their color
+    if (user) {
+      const { shapes, updateShapeOptimistic } = useCanvasStore.getState()
+      const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+      
+      if (selectedShapes.length > 0) {
+        console.log(`🎨 Changing color of ${selectedShapes.length} selected shapes to ${colorName}`)
+        
+        // ✅ INSTANT: Update colors locally first
+        selectedShapes.forEach(shape => {
+          updateShapeOptimistic(shape.id, { fill: color })
+        })
+        
+        // ✅ BACKGROUND: Sync to Firebase
+        selectedShapes.forEach(shape => {
+          updateShape(shape.id, { fill: color }, user.uid)
+        })
+      }
+    }
+  }, [user])
   
   // ✅ KEYBOARD SHORTCUTS: Support both shape and color shortcuts
   useEffect(() => {
@@ -213,6 +233,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
           break
         case '3':
           handleColorChange('#3b82f6') // Blue
+          break
+        case '4':
+          handleColorChange('#9ca3af') // Grey
           break
       }
     }
