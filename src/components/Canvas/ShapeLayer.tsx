@@ -22,6 +22,12 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   // ✅ SIMPLIFIED: Click to lock (this IS selection) - release previous locks first
   const handleClick = useCallback(async () => {
     if (!isLockedByOthers && user) {
+      // ✅ Skip if already locked by current user (avoid unnecessary operations)
+      if (isLockedByMe) {
+        console.log(`Already locked by me: ${shape.id}`)
+        return
+      }
+      
       // ✅ First release any existing locks held by this user
       const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
@@ -37,7 +43,7 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       // ✅ Then acquire lock on clicked shape  
       await acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
-  }, [shape.id, shapes, isLockedByOthers, user])
+  }, [shape.id, shapes, isLockedByOthers, isLockedByMe, user])
 
   // Robust drag start with error handling and existence check
   const handleDragStart = useCallback(async (e: any) => {
