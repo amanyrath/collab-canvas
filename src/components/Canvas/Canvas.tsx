@@ -195,12 +195,19 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       if (selectedShapes.length > 0) {
         console.log(`🎨 Changing color of ${selectedShapes.length} selected shapes to ${colorName}`)
         
-        // ✅ INSTANT: Update colors locally first
+        // ✅ INSTANT: Update colors locally first (keep shapes selected)
         selectedShapes.forEach(shape => {
-          updateShapeOptimistic(shape.id, { fill: color })
+          updateShapeOptimistic(shape.id, { 
+            fill: color,
+            // ✅ KEEP SELECTION: Maintain lock state when changing color
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          })
         })
         
-        // ✅ BACKGROUND: Sync to Firebase
+        // ✅ BACKGROUND: Sync to Firebase (only color change, not lock state)
         selectedShapes.forEach(shape => {
           updateShape(shape.id, { fill: color }, user.uid)
         })
