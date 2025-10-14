@@ -170,8 +170,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ SHAPE MODE: Track current shape type to create
+  // ✅ SHAPE MODE: Track current shape type and color to create
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
+  const [currentColor, setCurrentColor] = useState<string>('#ef4444') // Default to red
   
   // ✅ SHAPE MODE HANDLER: Update shape type from UI
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
@@ -180,7 +181,14 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     console.log(`${shapeIcon} Shape mode: ${shapeType}`)
   }, [])
   
-  // ✅ KEYBOARD SHORTCUTS: Still support keyboard shortcuts (optional)
+  // ✅ COLOR HANDLER: Update color from UI
+  const handleColorChange = useCallback((color: string) => {
+    setCurrentColor(color)
+    const colorName = color === '#ef4444' ? 'Red' : color === '#22c55e' ? 'Green' : 'Blue'
+    console.log(`🎨 Color mode: ${colorName} (${color})`)
+  }, [])
+  
+  // ✅ KEYBOARD SHORTCUTS: Support both shape and color shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Only handle shortcuts when not typing in inputs
@@ -189,18 +197,29 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       }
       
       switch (e.key.toLowerCase()) {
+        // Shape shortcuts
         case 'r':
           handleShapeTypeChange('rectangle')
           break
         case 'c':
           handleShapeTypeChange('circle')
           break
+        // Color shortcuts
+        case '1':
+          handleColorChange('#ef4444') // Red
+          break
+        case '2':
+          handleColorChange('#22c55e') // Green
+          break
+        case '3':
+          handleColorChange('#3b82f6') // Blue
+          break
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleShapeTypeChange])
+  }, [handleShapeTypeChange, handleColorChange])
 
   // ✅ SMART UX: Deselect first, then allow creation
   const lastShapeCreationRef = useRef<number>(0)
@@ -263,7 +282,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       x, y,
       width: 100,
       height: 100,
-      fill: '#CCCCCC',
+      fill: currentColor, // ✅ USE SELECTED COLOR
       text: '',
       textColor: '#000000',
       fontSize: 14,
@@ -302,7 +321,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         
             try {
               // Create real shape in Firebase
-              const realShapeId = await createShape(tempShape.x, tempShape.y, tempShape.type, user.uid, user.displayName)
+              const realShapeId = await createShape(tempShape.x, tempShape.y, tempShape.type, tempShape.fill, user.uid, user.displayName)
           
           // Update the optimistic shape with real ID
           const { updateShapeOptimistic } = useCanvasStore.getState()
@@ -350,6 +369,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       <ShapeSelector 
         currentShapeType={currentShapeType}
         onShapeTypeChange={handleShapeTypeChange}
+        currentColor={currentColor}
+        onColorChange={handleColorChange}
       />
       
       <Stage

@@ -23,6 +23,7 @@ export const createShape = async (
   x: number, 
   y: number, 
   type: 'rectangle' | 'circle',
+  color: string,
   createdBy: string,
   displayName: string
 ): Promise<string> => {
@@ -38,7 +39,7 @@ export const createShape = async (
       y,
       width: 100, // Default size from PRD
       height: 100,
-      fill: '#CCCCCC', // Fixed gray fill from PRD
+      fill: color, // ✅ USE PROVIDED COLOR
       text: '',
       textColor: '#000000',
       fontSize: 14,
