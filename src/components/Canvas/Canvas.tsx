@@ -20,7 +20,6 @@ const GRID_SIZE = 20 // For snapping
 const DRAG_SCALE_FACTOR = 1.05 // Slight scale up during drag
 
 // Performance constants
-const THROTTLE_DRAG_MS = 16 // ~60fps
 const ANIMATION_DURATION = 0.2
 
 interface CanvasProps {
