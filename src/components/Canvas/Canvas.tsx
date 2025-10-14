@@ -185,15 +185,28 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     lastShapeCreationRef.current = now
     
     // ✅ ALWAYS DESELECT FIRST: Clean state for every click
-    const { shapes, addShape } = useCanvasStore.getState()
+    const { shapes, addShape, updateShapeOptimistic } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
     if (userLockedShapes.length > 0) {
+      // ✅ INSTANT DESELECT: Update UI immediately
+      userLockedShapes.forEach(shape => {
+        updateShapeOptimistic(shape.id, {
+          isLocked: false,
+          lockedBy: null,
+          lockedByName: null,
+          lockedByColor: null
+        })
+      })
+      
+      // ✅ BACKGROUND SYNC: Release Firebase locks (non-blocking)
       Promise.all(
         userLockedShapes.map(shape => 
           releaseLock(shape.id, user.uid, user.displayName)
         )
       )
+      
+      console.log(`🔓 Deselected ${userLockedShapes.length} shapes instantly`)
     }
     
     // ✅ CREATE SHAPE: Every click creates a new shape
