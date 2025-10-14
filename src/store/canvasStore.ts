@@ -13,7 +13,7 @@ interface CanvasStore {
   setShapes: (shapes: Shape[]) => void
 }
 
-export const useCanvasStore = create<CanvasStore>((set, get) => ({
+export const useCanvasStore = create<CanvasStore>((set) => ({
   // ✅ SIMPLIFIED: Just shapes (selection handled via isLocked/lockedBy)
   shapes: [],
 

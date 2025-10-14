@@ -4,7 +4,7 @@ import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
 import { updateShape } from '../../utils/shapeUtils'
-import { acquireLock, releaseLock, syncShapeSelection } from '../../utils/lockUtils'
+import { acquireLock, releaseLock } from '../../utils/lockUtils'
 
 interface ShapeLayerProps {
   listening: boolean
