@@ -173,16 +173,25 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   // ✅ SIMPLE STATE: Just track current creation settings
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
   const [currentColor, setCurrentColor] = useState<string>('#CCCCCC')
+  const [isUpdatingState, setIsUpdatingState] = useState(false)
   
   // ✅ SIMPLE HANDLERS: No complex logic, just update state
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
     console.log(`🔲 Shape button clicked: ${shapeType}`)
+    setIsUpdatingState(true)
     setCurrentShapeType(shapeType)
     console.log(`🔲 Shape mode updated to: ${shapeType}`)
+    
+    // Allow creation after state settles
+    setTimeout(() => {
+      setIsUpdatingState(false)
+      console.log(`✅ Shape creation ready for: ${shapeType}`)
+    }, 100)
   }, [])
   
   const handleColorChange = useCallback((color: string) => {
     console.log(`🎨 Color button clicked: ${color}`)
+    setIsUpdatingState(true)
     setCurrentColor(color)
     console.log(`🎨 Color mode updated to: ${color}`)
     
@@ -206,6 +215,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         updateShape(shape.id, { fill: color }, user.uid)
       })
     }
+    
+    // Allow creation after state settles
+    setTimeout(() => {
+      setIsUpdatingState(false)
+      console.log(`✅ Color creation ready for: ${color}`)
+    }, 100)
   }, [user])
   
   // ✅ SIMPLE COLOR SYNC: Update color picker when selecting shapes
@@ -248,6 +263,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
+    
+    // ✅ PREVENT CREATION DURING STATE UPDATES
+    if (isUpdatingState) {
+      console.log(`⏳ Waiting for state to settle before creating shape...`)
+      return
+    }
     
     const { shapes, addShape, updateShapeOptimistic } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
@@ -360,7 +381,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       await Promise.allSettled(syncPromises)
     }, 50) // 50ms debounce - good balance of responsiveness and performance
     
-  }, [isSpacePressed, user])
+  }, [isSpacePressed, user, isUpdatingState])
 
   // ✅ PHASE 8: Handle mouse move for cursor tracking (with navigation conflict prevention)
   const handleMouseMove = useCallback((e: any) => {
@@ -395,6 +416,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       {import.meta.env.DEV && (
         <div className="absolute top-4 right-4 z-10 bg-black text-white p-2 rounded text-xs">
           Shape: {currentShapeType} | Color: {currentColor}
+          {isUpdatingState && <div className="text-yellow-400">⏳ Updating...</div>}
         </div>
       )}
       
