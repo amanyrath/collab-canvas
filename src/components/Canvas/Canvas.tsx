@@ -169,38 +169,51 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ BALANCED: Reasonable throttling + no deselection blocking
+  // ✅ SMART UX: Separate deselect from shape creation
   const lastShapeCreationRef = useRef<number>(0)
+  const lastDeselectRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
-    // ✅ FAST CREATION: Reasonable throttling (10 shapes/sec) 
-    const now = Date.now()
-    if (now - lastShapeCreationRef.current < 100) { // 100ms = 10fps
-      return
-    }
-    lastShapeCreationRef.current = now
-    
-    // ✅ ALWAYS CREATE: Deselect existing shapes AND create new shape in same action
     const { shapes, addShape } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
-    // Release all user's locks (background operation, don't wait)
+    // ✅ SMART UX: If shapes are selected, just deselect (don't create)
     if (userLockedShapes.length > 0) {
       Promise.all(
         userLockedShapes.map(shape => 
           releaseLock(shape.id, user.uid, user.displayName)
         )
       )
-      console.log(`🔓 Released ${userLockedShapes.length} locks + creating new shape`)
+      lastDeselectRef.current = Date.now()
+      console.log(`🔓 Deselected ${userLockedShapes.length} shapes (no creation)`)
+      return
     }
     
-    // ✅ ALWAYS CREATE: Don't return early - create shape every time
+    // ✅ DOUBLE-CLICK TO CREATE: Only create if this is a double-click OR no recent deselect
+    const now = Date.now()
+    const timeSinceDeselect = now - lastDeselectRef.current
+    const timeSinceLastCreation = now - lastShapeCreationRef.current
     
-    // ✅ INSTANT: Create shape optimistically with maximum performance
+    // Don't create if we just deselected (within 500ms) unless it's a double-click
+    if (timeSinceDeselect < 500 && timeSinceLastCreation < 100) {
+      return // Recent deselect, don't create
+    }
+    
+    // Throttle creation (10 shapes/sec)
+    if (timeSinceLastCreation < 100) {
+      return
+    }
+    
+    lastShapeCreationRef.current = now
+    
+    // ✅ CREATE SHAPE: Only when nothing was selected
+    console.log(`🎯 Creating new shape (no selection to clear)`)
+    
+    // ✅ INSTANT: Create shape optimistically
     const stage = stageRef.current!
     const canvasPos = stage.getRelativePointerPosition()!
     const shapeId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
