@@ -2,6 +2,9 @@ import React, { useRef, useCallback, useEffect, useState } from 'react'
 import { Stage } from 'react-konva'
 import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
+import { useUserStore } from '../../store/userStore'
+import { useShapeSync } from '../../hooks/useShapeSync'
+import { createShape } from '../../utils/shapeUtils'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
 import CursorLayer from './CursorLayer'
@@ -21,8 +24,13 @@ interface CanvasProps {
 const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const stageRef = useRef<Konva.Stage>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [isCreatingShape, setIsCreatingShape] = useState(false)
   
   const { viewport, setViewport, selectShape } = useCanvasStore()
+  const { user } = useUserStore()
+  
+  // Set up real-time shape synchronization
+  useShapeSync()
 
   // Handle wheel zoom
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -112,13 +120,48 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [constrainViewport, setViewport])
 
-  // Handle stage click (deselect)
-  const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-    // Only deselect if clicking on the stage itself (empty area)
-    if (e.target === stageRef.current) {
+  // Handle stage click (deselect or create shape)
+  const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Only handle clicks on the stage itself (empty area)
+    if (e.target !== stageRef.current) return
+    
+    // Don't create shapes if we were dragging
+    if (isDragging) return
+    
+    // Don't create shapes if user is not authenticated
+    if (!user) return
+    
+    try {
+      setIsCreatingShape(true)
+      
+      // Get click position relative to canvas
+      const stage = stageRef.current
+      if (!stage) return
+      
+      const pointerPosition = stage.getPointerPosition()
+      if (!pointerPosition) return
+      
+      // Convert screen coordinates to canvas coordinates
+      const canvasX = (pointerPosition.x - viewport.x) / viewport.scale
+      const canvasY = (pointerPosition.y - viewport.y) / viewport.scale
+      
+      // Constrain to canvas boundaries (account for shape size)
+      const constrainedX = Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasX))
+      const constrainedY = Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasY))
+      
+      // Create shape in Firestore
+      await createShape(constrainedX, constrainedY, user.uid, user.displayName)
+      
+      // Deselect any selected shape
       selectShape(null)
+      
+      console.log(`✨ Shape created at (${constrainedX}, ${constrainedY}) by ${user.displayName}`)
+    } catch (error) {
+      console.error('Error creating shape:', error)
+    } finally {
+      setIsCreatingShape(false)
     }
-  }, [selectShape])
+  }, [isDragging, user, viewport, selectShape])
 
   // Update stage position when viewport changes externally
   useEffect(() => {
@@ -172,6 +215,13 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       {isDragging && (
         <div className="absolute bottom-2 left-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded shadow">
           Panning canvas...
+        </div>
+      )}
+      
+      {/* Shape creation indicator */}
+      {isCreatingShape && (
+        <div className="absolute bottom-2 left-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded shadow">
+          Creating rectangle...
         </div>
       )}
     </div>

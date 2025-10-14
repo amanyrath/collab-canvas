@@ -42,17 +42,20 @@ function App() {
               <div className="w-64 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Canvas Tools</h3>
                 <div className="space-y-2 text-sm text-gray-600">
-                  <div>• Click empty space to pan</div>
+                  <div>• Click empty space to create rectangles</div>
+                  <div>• Click shapes to select them</div>
+                  <div>• Drag empty space to pan</div>
                   <div>• Mouse wheel to zoom</div>
                   <div>• Canvas size: 5000×5000px</div>
                 </div>
                 
                 <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Coming Next:</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Phase 4 Progress:</h4>
                   <div className="space-y-1 text-sm text-gray-500">
                     <div>✅ Pan & Zoom</div>
-                    <div>⏳ Shape Creation</div>
-                    <div>⏳ Real-time Sync</div>
+                    <div>✅ Shape Creation</div>
+                    <div>✅ Real-time Sync</div>
+                    <div>⏳ Shape Movement</div>
                     <div>⏳ Multiplayer Cursors</div>
                   </div>
                 </div>
