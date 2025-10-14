@@ -85,7 +85,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       // Handle Space for panning
       if (e.code === 'Space' && !e.repeat && !isSpacePressed) {
         e.preventDefault()
+        e.stopPropagation()
         setIsSpacePressed(true)
+        
+        // ✅ FIX: Prevent page scroll during space+drag
+        document.body.style.overflow = 'hidden'
         
         // ✅ CUSTOM: Only enable stage dragging when no shapes are being interacted with
     const stage = stageRef.current
@@ -100,7 +104,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
+        e.preventDefault()
+        e.stopPropagation()
         setIsSpacePressed(false)
+
+        // ✅ FIX: Restore page scroll after space+drag
+        document.body.style.overflow = 'auto'
 
     const stage = stageRef.current
         if (stage) {
@@ -121,6 +130,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
     const handleWindowBlur = () => {
       setIsSpacePressed(false)
+      
+      // ✅ FIX: Restore page scroll on window blur
+      document.body.style.overflow = 'auto'
+      
       const stage = stageRef.current
       if (stage) {
         stage.draggable(false)
@@ -133,6 +146,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     window.addEventListener('blur', handleWindowBlur)
 
     return () => {
+      // ✅ FIX: Cleanup - restore page scroll on unmount
+      document.body.style.overflow = 'auto'
+      
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleWindowBlur)
@@ -197,9 +213,15 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   }, [updateCursor, user, isNavigating, isSpacePressed])
 
   return (
-    <div className={`relative overflow-hidden bg-white border border-gray-300 rounded-lg shadow-sm ${
-      isSpacePressed ? 'cursor-grab' : 'cursor-default'
-    }`}>
+    <div 
+      className={`relative overflow-hidden bg-white border border-gray-300 rounded-lg shadow-sm ${
+        isSpacePressed ? 'cursor-grab' : 'cursor-default'
+      }`}
+      // ✅ FIX: Prevent page scroll leak during navigation
+      onWheel={(e) => e.preventDefault()}
+      onTouchMove={(e) => e.preventDefault()}
+      style={{ touchAction: 'none' }} // Prevent mobile scroll
+    >
       <Stage
         ref={stageRef}
         width={width}

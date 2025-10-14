@@ -60,7 +60,7 @@ function App() {
                   </div>
                 }>
                   <div className="flex-1 mr-4">
-                    <Canvas width={800} height={600} />
+                    <Canvas width={1200} height={800} />
                   </div>
                 </ErrorBoundary>
               
