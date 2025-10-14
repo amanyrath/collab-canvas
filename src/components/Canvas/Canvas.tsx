@@ -8,7 +8,7 @@ import { useFigmaNavigation } from '../../hooks/useFigmaNavigation'
 import { useShapeSync } from '../../hooks/useShapeSync'
 import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
 import { createShape, deleteShape, updateShape } from '../../utils/shapeUtils'
-import { releaseLock } from '../../utils/lockUtils'
+import { acquireLock, releaseLock } from '../../utils/lockUtils'
 import { Shape, ShapeType } from '../../utils/types'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
@@ -218,6 +218,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         // ✅ FAST: Batch update all my selected shapes
         mySelectedShapes.forEach(shape => {
           console.log(`🎨 [${user.displayName}] Changing MY shape ${shape.id.slice(-4)} to ${color}`)
+          console.log(`🔒 [${user.displayName}] Shape ${shape.id.slice(-4)} locked by: ${shape.lockedBy?.slice(-4)} (should be ${user.uid.slice(-4)})`)
+          
           updateShapeOptimistic(shape.id, { 
             fill: color,
             isLocked: true, // Keep selected
