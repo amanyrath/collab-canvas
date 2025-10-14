@@ -4,6 +4,7 @@ import Navbar from './components/Layout/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import ConnectionBanner from './components/ConnectionBanner'
+import PresenceSidebar from './components/Canvas/PresenceSidebar'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -64,27 +65,34 @@ function App() {
                 </ErrorBoundary>
               
               {/* Sidebar */}
-              <div className="w-64 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Canvas Tools</h3>
+              <div className="w-64 space-y-4">
+                {/* ✅ PHASE 8: Presence sidebar */}
+                <PresenceSidebar />
+                
+                {/* Canvas tools */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Canvas Tools</h3>
                 <div className="space-y-2 text-sm text-gray-600">
-                  <div>• Left-click empty space to create rectangles</div>
-                  <div>• Left-drag rectangles to move them</div>
-                  <div>• Left-click shapes to select them</div>
-                  <div>• Middle-click drag to pan (Ctrl+drag on Mac)</div>
-                  <div>• Mouse wheel to zoom</div>
-                  <div>• Canvas size: 5000×5000px</div>
+                  <div>• <strong>Click empty space</strong> → Create rectangles</div>
+                  <div>• <strong>Click & drag shapes</strong> → Move them</div>
+                  <div>• <strong>Click shapes</strong> → Select/lock them</div>
+                  <div>• <strong>Trackpad scroll</strong> → Pan canvas (Figma-style)</div>
+                  <div>• <strong>⌘/Ctrl + scroll</strong> → Zoom (or pinch)</div>
+                  <div>• <strong>Mouse wheel</strong> → Zoom</div>
+                  <div>• <strong>Space + drag</strong> → Pan (power users)</div>
+                  <div>• <strong>Delete key</strong> → Delete selected shape</div>
                 </div>
                 
                 <div className="mt-6">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Progress:</h4>
                   <div className="space-y-1 text-sm text-gray-500">
-                    <div>✅ Canvas & Pan/Zoom</div>
-                    <div>✅ Shape Creation & Sync</div>
-                    <div>✅ Selection & Locking</div>
-                    <div>✅ Drag & Drop</div>
-                    <div>✅ Shape Deletion</div>
-                    <div>✅ Error Handling</div>
-                    <div>🔄 Connection Status</div>
+                    <div>✅ Canvas & Figma-style Navigation</div>
+                    <div>✅ Shape Creation & Real-time Sync</div>
+                    <div>✅ Selection & Multiplayer Locking</div>
+                    <div>✅ Drag & Drop with Constraints</div>
+                    <div>✅ Shape Deletion (optimistic)</div>
+                    <div>✅ Error Handling & Connection Status</div>
+                    <div>✅ Multiplayer Cursors & Presence</div>
                   </div>
                 </div>
                 
@@ -96,8 +104,9 @@ function App() {
                       <code className="block bg-yellow-100 p-1 rounded mt-1">clearAllLocks()</code>
                       <div className="text-xs">Clear stuck locks</div>
                     </div>
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </main>

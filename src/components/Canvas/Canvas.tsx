@@ -3,14 +3,16 @@ import { Stage } from 'react-konva'
 import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
+import { useSimpleCursorTracking, getCanvasCoordinates } from '../../hooks/useSimpleCursorTracking'
+import { useFigmaNavigation } from '../../hooks/useFigmaNavigation'
 import { useShapeSync } from '../../hooks/useShapeSync'
 import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
 import { createShape, deleteShape } from '../../utils/shapeUtils'
 import { acquireLock, releaseLock } from '../../utils/lockUtils'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
-import CursorLayer from './CursorLayer'
 import SelectionLayer from './SelectionLayer'
+import SimpleCursorLayer from './SimpleCursorLayer'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -23,9 +25,17 @@ interface CanvasProps {
 const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const stageRef = useRef<Konva.Stage>(null)
   const [isSpacePressed, setIsSpacePressed] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
   
-  // ✅ SIMPLIFIED: No selection state - using locks only
+  const { shapes } = useCanvasStore()
   const { user } = useUserStore()
+  
+  // ✅ PHASE 8: Simplified cursor tracking
+  const currentlyEditingShape = shapes.find(shape => shape.lockedBy === user?.uid)?.id || null
+  const { updateCursor } = useSimpleCursorTracking(user, currentlyEditingShape)
+  
+  // ✅ FIGMA UX: Industry-standard trackpad navigation with conflict prevention
+  const { handleWheel, handleTouchStart, handleTouchMove } = useFigmaNavigation(stageRef, setIsNavigating)
   
   useShapeSync()
   usePresenceMonitor()
@@ -129,7 +139,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [isSpacePressed, user, handleDeleteShape])
 
-  // ✅ HYBRID: Custom boundary constraints for stage dragging
+  // ✅ SPACE+DRAG: Boundary constraints for stage dragging
   const stageDragBound = useCallback((pos: { x: number; y: number }) => {
     const minX = width - CANVAS_WIDTH
     const minY = height - CANVAS_HEIGHT
@@ -175,6 +185,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     console.log(`✨ Shape created and locked:`, shapeId)
   }, [isSpacePressed, user])
 
+  // ✅ PHASE 8: Handle mouse move for cursor tracking (with navigation conflict prevention)
+  const handleMouseMove = useCallback((e: any) => {
+    // ✅ FIX CONFLICT: Don't update cursor during navigation (pan/zoom)
+    if (isNavigating || isSpacePressed) return
+    
+    const coordinates = getCanvasCoordinates(e.evt, stageRef)
+    if (coordinates && user) {
+      updateCursor(coordinates.x, coordinates.y)
+    }
+  }, [updateCursor, user, isNavigating, isSpacePressed])
+
   return (
     <div className={`relative overflow-hidden bg-white border border-gray-300 rounded-lg shadow-sm ${
       isSpacePressed ? 'cursor-grab' : 'cursor-default'
@@ -185,39 +206,18 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         height={height}
         draggable={false}
         dragBoundFunc={isSpacePressed ? stageDragBound : undefined}
-        // ✅ BUILT-IN: Simple wheel zoom
-        onWheel={(e) => {
-          e.evt.preventDefault()
-          const stage = stageRef.current!
-          const scaleBy = 1.05
-          const oldScale = stage.scaleX()
-          const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy
-          const clampedScale = Math.max(0.1, Math.min(3, newScale))
-          
-          const pointer = stage.getPointerPosition()!
-          const mousePointTo = {
-            x: (pointer.x - stage.x()) / oldScale,
-            y: (pointer.y - stage.y()) / oldScale,
-          }
-          
-          stage.scale({ x: clampedScale, y: clampedScale })
-          
-          // ✅ CUSTOM: Apply boundary constraints after zoom
-          const newPos = {
-            x: pointer.x - mousePointTo.x * clampedScale,
-            y: pointer.y - mousePointTo.y * clampedScale,
-          }
-          
-          const constrainedPos = stageDragBound(newPos)
-          stage.position(constrainedPos)
-        }}
+        // ✅ FIGMA UX: Industry-standard trackpad/touch navigation
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onClick={handleStageClick}
         onTap={handleStageClick}
+        onMouseMove={handleMouseMove}
       >
         <GridLayer width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
         <ShapeLayer listening={!isSpacePressed} />
         <SelectionLayer listening={false} />
-        <CursorLayer listening={false} />
+        <SimpleCursorLayer />
       </Stage>
       
       <div className="absolute top-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow">

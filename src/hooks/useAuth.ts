@@ -4,6 +4,7 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth'
 import { auth } from '../utils/firebase'
 import { useUserStore, createUserFromFirebase } from '../store/userStore'
 import { setupDisconnectCleanup } from '../utils/lockUtils'
+import { initializePresence, cleanupPresence } from '../utils/presenceUtils'
 
 export const useAuth = () => {
   const { setUser, setLoading, setError, clearUser } = useUserStore()
@@ -18,9 +19,17 @@ export const useAuth = () => {
             setUser(user, firebaseUser)
             console.log('🔥 User authenticated:', user.displayName)
             
+            // ✅ PHASE 8: Initialize presence on login
+            await initializePresence(user)
+            
             // Set up disconnect cleanup for lock management
             await setupDisconnectCleanup(user.uid, user.displayName)
           } else {
+            // ✅ PHASE 8: Cleanup presence on logout
+            const { user } = useUserStore.getState()
+            if (user) {
+              await cleanupPresence(user.uid)
+            }
             clearUser()
             console.log('🔥 User signed out')
           }
