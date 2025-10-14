@@ -129,36 +129,14 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [user, dragState.isDragging, updateCursor, selectShape])
 
-  // Optimized drag move handler - local only, no multiplayer sync
-  const handleDragMove = useCallback((newX: number, newY: number) => {
-    if (!dragState.isDragging || !dragState.shapeId) return
+  // Simplified drag move handler - placeholder for potential throttled updates
+  const handleDragMove = useCallback((_newX: number, _newY: number) => {
+    // Konva handles the visual updates during drag
+    // This can be used for throttled multiplayer updates if needed in the future
+  }, [])
 
-    const stage = stageRef.current
-    if (!stage) return
-
-    const shapeNode = stage.findOne(`#shape-${dragState.shapeId}`)
-    if (!shapeNode) return
-
-    // Constrain to canvas boundaries
-    const shape = shapes.find(s => s.id === dragState.shapeId)
-    if (!shape) return
-
-    const constrainedX = Math.max(0, Math.min(CANVAS_WIDTH - shape.width, newX))
-    const constrainedY = Math.max(0, Math.min(CANVAS_HEIGHT - shape.height, newY))
-
-    // Direct node update for smooth performance - LOCAL ONLY
-    shapeNode.x(constrainedX)
-    shapeNode.y(constrainedY)
-
-    // NO local store update during drag - only visual feedback
-    // This prevents multiplayer sync during drag for better performance
-
-    // Single batchDraw call
-    stage.batchDraw()
-  }, [dragState.isDragging, dragState.shapeId, shapes])
-
-  // Robust drag end handler with global event listeners
-  const handleDragEnd = useCallback(async (finalX?: number, finalY?: number) => {
+  // Robust drag end handler - receives final position directly from Konva
+  const handleDragEnd = useCallback(async (finalX: number, finalY: number) => {
     if (!dragState.isDragging || !dragState.shapeId || !user) return
 
     console.log(`🎯 Ending drag for shape: ${dragState.shapeId}`)
@@ -172,15 +150,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     if (!shapeNode || !shape) return
 
     try {
-      // Get final position (use provided or current)
-      const endX = finalX !== undefined ? finalX : shapeNode.x()
-      const endY = finalY !== undefined ? finalY : shapeNode.y()
+      // Apply snap-to-grid to the passed final position
+      const snappedX = snapToGrid(finalX)
+      const snappedY = snapToGrid(finalY)
 
-      // Snap to grid
-      const snappedX = snapToGrid(endX)
-      const snappedY = snapToGrid(endY)
-
-      // Constrain to boundaries
+      // Apply boundary constraints to snapped position
       const finalPosX = Math.max(0, Math.min(CANVAS_WIDTH - shape.width, snappedX))
       const finalPosY = Math.max(0, Math.min(CANVAS_HEIGHT - shape.height, snappedY))
 
@@ -264,33 +238,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [dragState, user, shapes, snapToGrid, updateLocalShape, selectShape, updateCursor])
 
-  // Global mouse/touch event handlers for reliable drag end detection
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      if (dragState.isDragging) {
-        handleDragEnd()
-      }
-    }
-
-    const handleGlobalMouseLeave = () => {
-      if (dragState.isDragging) {
-        handleDragEnd()
-      }
-    }
-
-    // Add global listeners to ensure drag always ends
-    document.addEventListener('mouseup', handleGlobalMouseUp)
-    document.addEventListener('mouseleave', handleGlobalMouseLeave)
-    document.addEventListener('touchend', handleGlobalMouseUp)
-    window.addEventListener('blur', handleGlobalMouseUp)
-
-    return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp)
-      document.removeEventListener('mouseleave', handleGlobalMouseLeave)
-      document.removeEventListener('touchend', handleGlobalMouseUp)
-      window.removeEventListener('blur', handleGlobalMouseUp)
-    }
-  }, [dragState.isDragging, handleDragEnd])
+  // Konva's drag system handles drag-end reliability, so no global listeners needed
 
   // Handle wheel zoom
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback } from 'react'
 import { Layer, Rect, Text } from 'react-konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
@@ -8,7 +8,7 @@ interface ShapeLayerProps {
   listening: boolean
   onDragStart: (shapeId: string, x: number, y: number) => Promise<boolean>
   onDragMove: (x: number, y: number) => void
-  onDragEnd: () => void
+  onDragEnd: (finalX: number, finalY: number) => void
   isDragging: boolean
   draggingShapeId: string | null
 }
@@ -18,7 +18,7 @@ const ShapeComponent: React.FC<{
   shape: Shape
   onDragStart: (shapeId: string, x: number, y: number) => Promise<boolean>
   onDragMove: (x: number, y: number) => void
-  onDragEnd: () => void
+  onDragEnd: (finalX: number, finalY: number) => void
   isDragging: boolean
   draggingShapeId: string | null
 }> = React.memo(({ shape, onDragStart, onDragMove, onDragEnd, isDragging, draggingShapeId }) => {
@@ -29,128 +29,54 @@ const ShapeComponent: React.FC<{
   const isLocked = shape.isLocked
   const isLockedByOthers = isLocked && shape.lockedBy !== user?.uid
   const isBeingDragged = isDragging && draggingShapeId === shape.id
-
-  // State for click vs drag detection
-  const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null)
-  const [mouseDownTime, setMouseDownTime] = useState<number>(0)
-  const dragThreshold = 5 // pixels to move before considering it a drag
-  const clickTimeout = 150 // ms to wait before starting drag
+  
+  // Determine if shape can be dragged
+  const isDraggable = !isLockedByOthers && !!user
 
   // Handle shape click (selection only)
   const handleClick = useCallback((e: any) => {
     e.cancelBubble = true
     e.evt.stopPropagation()
     
+    // Only select if we're not dragging and not locked by others
     if (!isLockedByOthers && !isDragging) {
       selectShape(shape.id)
       console.log(`🎯 Selected shape: ${shape.id}`)
     }
   }, [shape.id, selectShape, isLockedByOthers, isDragging])
 
-  // Handle mouse down (start click/drag detection)
-  const handleMouseDown = useCallback((e: any) => {
-    if (!user || isLockedByOthers || isDragging) return
+  // Konva drag start handler
+  const handleKonvaDragStart = useCallback(async (e: any) => {
+    const node = e.target
+    console.log(`🚀 Konva drag start: ${shape.id}`)
     
-    e.cancelBubble = true
-    e.evt.stopPropagation()
-    
-    const stage = e.target.getStage()
-    if (!stage) return
-    
-    const pos = stage.getPointerPosition()
-    if (!pos) return
-    
-    // Record mouse down position and time
-    setMouseDownPos(pos)
-    setMouseDownTime(Date.now())
-    
-    // Set a timeout to start drag if mouse is held down
-    setTimeout(() => {
-      const currentPos = stage.getPointerPosition()
-      if (!currentPos || !mouseDownPos) return
-      
-      // Check if mouse is still down and hasn't moved much
-      const distance = Math.sqrt(
-        Math.pow(currentPos.x - pos.x, 2) + Math.pow(currentPos.y - pos.y, 2)
-      )
-      
-      // If mouse is still in roughly the same position, start drag
-      if (distance < dragThreshold && mouseDownPos) {
-        console.log(`🚀 Starting drag after hold: ${shape.id}`)
-        onDragStart(shape.id, shape.x, shape.y)
-        setMouseDownPos(null) // Clear to prevent click
-      }
-    }, clickTimeout)
-    
-  }, [user, isLockedByOthers, isDragging, onDragStart, shape.id, shape.x, shape.y, mouseDownPos, dragThreshold, clickTimeout])
-
-  // Handle mouse move during potential drag
-  const handleMouseMove = useCallback((e: any) => {
-    if (isBeingDragged) {
-      // Already dragging - update position with simple coordinate conversion
-      const stage = e.target.getStage()
-      if (!stage) return
-      
-      const pos = stage.getPointerPosition()
-      if (!pos) return
-      
-      // Simple coordinate conversion for better performance
-      const canvasX = (pos.x - stage.x()) / stage.scaleX()
-      const canvasY = (pos.y - stage.y()) / stage.scaleY()
-      
-      // Direct call to Canvas drag handler - no throttling here
-      onDragMove(canvasX, canvasY)
-    } else if (mouseDownPos) {
-      // Check if we should start dragging due to mouse movement
-      const stage = e.target.getStage()
-      if (!stage) return
-      
-      const pos = stage.getPointerPosition()
-      if (!pos) return
-      
-      const distance = Math.sqrt(
-        Math.pow(pos.x - mouseDownPos.x, 2) + Math.pow(pos.y - mouseDownPos.y, 2)
-      )
-      
-      // If moved beyond threshold, start drag immediately
-      if (distance > dragThreshold) {
-        console.log(`🚀 Starting drag due to movement: ${shape.id}`)
-        onDragStart(shape.id, shape.x, shape.y)
-        setMouseDownPos(null)
-      }
+    // Call parent drag start handler
+    const success = await onDragStart(shape.id, node.x(), node.y())
+    if (!success) {
+      // Lock failed, stop Konva's drag operation immediately
+      e.target.stopDrag()
+      console.warn(`❌ Failed to start drag for shape: ${shape.id}`)
     }
-  }, [isBeingDragged, onDragMove, mouseDownPos, onDragStart, shape.id, shape.x, shape.y, dragThreshold])
+  }, [onDragStart, shape.id])
 
-  // Handle mouse up
-  const handleMouseUp = useCallback((e: any) => {
-    if (isBeingDragged) {
-      // End drag
-      onDragEnd()
-    } else if (mouseDownPos) {
-      // This was a click, not a drag
-      const clickDuration = Date.now() - mouseDownTime
-      
-      // Only trigger click if it was quick and didn't move much
-      if (clickDuration < clickTimeout) {
-        handleClick(e)
-      }
-      
-      setMouseDownPos(null)
-    }
-  }, [isBeingDragged, onDragEnd, mouseDownPos, mouseDownTime, clickTimeout, handleClick])
+  // Konva drag move handler
+  const handleKonvaDragMove = useCallback((e: any) => {
+    const node = e.target
+    onDragMove(node.x(), node.y())
+  }, [onDragMove])
 
-  // Clear mouse down state if dragging starts from elsewhere
-  React.useEffect(() => {
-    if (isDragging && draggingShapeId !== shape.id) {
-      setMouseDownPos(null)
-    }
-  }, [isDragging, draggingShapeId, shape.id])
+  // Konva drag end handler
+  const handleKonvaDragEnd = useCallback((e: any) => {
+    const node = e.target
+    console.log(`🎯 Konva drag end: ${shape.id} -> (${node.x()}, ${node.y()})`)
+    onDragEnd(node.x(), node.y())
+  }, [onDragEnd, shape.id])
 
   // Determine cursor style
   const getCursor = () => {
     if (isLockedByOthers) return 'not-allowed'
     if (isBeingDragged) return 'grabbing'
-    if (isSelected && !isLocked) return 'grab'
+    if (isDraggable && isSelected) return 'grab'
     return 'default'
   }
 
@@ -164,17 +90,15 @@ const ShapeComponent: React.FC<{
         width={shape.width}
         height={shape.height}
         fill={shape.fill}
-        stroke={isSelected ? '#0066ff' : isLockedByOthers ? '#ff6b6b' : 'transparent'}
+        stroke={isSelected ? (user?.cursorColor || '#0066ff') : isLockedByOthers ? '#ff6b6b' : 'transparent'}
         strokeWidth={isSelected || isLockedByOthers ? 2 : 0}
         opacity={isLockedByOthers ? 0.7 : 1}
+        draggable={isDraggable}
         onClick={handleClick}
         onTap={handleClick}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onTouchStart={handleMouseDown}
-        onTouchMove={handleMouseMove}
-        onTouchEnd={handleMouseUp}
+        onDragStart={handleKonvaDragStart}
+        onDragMove={handleKonvaDragMove}
+        onDragEnd={handleKonvaDragEnd}
         onMouseEnter={(e) => {
           e.target.getStage()!.container().style.cursor = getCursor()
         }}
