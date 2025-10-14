@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { Layer, Rect, Text } from 'react-konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
@@ -30,7 +30,13 @@ const ShapeComponent: React.FC<{
   const isLockedByOthers = isLocked && shape.lockedBy !== user?.uid
   const isBeingDragged = isDragging && draggingShapeId === shape.id
 
-  // Handle shape click (selection)
+  // State for click vs drag detection
+  const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null)
+  const [mouseDownTime, setMouseDownTime] = useState<number>(0)
+  const dragThreshold = 5 // pixels to move before considering it a drag
+  const clickTimeout = 150 // ms to wait before starting drag
+
+  // Handle shape click (selection only)
   const handleClick = useCallback((e: any) => {
     e.cancelBubble = true
     e.evt.stopPropagation()
@@ -41,20 +47,12 @@ const ShapeComponent: React.FC<{
     }
   }, [shape.id, selectShape, isLockedByOthers, isDragging])
 
-  // Handle mouse down (potential drag start)
+  // Handle mouse down (start click/drag detection)
   const handleMouseDown = useCallback((e: any) => {
     if (!user || isLockedByOthers || isDragging) return
     
     e.cancelBubble = true
     e.evt.stopPropagation()
-    
-    // Start drag
-    onDragStart(shape.id, shape.x, shape.y)
-  }, [user, isLockedByOthers, isDragging, onDragStart, shape.id, shape.x, shape.y])
-
-  // Handle mouse move during drag
-  const handleMouseMove = useCallback((e: any) => {
-    if (!isBeingDragged) return
     
     const stage = e.target.getStage()
     if (!stage) return
@@ -62,19 +60,91 @@ const ShapeComponent: React.FC<{
     const pos = stage.getPointerPosition()
     if (!pos) return
     
-    // Convert to canvas coordinates
-    const canvasX = (pos.x - stage.x()) / stage.scaleX()
-    const canvasY = (pos.y - stage.y()) / stage.scaleY()
+    // Record mouse down position and time
+    setMouseDownPos(pos)
+    setMouseDownTime(Date.now())
     
-    onDragMove(canvasX, canvasY)
-  }, [isBeingDragged, onDragMove])
+    // Set a timeout to start drag if mouse is held down
+    setTimeout(() => {
+      const currentPos = stage.getPointerPosition()
+      if (!currentPos || !mouseDownPos) return
+      
+      // Check if mouse is still down and hasn't moved much
+      const distance = Math.sqrt(
+        Math.pow(currentPos.x - pos.x, 2) + Math.pow(currentPos.y - pos.y, 2)
+      )
+      
+      // If mouse is still in roughly the same position, start drag
+      if (distance < dragThreshold && mouseDownPos) {
+        console.log(`🚀 Starting drag after hold: ${shape.id}`)
+        onDragStart(shape.id, shape.x, shape.y)
+        setMouseDownPos(null) // Clear to prevent click
+      }
+    }, clickTimeout)
+    
+  }, [user, isLockedByOthers, isDragging, onDragStart, shape.id, shape.x, shape.y, mouseDownPos, dragThreshold, clickTimeout])
 
-  // Handle mouse up (drag end)
-  const handleMouseUp = useCallback(() => {
+  // Handle mouse move during potential drag
+  const handleMouseMove = useCallback((e: any) => {
     if (isBeingDragged) {
-      onDragEnd()
+      // Already dragging - update position with simple coordinate conversion
+      const stage = e.target.getStage()
+      if (!stage) return
+      
+      const pos = stage.getPointerPosition()
+      if (!pos) return
+      
+      // Simple coordinate conversion for better performance
+      const canvasX = (pos.x - stage.x()) / stage.scaleX()
+      const canvasY = (pos.y - stage.y()) / stage.scaleY()
+      
+      // Direct call to Canvas drag handler - no throttling here
+      onDragMove(canvasX, canvasY)
+    } else if (mouseDownPos) {
+      // Check if we should start dragging due to mouse movement
+      const stage = e.target.getStage()
+      if (!stage) return
+      
+      const pos = stage.getPointerPosition()
+      if (!pos) return
+      
+      const distance = Math.sqrt(
+        Math.pow(pos.x - mouseDownPos.x, 2) + Math.pow(pos.y - mouseDownPos.y, 2)
+      )
+      
+      // If moved beyond threshold, start drag immediately
+      if (distance > dragThreshold) {
+        console.log(`🚀 Starting drag due to movement: ${shape.id}`)
+        onDragStart(shape.id, shape.x, shape.y)
+        setMouseDownPos(null)
+      }
     }
-  }, [isBeingDragged, onDragEnd])
+  }, [isBeingDragged, onDragMove, mouseDownPos, onDragStart, shape.id, shape.x, shape.y, dragThreshold])
+
+  // Handle mouse up
+  const handleMouseUp = useCallback((e: any) => {
+    if (isBeingDragged) {
+      // End drag
+      onDragEnd()
+    } else if (mouseDownPos) {
+      // This was a click, not a drag
+      const clickDuration = Date.now() - mouseDownTime
+      
+      // Only trigger click if it was quick and didn't move much
+      if (clickDuration < clickTimeout) {
+        handleClick(e)
+      }
+      
+      setMouseDownPos(null)
+    }
+  }, [isBeingDragged, onDragEnd, mouseDownPos, mouseDownTime, clickTimeout, handleClick])
+
+  // Clear mouse down state if dragging starts from elsewhere
+  React.useEffect(() => {
+    if (isDragging && draggingShapeId !== shape.id) {
+      setMouseDownPos(null)
+    }
+  }, [isDragging, draggingShapeId, shape.id])
 
   // Determine cursor style
   const getCursor = () => {

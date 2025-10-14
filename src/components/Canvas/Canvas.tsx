@@ -50,6 +50,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     originalScale: { x: 1, y: 1 },
     originalZIndex: 0
   })
+  const [justFinishedDrag, setJustFinishedDrag] = useState(false)
   const dragThrottleRef = useRef<NodeJS.Timeout | null>(null)
   
   const { viewport, setViewport, selectShape, shapes, updateShape: updateLocalShape } = useCanvasStore()
@@ -129,41 +130,33 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [user, dragState.isDragging, updateCursor, selectShape])
 
-  // Throttled drag move handler
+  // Optimized drag move handler - local only, no multiplayer sync
   const handleDragMove = useCallback((newX: number, newY: number) => {
     if (!dragState.isDragging || !dragState.shapeId) return
 
-    // Clear existing throttle
-    if (dragThrottleRef.current) {
-      clearTimeout(dragThrottleRef.current)
-    }
+    const stage = stageRef.current
+    if (!stage) return
 
-    // Throttle updates for 60fps performance
-    dragThrottleRef.current = setTimeout(() => {
-      const stage = stageRef.current
-      if (!stage) return
+    const shapeNode = stage.findOne(`#shape-${dragState.shapeId}`)
+    if (!shapeNode) return
 
-      const shapeNode = stage.findOne(`#shape-${dragState.shapeId}`)
-      if (!shapeNode) return
+    // Constrain to canvas boundaries
+    const shape = shapes.find(s => s.id === dragState.shapeId)
+    if (!shape) return
 
-      // Constrain to canvas boundaries
-      const shape = shapes.find(s => s.id === dragState.shapeId)
-      if (!shape) return
+    const constrainedX = Math.max(0, Math.min(CANVAS_WIDTH - shape.width, newX))
+    const constrainedY = Math.max(0, Math.min(CANVAS_HEIGHT - shape.height, newY))
 
-      const constrainedX = Math.max(0, Math.min(CANVAS_WIDTH - shape.width, newX))
-      const constrainedY = Math.max(0, Math.min(CANVAS_HEIGHT - shape.height, newY))
+    // Direct node update for smooth performance - LOCAL ONLY
+    shapeNode.x(constrainedX)
+    shapeNode.y(constrainedY)
 
-      // Update visual position
-      shapeNode.x(constrainedX)
-      shapeNode.y(constrainedY)
+    // NO local store update during drag - only visual feedback
+    // This prevents multiplayer sync during drag for better performance
 
-      // Update local store for immediate feedback
-      updateLocalShape(dragState.shapeId!, { x: constrainedX, y: constrainedY })
-
-      // Use batchDraw for performance
-      stage.batchDraw()
-    }, THROTTLE_DRAG_MS)
-  }, [dragState.isDragging, dragState.shapeId, shapes, updateLocalShape])
+    // Single batchDraw call
+    stage.batchDraw()
+  }, [dragState.isDragging, dragState.shapeId, shapes])
 
   // Robust drag end handler with global event listeners
   const handleDragEnd = useCallback(async (finalX?: number, finalY?: number) => {
@@ -213,13 +206,13 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       })
       tween.play()
 
-      // Update Firestore with final position
+      // ENDPOINT SYNC: Update both Firestore and local store with final position
       await updateShape(dragState.shapeId, { 
         x: finalPosX, 
         y: finalPosY 
       }, user.uid)
 
-      // Update local store
+      // Update local store with final position (this triggers multiplayer sync)
       updateLocalShape(dragState.shapeId, { x: finalPosX, y: finalPosY })
 
       // Release lock
@@ -228,9 +221,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       }
 
       console.log(`✅ Drag completed: ${dragState.shapeId} -> (${finalPosX}, ${finalPosY})`)
+      console.log(`🔄 Synced final position to multiplayer`)
 
       // Auto-deselect after drag
       selectShape(null)
+
+      // Set flag to prevent immediate actions after drag
+      setJustFinishedDrag(true)
+      setTimeout(() => {
+        setJustFinishedDrag(false)
+        console.log(`⏰ Re-enabled interactions after drag: ${dragState.shapeId}`)
+      }, 500) // 500ms delay to prevent accidental actions
 
     } catch (error) {
       console.error('Error ending drag:', error)
@@ -420,6 +421,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       return
     }
     
+    // Don't create shapes if we just finished dragging
+    if (justFinishedDrag) {
+      console.log('Just finished drag, ignoring stage click')
+      return
+    }
+    
     // Don't create shapes if user is not authenticated
     if (!user) return
     
@@ -453,7 +460,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     } finally {
       setIsCreatingShape(false)
     }
-  }, [isPanning, user, viewport, selectShape])
+  }, [isPanning, justFinishedDrag, user, viewport, selectShape])
 
   // Update stage position when viewport changes externally
   useEffect(() => {
