@@ -228,14 +228,28 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   useEffect(() => {
     if (user) {
       const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+      
       if (selectedShapes.length === 1) {
+        // ✅ SINGLE SELECTION: Update picker to match shape's color
         const shapeColor = selectedShapes[0].fill
         if (shapeColor !== currentColor) {
           setCurrentColor(shapeColor)
+          console.log(`🎯 Selected shape - Color picker updated to: ${shapeColor}`)
+        }
+      } else if (selectedShapes.length === 0) {
+        // ✅ NO SELECTION: Return to default creation colors
+        if (currentColor !== '#CCCCCC') {
+          setCurrentColor('#CCCCCC')
+          console.log(`🔄 Deselected - Color picker reset to default grey`)
+        }
+        if (currentShapeType !== 'rectangle') {
+          setCurrentShapeType('rectangle')
+          console.log(`🔄 Deselected - Shape picker reset to rectangle`)
         }
       }
+      // For multi-selection, keep current settings
     }
-  }, [shapes, user, currentColor])
+  }, [shapes, user, currentColor, currentShapeType])
   
   // ✅ SIMPLE KEYBOARD SHORTCUTS
   useEffect(() => {
