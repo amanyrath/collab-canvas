@@ -169,20 +169,15 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ ULTRA-FAST: High-speed shape creation with optimized performance
-  const lastShapeCreationRef = useRef<number>(0)
+  // ✅ UNLIMITED SPEED: No throttling, maximum responsiveness
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
-    // ✅ ULTRA-FAST: Allow up to 20 shapes per second with burst capability
-    const now = Date.now()
-    if (now - lastShapeCreationRef.current < 50) { // 50ms = 20fps sustained
-      return
-    }
-    lastShapeCreationRef.current = now
+    // ✅ UNLIMITED: Remove throttling for maximum speed (let users click as fast as they want)
+    // No throttling - trust the debouncing system to handle performance
     
     // ✅ Release all locks held by current user (deselect everything)
     const { shapes, addShape } = useCanvasStore.getState()
@@ -199,7 +194,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       return
     }
     
-    // ✅ INSTANT: Create shape optimistically (immediate UI feedback)
+    // ✅ INSTANT: Create shape optimistically with maximum performance
     const stage = stageRef.current!
     const canvasPos = stage.getRelativePointerPosition()!
     const shapeId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -207,7 +202,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const x = Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasPos.x))
     const y = Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasPos.y))
     
-    // Create shape locally first (instant feedback)
+    // Create shape locally first (instant feedback) with minimal object creation
     const optimisticShape: Shape = {
       id: shapeId,
       type: 'rectangle',
@@ -228,8 +223,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       lockedByColor: user.cursorColor
     }
     
+    // ✅ FASTEST: Direct store update without validation delays
     addShape(optimisticShape)
     pendingShapeCreations.current.add(shapeId)
+    console.log(`🚀 Created shape instantly: ${shapeId} at (${x}, ${y})`)
     
     // ✅ HIGH-PERFORMANCE: Ultra-fast Firebase batching
     // Clear any existing timeout to batch rapid operations
@@ -270,7 +267,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       
       // Wait for all syncs to complete
       await Promise.allSettled(syncPromises)
-    }, 30) // 30ms debounce for ultra-fast batching
+    }, 10) // 10ms debounce - ultra-responsive for maximum speed
     
   }, [isSpacePressed, user])
 
