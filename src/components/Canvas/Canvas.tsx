@@ -176,19 +176,28 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [isUpdatingState, setIsUpdatingState] = useState(false)
   const [lastSelectedShapeId, setLastSelectedShapeId] = useState<string | null>(null) // Track what we're editing
   
-  // ✅ SIMPLE HANDLERS: No complex logic, just update state
+  // ✅ CREATION PREFERENCES: User's actual creation settings (separate from display)
+  const [creationShapeType, setCreationShapeType] = useState<ShapeType>('rectangle')
+  const [creationColor, setCreationColor] = useState<string>('#CCCCCC')
+  
+  // ✅ SIMPLE HANDLERS: Update both display and creation preferences
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
     console.log(`🔲 Shape button clicked: ${shapeType}`)
     setIsUpdatingState(true)
     setCurrentShapeType(shapeType)
-    console.log(`🔲 Shape mode updated to: ${shapeType}`)
+    
+    // ✅ UPDATE CREATION PREFERENCES: Only when not editing a selected shape
+    if (!lastSelectedShapeId) {
+      setCreationShapeType(shapeType)
+      console.log(`🔲 Creation shape type updated to: ${shapeType}`)
+    }
     
     // Allow creation after state settles
     setTimeout(() => {
       setIsUpdatingState(false)
-      console.log(`✅ Shape creation ready for: ${shapeType}`)
+      console.log(`✅ Shape picker ready`)
     }, 100)
-  }, [])
+  }, [lastSelectedShapeId])
   
   const handleColorChange = useCallback((color: string) => {
     console.log(`🎨 [${user?.displayName}] Color button clicked: ${color}`)
@@ -237,7 +246,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
           })
         )
       } else {
-        console.log(`ℹ️ [${user.displayName}] No shapes selected by me - only updating my picker`)
+        console.log(`ℹ️ [${user.displayName}] No shapes selected by me - updating my picker and creation preferences`)
+        // ✅ UPDATE CREATION PREFERENCES: When not editing any selected shapes
+        setCreationColor(color)
+        console.log(`🎨 Creation color updated to: ${color}`)
       }
     }
     
@@ -274,23 +286,23 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         }
         
       } else if (mySelectedShapes.length === 0 && lastSelectedShapeId) {
-        // ✅ I DESELECTED: Reset MY pickers to MY creation defaults
+        // ✅ I DESELECTED: Reset MY pickers to MY actual creation preferences
         setLastSelectedShapeId(null)
         
-        if (currentColor !== '#CCCCCC') {
-          setCurrentColor('#CCCCCC')
-          console.log(`🔄 I deselected - My color picker reset to default grey`)
+        if (currentColor !== creationColor) {
+          setCurrentColor(creationColor)
+          console.log(`🔄 I deselected - My color picker reset to my creation color: ${creationColor}`)
         }
-        if (currentShapeType !== 'rectangle') {
-          setCurrentShapeType('rectangle')
-          console.log(`🔄 I deselected - My shape picker reset to rectangle`)
+        if (currentShapeType !== creationShapeType) {
+          setCurrentShapeType(creationShapeType)
+          console.log(`🔄 I deselected - My shape picker reset to my creation type: ${creationShapeType}`)
         }
       }
       
       // ✅ MULTIPLAYER: Other players' selections don't affect MY pickers
       // When Player B selects a blue circle, Player A's pickers stay unchanged
     }
-  }, [shapes, user, currentColor, currentShapeType, lastSelectedShapeId])
+  }, [shapes, user, currentColor, currentShapeType, lastSelectedShapeId, creationColor, creationShapeType])
   
   // ✅ SIMPLE KEYBOARD SHORTCUTS
   useEffect(() => {
@@ -360,8 +372,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
     lastShapeCreationRef.current = now
     
-    // ✅ SIMPLE: Create shape with current settings
-    console.log(`🎯 Creating ${currentShapeType} with color ${currentColor}`)
+    // ✅ SIMPLE: Create shape with creation preferences
+    console.log(`🎯 Creating ${creationShapeType} with color ${creationColor}`)
     
     const stage = stageRef.current!
     const canvasPos = stage.getRelativePointerPosition()!
@@ -372,11 +384,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     
     const optimisticShape: Shape = {
       id: shapeId,
-      type: currentShapeType,
+      type: creationShapeType,
       x, y,
       width: 100,
       height: 100,
-      fill: currentColor,
+      fill: creationColor,
       text: '',
       textColor: '#000000',
       fontSize: 14,
