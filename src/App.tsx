@@ -50,7 +50,7 @@ function App() {
                   <div>• Left-click empty space to create rectangles</div>
                   <div>• Left-drag rectangles to move them</div>
                   <div>• Left-click shapes to select them</div>
-                  <div>• Middle-click drag to pan canvas</div>
+                  <div>• Middle-click drag to pan (Ctrl+drag on Mac)</div>
                   <div>• Mouse wheel to zoom</div>
                   <div>• Canvas size: 5000×5000px</div>
                 </div>

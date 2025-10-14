@@ -85,21 +85,22 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
     if (!user || !isDragging) return
     
     try {
-      // Get the dragged element's position
+      // Get the dragged element's final position
       const draggedRect = e.target
       
-      // The position from Konva drag is already in canvas coordinates
-      // We just need to apply boundary constraints
+      // Use the actual dragged position (Konva handles the viewport transform automatically)
       const newPos = {
         x: Math.max(0, Math.min(5000 - shape.width, draggedRect.x())),
         y: Math.max(0, Math.min(5000 - shape.height, draggedRect.y()))
       }
       
+      console.log(`🎯 Drag end position for ${shape.id}:`, newPos)
+      
       // Update the visual position (snap to boundaries)
       draggedRect.x(newPos.x)
       draggedRect.y(newPos.y)
       
-      // Release lock with final position
+      // Release lock with final position - this updates Firestore
       await releaseLock(shape.id, user.uid, user.displayName, newPos)
       
       console.log(`✅ Drag completed for shape: ${shape.id}`, newPos)

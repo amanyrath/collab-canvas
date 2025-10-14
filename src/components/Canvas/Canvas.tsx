@@ -92,10 +92,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // Handle mouse down for middle-click panning
+  // Handle mouse down for panning (middle-click or Ctrl+click on Mac)
   const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-    // Only start panning on middle mouse button (button 1)
-    if (e.evt.button === 1) {
+    // Middle mouse button (button 1) OR Ctrl+left-click (for Mac)
+    const isPanTrigger = e.evt.button === 1 || (e.evt.button === 0 && e.evt.ctrlKey)
+    
+    if (isPanTrigger) {
       e.evt.preventDefault()
       setIsPanning(true)
       const pos = e.target.getStage()?.getPointerPosition()
@@ -138,15 +140,18 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
   // Handle mouse up to stop panning
   const handleMouseUp = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (e.evt.button === 1) {
+    // Stop panning on middle-click release or Ctrl+click release
+    const isPanRelease = e.evt.button === 1 || (e.evt.button === 0 && isPanning)
+    
+    if (isPanRelease) {
       setIsPanning(false)
     }
-  }, [])
+  }, [isPanning])
 
   // Handle stage click (deselect or create shape)
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
-    // Only handle left clicks on the stage itself (empty area)
-    if (e.target !== stageRef.current || e.evt.button !== 0) {
+    // Only handle left clicks on the stage itself (empty area), not Ctrl+clicks
+    if (e.target !== stageRef.current || e.evt.button !== 0 || e.evt.ctrlKey) {
       return
     }
     
