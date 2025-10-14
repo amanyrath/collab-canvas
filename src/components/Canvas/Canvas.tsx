@@ -169,22 +169,20 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ SIMPLE UX: Auto-deselect after creation for consistent behavior
+  // ✅ CLEAN UX: Separate deselect from shape creation
   const lastShapeCreationRef = useRef<number>(0)
+  const lastClickRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
-    // ✅ SIMPLE: Throttle creation (10 shapes/sec)
     const now = Date.now()
-    if (now - lastShapeCreationRef.current < 100) {
-      return
-    }
-    lastShapeCreationRef.current = now
+    const timeSinceLastClick = now - lastClickRef.current
+    lastClickRef.current = now
     
-    // ✅ ALWAYS DESELECT FIRST: Clean state for every click
+    // ✅ ALWAYS DESELECT: Clean state on any canvas click
     const { shapes, addShape, updateShapeOptimistic } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
@@ -206,11 +204,25 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         )
       )
       
-      console.log(`🔓 Deselected ${userLockedShapes.length} shapes instantly`)
+      console.log(`🔓 Deselected ${userLockedShapes.length} shapes`)
     }
     
-    // ✅ CREATE SHAPE: Every click creates a new shape
-    console.log(`🎯 Creating new shape (auto-deselect pattern)`)
+    // ✅ DOUBLE-CLICK TO CREATE: Only create on rapid double-click
+    const isDoubleClick = timeSinceLastClick < 300 // 300ms window for double-click
+    
+    if (!isDoubleClick) {
+      console.log(`👆 Single click - deselect only`)
+      return // Single click only deselects
+    }
+    
+    // ✅ THROTTLE CREATION: Prevent spam (10 shapes/sec)
+    if (now - lastShapeCreationRef.current < 100) {
+      return
+    }
+    lastShapeCreationRef.current = now
+    
+    // ✅ CREATE SHAPE: Double-click detected
+    console.log(`🎯 Double-click detected - creating new shape`)
     
     // ✅ INSTANT: Create shape optimistically
     const stage = stageRef.current!
