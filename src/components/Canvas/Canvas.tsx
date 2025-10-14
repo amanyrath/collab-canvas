@@ -9,6 +9,7 @@ import { useShapeSync } from '../../hooks/useShapeSync'
 import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
 import { createShape, deleteShape } from '../../utils/shapeUtils'
 import { acquireLock, releaseLock } from '../../utils/lockUtils'
+import { Shape } from '../../utils/types'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
 import SelectionLayer from './SelectionLayer'
@@ -147,6 +148,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       // ✅ FIX: Cleanup - restore page scroll on unmount
       document.body.style.overflow = 'auto'
       
+      // ✅ Cleanup shape creation timeout
+      if (shapeCreationTimeoutRef.current) {
+        clearTimeout(shapeCreationTimeoutRef.current)
+      }
+      
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleWindowBlur)
@@ -163,17 +169,27 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ SIMPLIFIED: Click canvas to release all user locks OR create shape
+  // ✅ OPTIMIZED: Fast shape creation with throttling and optimistic updates
+  const lastShapeCreationRef = useRef<number>(0)
+  const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
+    // ✅ THROTTLE: Prevent spam clicking (max 5 shapes per second)
+    const now = Date.now()
+    if (now - lastShapeCreationRef.current < 200) { // 200ms = 5fps max
+      return
+    }
+    lastShapeCreationRef.current = now
+    
     // ✅ Release all locks held by current user (deselect everything)
-    const { shapes } = useCanvasStore.getState()
+    const { shapes, addShape } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
     if (userLockedShapes.length > 0) {
-      // Release all user's locks
-      await Promise.all(
+      // Release all user's locks (background operation)
+      Promise.all(
         userLockedShapes.map(shape => 
           releaseLock(shape.id, user.uid, user.displayName)
         )
@@ -182,21 +198,63 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       return
     }
     
-    // ✅ No locks to release - create new shape and auto-lock it
+    // ✅ INSTANT: Create shape optimistically (immediate UI feedback)
     const stage = stageRef.current!
     const canvasPos = stage.getRelativePointerPosition()!
+    const shapeId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     
-    const shapeId = await createShape(
-      Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasPos.x)),
-      Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasPos.y)),
-      user.uid, 
-      user.displayName
-    )
+    const x = Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasPos.x))
+    const y = Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasPos.y))
     
-    // ✅ Auto-lock the newly created shape (this IS selection)
-    await acquireLock(shapeId, user.uid, user.displayName, user.cursorColor)
+    // Create shape locally first (instant feedback)
+    const optimisticShape: Shape = {
+      id: shapeId,
+      type: 'rectangle',
+      x, y,
+      width: 100,
+      height: 100,
+      fill: '#CCCCCC',
+      text: '',
+      textColor: '#000000',
+      fontSize: 14,
+      createdBy: user.uid,
+      createdAt: new Date(), // Temporary local timestamp
+      lastModifiedBy: user.uid,
+      lastModifiedAt: new Date(),
+      isLocked: true, // Auto-lock immediately
+      lockedBy: user.uid,
+      lockedByName: user.displayName,
+      lockedByColor: user.cursorColor
+    }
     
-    console.log(`✨ Shape created and locked:`, shapeId)
+    addShape(optimisticShape)
+    
+    // ✅ BACKGROUND: Sync to Firebase (non-blocking)
+    // Clear any existing timeout to batch rapid clicks
+    if (shapeCreationTimeoutRef.current) {
+      clearTimeout(shapeCreationTimeoutRef.current)
+    }
+    
+    shapeCreationTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Create real shape in Firebase
+        const realShapeId = await createShape(x, y, user.uid, user.displayName)
+        
+        // Update the optimistic shape with real ID
+        const { updateShapeOptimistic } = useCanvasStore.getState()
+        updateShapeOptimistic(shapeId, { id: realShapeId })
+        
+        // Acquire lock in background
+        acquireLock(realShapeId, user.uid, user.displayName, user.cursorColor).catch(() => {})
+        
+      } catch (error) {
+        console.error('Failed to sync shape to Firebase:', error)
+        // Remove optimistic shape on error
+        const { deleteShape } = useCanvasStore.getState()
+        deleteShape(shapeId)
+      }
+    }, 100) // 100ms debounce for rapid clicking
+    
   }, [isSpacePressed, user])
 
   // ✅ PHASE 8: Handle mouse move for cursor tracking (with navigation conflict prevention)
