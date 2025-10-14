@@ -17,7 +17,7 @@ interface CanvasStore {
 
 const OPTIMISTIC_TIMEOUT = 2000 // 2 seconds to let Firestore sync catch up
 
-export const useCanvasStore = create<CanvasStore>((set, get) => ({
+export const useCanvasStore = create<CanvasStore>((set) => ({
   // ✅ SIMPLIFIED: Just shapes + optimistic update tracking
   shapes: [],
   optimisticUpdates: new Map(),
