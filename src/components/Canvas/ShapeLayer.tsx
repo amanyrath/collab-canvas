@@ -19,12 +19,25 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
   const canDrag = !isLockedByOthers && !!user
 
-  // ✅ SIMPLIFIED: Click to lock (this IS selection)
+  // ✅ SIMPLIFIED: Click to lock (this IS selection) - release previous locks first
   const handleClick = useCallback(async () => {
     if (!isLockedByOthers && user) {
+      // ✅ First release any existing locks held by this user
+      const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
+      
+      if (userLockedShapes.length > 0) {
+        await Promise.all(
+          userLockedShapes.map(s => 
+            releaseLock(s.id, user.uid, user.displayName)
+          )
+        )
+        console.log(`🔓 Released ${userLockedShapes.length} previous locks`)
+      }
+      
+      // ✅ Then acquire lock on clicked shape  
       await acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
-  }, [shape.id, isLockedByOthers, user])
+  }, [shape.id, shapes, isLockedByOthers, user])
 
   // Robust drag start with error handling and existence check
   const handleDragStart = useCallback(async (e: any) => {
@@ -42,6 +55,17 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
     }
 
     try {
+      // ✅ Release any existing locks before drag (same logic as click)
+      const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
+      
+      if (userLockedShapes.length > 0) {
+        await Promise.all(
+          userLockedShapes.map(s => 
+            releaseLock(s.id, user.uid, user.displayName)
+          )
+        )
+      }
+      
       const lockResult = await acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
       if (!lockResult.success) {
         console.warn(`Failed to acquire lock: ${lockResult.error}`)
