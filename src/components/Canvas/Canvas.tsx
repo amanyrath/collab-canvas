@@ -230,14 +230,23 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
       
       if (selectedShapes.length === 1) {
-        // ✅ SINGLE SELECTION: Update picker to match shape's color
-        const shapeColor = selectedShapes[0].fill
-        if (shapeColor !== currentColor) {
-          setCurrentColor(shapeColor)
-          console.log(`🎯 Selected shape - Color picker updated to: ${shapeColor}`)
+        // ✅ SINGLE SELECTION: Update pickers to match shape's properties
+        const selectedShape = selectedShapes[0]
+        
+        // Update color picker
+        if (selectedShape.fill !== currentColor) {
+          setCurrentColor(selectedShape.fill)
+          console.log(`🎯 Selected shape - Color picker updated to: ${selectedShape.fill}`)
         }
+        
+        // ✅ UPDATE SHAPE PICKER: Show selected shape's type
+        if (selectedShape.type !== currentShapeType) {
+          setCurrentShapeType(selectedShape.type)
+          console.log(`🎯 Selected shape - Shape picker updated to: ${selectedShape.type}`)
+        }
+        
       } else if (selectedShapes.length === 0) {
-        // ✅ NO SELECTION: Return to default creation colors
+        // ✅ NO SELECTION: Return to default creation settings
         if (currentColor !== '#CCCCCC') {
           setCurrentColor('#CCCCCC')
           console.log(`🔄 Deselected - Color picker reset to default grey`)
