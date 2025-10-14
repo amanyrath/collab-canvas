@@ -14,7 +14,7 @@ interface FastCursor {
 }
 
 /**
- * ⚡ SUPER FAST: Direct Firebase /cursors subscription - no wrapper functions
+ * ✅ CURSOR LAYER: Renders cursors with proper coordinate handling
  */
 export const SimpleCursorLayer: React.FC = () => {
   const { user } = useUserStore()
@@ -34,8 +34,8 @@ export const SimpleCursorLayer: React.FC = () => {
       Object.entries(data).forEach(([userId, presence]: [string, any]) => {
         if (presence.isOnline && presence.cursorX !== undefined && presence.cursorY !== undefined) {
           cursorData[userId] = {
-            x: presence.cursorX || 0,
-            y: presence.cursorY || 0,
+            x: presence.cursorX,
+            y: presence.cursorY,
             name: presence.displayName || 'Anonymous',
             color: presence.cursorColor || '#666'
           }
@@ -51,6 +51,8 @@ export const SimpleCursorLayer: React.FC = () => {
   const cursorList = Object.entries(cursors)
   if (cursorList.length === 0) return <Layer listening={false} />
 
+  // ✅ IMPORTANT: Cursor layer should not be affected by stage transforms
+  // Cursors are rendered in canvas coordinates, not screen coordinates
   return (
     <Layer listening={false}>
       {cursorList.map(([userId, cursor]) => (

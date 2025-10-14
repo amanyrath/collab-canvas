@@ -89,15 +89,31 @@ export const useSimpleCursorTracking = (user: User | null) => {
 // ⚡ Removed performCursorUpdate - now using unified presence system
 
 /**
- * ✅ BUILT-IN: Simplified coordinate conversion using Konva
+ * ✅ FIXED: Proper coordinate conversion accounting for stage transforms
  */
 export const getCanvasCoordinates = (
-  _event: MouseEvent | React.MouseEvent,
+  event: MouseEvent | React.MouseEvent,
   stageRef: React.RefObject<any>
 ) => {
   if (!stageRef.current) return null
   
-  // ✅ BUILT-IN: Konva handles all the transform math
-  const pointer = stageRef.current.getPointerPosition()
-  return pointer ? { x: pointer.x, y: pointer.y } : null
+  // Get the stage's container element
+  const stage = stageRef.current
+  const container = stage.container()
+  
+  if (!container) return null
+  
+  // Get the bounding rectangle of the canvas container
+  const rect = container.getBoundingClientRect()
+  
+  // Calculate relative position within the canvas
+  const relativeX = event.clientX - rect.left
+  const relativeY = event.clientY - rect.top
+  
+  // Convert from screen coordinates to canvas coordinates
+  // This accounts for stage position, scale, and rotation
+  const transform = stage.getAbsoluteTransform().copy().invert()
+  const canvasPos = transform.point({ x: relativeX, y: relativeY })
+  
+  return { x: Math.round(canvasPos.x), y: Math.round(canvasPos.y) }
 }
