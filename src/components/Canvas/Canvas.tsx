@@ -169,30 +169,36 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ UNLIMITED SPEED: No throttling, maximum responsiveness
+  // ✅ BALANCED: Reasonable throttling + no deselection blocking
+  const lastShapeCreationRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
-    // ✅ UNLIMITED: Remove throttling for maximum speed (let users click as fast as they want)
-    // No throttling - trust the debouncing system to handle performance
+    // ✅ FAST CREATION: Reasonable throttling (10 shapes/sec) 
+    const now = Date.now()
+    if (now - lastShapeCreationRef.current < 100) { // 100ms = 10fps
+      return
+    }
+    lastShapeCreationRef.current = now
     
-    // ✅ Release all locks held by current user (deselect everything)
+    // ✅ ALWAYS CREATE: Deselect existing shapes AND create new shape in same action
     const { shapes, addShape } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
+    // Release all user's locks (background operation, don't wait)
     if (userLockedShapes.length > 0) {
-      // Release all user's locks (background operation)
       Promise.all(
         userLockedShapes.map(shape => 
           releaseLock(shape.id, user.uid, user.displayName)
         )
       )
-      console.log(`🔓 Released ${userLockedShapes.length} locks`)
-      return
+      console.log(`🔓 Released ${userLockedShapes.length} locks + creating new shape`)
     }
+    
+    // ✅ ALWAYS CREATE: Don't return early - create shape every time
     
     // ✅ INSTANT: Create shape optimistically with maximum performance
     const stage = stageRef.current!
@@ -267,7 +273,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       
       // Wait for all syncs to complete
       await Promise.allSettled(syncPromises)
-    }, 10) // 10ms debounce - ultra-responsive for maximum speed
+    }, 50) // 50ms debounce - good balance of responsiveness and performance
     
   }, [isSpacePressed, user])
 
