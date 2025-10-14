@@ -1,4 +1,4 @@
-// Firestore utilities for shape management
+// Firestore utilities for shape management with batching support
 import { 
   collection, 
   doc, 
@@ -14,11 +14,13 @@ import { db } from './firebase'
 import { Shape } from './types'
 import { v4 as uuidv4 } from 'uuid'
 import { logFirestoreRead, logFirestoreWrite } from './performanceMonitor'
+import { firebaseBatcher } from './batchUtils'
+import { FirebaseErrorHandler } from './errorHandling'
 
 // Firestore collection path for shapes
 const SHAPES_COLLECTION = 'canvas/global-canvas-v1/shapes'
 
-// Create a new shape in Firestore
+// Create a new shape in Firestore with error handling
 export const createShape = async (
   x: number, 
   y: number, 
@@ -27,9 +29,9 @@ export const createShape = async (
   createdBy: string,
   displayName: string
 ): Promise<string> => {
-  logFirestoreWrite('createShape')
-  
-  try {
+  return FirebaseErrorHandler.withRetry(async () => {
+    logFirestoreWrite('createShape')
+    
     const shapeId = uuidv4()
     const shapesRef = collection(db, SHAPES_COLLECTION)
     
@@ -56,10 +58,61 @@ export const createShape = async (
     
     console.log(`🎯 Shape created by ${displayName}:`, shapeId)
     return shapeId
-  } catch (error) {
-    console.error('Error creating shape:', error)
-    throw error
-  }
+  }, { maxRetries: 2 })
+}
+
+// Batch create multiple shapes for better performance
+export const createShapeBatch = async (
+  shapes: Array<{
+    x: number
+    y: number
+    type: 'rectangle' | 'circle'
+    color: string
+    createdBy: string
+  }>
+): Promise<string[]> => {
+  return FirebaseErrorHandler.withRetry(async () => {
+    logFirestoreWrite('createShapeBatch', shapes.length)
+    
+    const shapeIds: string[] = []
+    
+    for (const shapeData of shapes) {
+      const shapeId = uuidv4()
+      shapeIds.push(shapeId)
+      
+      const newShape = {
+        type: shapeData.type,
+        x: shapeData.x,
+        y: shapeData.y,
+        width: 100,
+        height: 100,
+        fill: shapeData.color,
+        text: '',
+        textColor: '#000000',
+        fontSize: 14,
+        createdBy: shapeData.createdBy,
+        createdAt: serverTimestamp(),
+        lastModifiedBy: shapeData.createdBy,
+        lastModifiedAt: serverTimestamp(),
+        isLocked: false,
+        lockedBy: null
+      }
+      
+      // Add to batch queue
+      firebaseBatcher.addOperation({
+        type: 'create',
+        collection: SHAPES_COLLECTION,
+        docId: shapeId,
+        data: newShape
+      })
+    }
+    
+    // Flush batch immediately for shape creation
+    await firebaseBatcher.flushImmediate()
+    
+    console.log(`🎯 Batch created ${shapes.length} shapes`)
+    return shapeIds
+  }, { maxRetries: 2 })
 }
 
 // Subscribe to shapes collection changes
@@ -103,41 +156,84 @@ export const subscribeToShapes = (
   }
 }
 
-// Update shape properties
+// Update shape properties with error handling
 export const updateShape = async (
   shapeId: string, 
   updates: Partial<Omit<Shape, 'id' | 'createdBy' | 'createdAt'>>,
   userId: string
 ) => {
-  logFirestoreWrite('updateShape')
-  
-  try {
+  return FirebaseErrorHandler.withRetry(async () => {
+    logFirestoreWrite('updateShape')
+    
     const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
     
-    await updateDoc(shapeRef, {
+    const updateData = {
       ...updates,
       lastModifiedBy: userId,
       lastModifiedAt: serverTimestamp()
-    })
+    }
+    
+    await updateDoc(shapeRef, updateData)
     
     console.log(`📝 Shape updated:`, shapeId)
-  } catch (error) {
-    console.error('Error updating shape:', error)
-    throw error
-  }
+  }, { maxRetries: 2 })
 }
 
-// Delete shape from Firestore
+// Batch update multiple shapes for better performance
+export const updateShapeBatch = async (
+  updates: Array<{
+    shapeId: string
+    updates: Partial<Omit<Shape, 'id' | 'createdBy' | 'createdAt'>>
+    userId: string
+  }>
+) => {
+  return FirebaseErrorHandler.withRetry(async () => {
+    logFirestoreWrite('updateShapeBatch', updates.length)
+    
+    for (const update of updates) {
+      const updateData = {
+        ...update.updates,
+        lastModifiedBy: update.userId,
+        lastModifiedAt: serverTimestamp()
+      }
+      
+      firebaseBatcher.addOperation({
+        type: 'update',
+        collection: SHAPES_COLLECTION,
+        docId: update.shapeId,
+        data: updateData
+      })
+    }
+    
+    console.log(`📝 Batch updating ${updates.length} shapes`)
+  }, { maxRetries: 2 })
+}
+
+// Delete shape from Firestore with error handling
 export const deleteShape = async (shapeId: string) => {
-  logFirestoreWrite('deleteShape')
-  
-  try {
+  return FirebaseErrorHandler.withRetry(async () => {
+    logFirestoreWrite('deleteShape')
+    
     const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
     await deleteDoc(shapeRef)
     
     console.log(`🗑️ Shape deleted:`, shapeId)
-  } catch (error) {
-    console.error('Error deleting shape:', error)
-    throw error
-  }
+  }, { maxRetries: 2 })
+}
+
+// Batch delete multiple shapes
+export const deleteShapeBatch = async (shapeIds: string[]) => {
+  return FirebaseErrorHandler.withRetry(async () => {
+    logFirestoreWrite('deleteShapeBatch', shapeIds.length)
+    
+    for (const shapeId of shapeIds) {
+      firebaseBatcher.addOperation({
+        type: 'delete',
+        collection: SHAPES_COLLECTION,
+        docId: shapeId
+      })
+    }
+    
+    console.log(`🗑️ Batch deleting ${shapeIds.length} shapes`)
+  }, { maxRetries: 2 })
 }

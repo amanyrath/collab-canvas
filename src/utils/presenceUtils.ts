@@ -1,8 +1,9 @@
-// Firebase Realtime Database presence and cursor utilities
+// Firebase Realtime Database presence and cursor utilities with error handling
 import { ref, set, onValue, onDisconnect, serverTimestamp, update } from 'firebase/database'
 import { rtdb } from './firebase' // Use our configured database instance
 import type { User } from './types'
 import { logRTDBUpdate } from './performanceMonitor'
+import { FirebaseErrorHandler } from './errorHandling'
 
 export interface PresenceData {
   userId: string
@@ -21,10 +22,10 @@ export interface PresenceData {
  */
 
 /**
- * ✅ PHASE 8: Initialize user presence in Realtime DB
+ * ✅ PHASE 8: Initialize user presence in Realtime DB with error handling
  */
 export const initializePresence = async (user: User): Promise<void> => {
-  try {
+  return FirebaseErrorHandler.withRetry(async () => {
     logRTDBUpdate('initializePresence')
     
     console.log(`🟢 Initializing presence for ${user.displayName}`)
@@ -55,10 +56,7 @@ export const initializePresence = async (user: User): Promise<void> => {
     })
     
     console.log(`✅ Presence initialized for ${user.displayName}`)
-  } catch (error) {
-    console.error('❌ Failed to initialize presence:', error)
-    throw error
-  }
+  }, { maxRetries: 3 })
 }
 
 /**
@@ -139,10 +137,10 @@ export const subscribeToPresence = (
 }
 
 /**
- * ✅ PHASE 8: Cleanup user presence on logout
+ * ✅ PHASE 8: Cleanup user presence on logout with error handling
  */
 export const cleanupPresence = async (userId: string): Promise<void> => {
-  try {
+  return FirebaseErrorHandler.withRetry(async () => {
     const presenceRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}`)
     
     // ✅ Set offline status instead of removing (for graceful cleanup)
@@ -153,7 +151,5 @@ export const cleanupPresence = async (userId: string): Promise<void> => {
     })
     
     console.log(`🔴 Presence cleaned up for user: ${userId}`)
-  } catch (error) {
-    console.error('❌ Failed to cleanup presence:', error)
-  }
+  }, { maxRetries: 2 })
 }
