@@ -72,19 +72,26 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
     }
     
     if (!isLockedByOthers) {
+      // Always select the shape, even if already selected (ensures consistent state)
       selectShape(shape.id)
-      console.log(`🎯 Selected shape: ${shape.id}`)
+      console.log(`🎯 Selected shape: ${shape.id} (was already selected: ${isSelected})`)
     }
-  }, [shape.id, selectShape, isLockedByOthers, justFinishedDrag])
+  }, [shape.id, selectShape, isLockedByOthers, justFinishedDrag, isSelected])
 
   // Handle drag start
   const handleDragStart = useCallback(async (e: any) => {
+    console.log(`🚀 Drag start for ${shape.id}, isLocked: ${isLocked}, lockedBy: ${shape.lockedBy}, user: ${user?.uid}`)
+    
     if (!user || isLockedByOthers) {
+      console.log(`❌ Cannot drag ${shape.id} - no user or locked by others`)
       e.target.stopDrag()
       return
     }
     
     try {
+      // Clear the just finished drag flag when starting a new drag
+      setJustFinishedDrag(false)
+      
       // Acquire lock before dragging
       const lockResult = await acquireLock(shape.id, user.uid, user.displayName)
       
@@ -97,14 +104,14 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       setHasLock(true)
       setIsDragging(true)
       setDragStartPos({ x: shape.x, y: shape.y })
-      selectShape(shape.id)
+      selectShape(shape.id) // Ensure shape is selected when dragging starts
       
-      console.log(`🎯 Started dragging shape: ${shape.id}`)
+      console.log(`🎯 Started dragging shape: ${shape.id}, lock acquired`)
     } catch (error) {
       console.error('Error in drag start:', error)
       e.target.stopDrag()
     }
-  }, [shape.id, shape.x, shape.y, user, isLockedByOthers, selectShape])
+  }, [shape.id, shape.x, shape.y, user, isLockedByOthers, selectShape, isLocked, shape.lockedBy])
 
   // Handle drag end with comprehensive cleanup
   const handleDragEnd = useCallback(async (e: any) => {
@@ -170,6 +177,10 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       } else {
         console.warn(`⚠️ Drag ended but no lock held for shape: ${shape.id}`)
       }
+      
+      // Deselect the shape after successful drag completion
+      selectShape(null)
+      console.log(`🔄 Deselected shape after drag: ${shape.id}`)
       
     } catch (error) {
       console.error('Error in drag end:', error)
