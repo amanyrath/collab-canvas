@@ -25,6 +25,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const stageRef = useRef<Konva.Stage>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isCreatingShape, setIsCreatingShape] = useState(false)
+  const [dragStartTime, setDragStartTime] = useState(0)
   
   const { viewport, setViewport, selectShape } = useCanvasStore()
   const { user } = useUserStore()
@@ -94,11 +95,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   // Handle drag start
   const handleDragStart = useCallback(() => {
     setIsDragging(true)
+    setDragStartTime(Date.now())
   }, [])
 
   // Handle drag end
   const handleDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-    setIsDragging(false)
+    const dragDuration = Date.now() - dragStartTime
+    
+    // Only consider it a drag if it lasted more than 100ms
+    setTimeout(() => {
+      setIsDragging(false)
+    }, dragDuration > 100 ? 0 : 150)
     
     const stage = e.target as Konva.Stage
     const pos = stage.position()
@@ -118,15 +125,21 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     if (constrainedPos.x !== pos.x || constrainedPos.y !== pos.y) {
       stage.position(constrainedPos)
     }
-  }, [constrainViewport, setViewport])
+  }, [constrainViewport, setViewport, dragStartTime])
 
   // Handle stage click (deselect or create shape)
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Only handle clicks on the stage itself (empty area)
-    if (e.target !== stageRef.current) return
+    if (e.target !== stageRef.current) {
+      console.log('Click not on stage, ignoring:', e.target.getClassName())
+      return
+    }
     
     // Don't create shapes if we were dragging
-    if (isDragging) return
+    if (isDragging) {
+      console.log('Was dragging, ignoring click')
+      return
+    }
     
     // Don't create shapes if user is not authenticated
     if (!user) return

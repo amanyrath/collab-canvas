@@ -23,6 +23,7 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   // Handle shape click (selection)
   const handleClick = useCallback((e: any) => {
     e.cancelBubble = true // Prevent event from bubbling to stage
+    e.evt.stopPropagation() // Additional stop propagation
     
     if (!isLockedByOthers) {
       selectShape(shape.id)
