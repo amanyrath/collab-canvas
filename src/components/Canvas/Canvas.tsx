@@ -169,49 +169,35 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ SMART UX: Separate deselect from shape creation
+  // ✅ SIMPLE UX: Auto-deselect after creation for consistent behavior
   const lastShapeCreationRef = useRef<number>(0)
-  const lastDeselectRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
+    // ✅ SIMPLE: Throttle creation (10 shapes/sec)
+    const now = Date.now()
+    if (now - lastShapeCreationRef.current < 100) {
+      return
+    }
+    lastShapeCreationRef.current = now
+    
+    // ✅ ALWAYS DESELECT FIRST: Clean state for every click
     const { shapes, addShape } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
-    // ✅ SMART UX: If shapes are selected, just deselect (don't create)
     if (userLockedShapes.length > 0) {
       Promise.all(
         userLockedShapes.map(shape => 
           releaseLock(shape.id, user.uid, user.displayName)
         )
       )
-      lastDeselectRef.current = Date.now()
-      console.log(`🔓 Deselected ${userLockedShapes.length} shapes (no creation)`)
-      return
     }
     
-    // ✅ DOUBLE-CLICK TO CREATE: Only create if this is a double-click OR no recent deselect
-    const now = Date.now()
-    const timeSinceDeselect = now - lastDeselectRef.current
-    const timeSinceLastCreation = now - lastShapeCreationRef.current
-    
-    // Don't create if we just deselected (within 500ms) unless it's a double-click
-    if (timeSinceDeselect < 500 && timeSinceLastCreation < 100) {
-      return // Recent deselect, don't create
-    }
-    
-    // Throttle creation (10 shapes/sec)
-    if (timeSinceLastCreation < 100) {
-      return
-    }
-    
-    lastShapeCreationRef.current = now
-    
-    // ✅ CREATE SHAPE: Only when nothing was selected
-    console.log(`🎯 Creating new shape (no selection to clear)`)
+    // ✅ CREATE SHAPE: Every click creates a new shape
+    console.log(`🎯 Creating new shape (auto-deselect pattern)`)
     
     // ✅ INSTANT: Create shape optimistically
     const stage = stageRef.current!
@@ -236,10 +222,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       createdAt: new Date(), // Temporary local timestamp
       lastModifiedBy: user.uid,
       lastModifiedAt: new Date(),
-      isLocked: true, // Auto-lock immediately
-      lockedBy: user.uid,
-      lockedByName: user.displayName,
-      lockedByColor: user.cursorColor
+      isLocked: false, // ✅ START UNSELECTED: Auto-deselect for consistent UX
+      lockedBy: null,
+      lockedByName: null,
+      lockedByColor: null
     }
     
     // ✅ FASTEST: Direct store update without validation delays
@@ -273,8 +259,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
           const { updateShapeOptimistic } = useCanvasStore.getState()
           updateShapeOptimistic(tempId, { id: realShapeId })
           
-          // Acquire lock in background (fire-and-forget)
-          acquireLock(realShapeId, user.uid, user.displayName, user.cursorColor).catch(() => {})
+          // ✅ NO AUTO-LOCK: Let users manually select shapes when needed
+          // This creates a cleaner UX where every click creates, no auto-selection
           
         } catch (error) {
           console.error(`Failed to sync shape ${tempId}:`, error)
