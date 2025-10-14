@@ -13,6 +13,7 @@ import {
 import { db } from './firebase'
 import { Shape } from './types'
 import { v4 as uuidv4 } from 'uuid'
+import { logFirestoreRead, logFirestoreWrite } from './performanceMonitor'
 
 // Firestore collection path for shapes
 const SHAPES_COLLECTION = 'canvas/global-canvas-v1/shapes'
@@ -24,6 +25,8 @@ export const createShape = async (
   createdBy: string,
   displayName: string
 ): Promise<string> => {
+  logFirestoreWrite('createShape')
+  
   try {
     const shapeId = uuidv4()
     const shapesRef = collection(db, SHAPES_COLLECTION)
@@ -69,6 +72,8 @@ export const subscribeToShapes = (
     const unsubscribe = onSnapshot(
       shapesQuery,
       (snapshot) => {
+        logFirestoreRead('subscribeToShapes', snapshot.size)
+        
         const shapes: Shape[] = []
         
         snapshot.forEach((doc) => {
@@ -102,6 +107,8 @@ export const updateShape = async (
   updates: Partial<Omit<Shape, 'id' | 'createdBy' | 'createdAt'>>,
   userId: string
 ) => {
+  logFirestoreWrite('updateShape')
+  
   try {
     const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
     
@@ -120,6 +127,8 @@ export const updateShape = async (
 
 // Delete shape from Firestore
 export const deleteShape = async (shapeId: string) => {
+  logFirestoreWrite('deleteShape')
+  
   try {
     const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
     await deleteDoc(shapeRef)

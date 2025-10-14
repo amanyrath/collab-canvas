@@ -2,6 +2,7 @@
 import { ref, set, onValue, onDisconnect, serverTimestamp, update } from 'firebase/database'
 import { rtdb } from './firebase' // Use our configured database instance
 import type { User } from './types'
+import { logRTDBUpdate } from './performanceMonitor'
 
 export interface PresenceData {
   userId: string
@@ -24,6 +25,8 @@ export interface PresenceData {
  */
 export const initializePresence = async (user: User): Promise<void> => {
   try {
+    logRTDBUpdate('initializePresence')
+    
     console.log(`🟢 Initializing presence for ${user.displayName}`)
     
     const presenceRef = ref(rtdb, `/sessions/global-canvas-v1/${user.uid}`)
@@ -68,6 +71,8 @@ export const updateCursorPosition = async (
   currentlyEditing: string | null = null
 ): Promise<void> => {
   try {
+    logRTDBUpdate('updateCursorPosition')
+    
     const userRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}`)
     
     // ✅ BUILT-IN: Partial update - only what changed  
@@ -93,6 +98,8 @@ export const updateCursorPosition = async (
  * ✅ PHASE 8: Update currently editing shape
  */
 export const updateCurrentlyEditing = async (userId: string, shapeId: string | null): Promise<void> => {
+  logRTDBUpdate('updateCurrentlyEditing')
+  
   try {
     const editingRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}/currentlyEditing`)
     await set(editingRef, shapeId)
