@@ -4,7 +4,7 @@ import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
 import { updateShape } from '../../utils/shapeUtils'
-import { acquireLock, releaseLock } from '../../utils/lockUtils'
+import { acquireLock, releaseLock, syncShapeSelection } from '../../utils/lockUtils'
 
 interface ShapeLayerProps {
   listening: boolean
@@ -17,14 +17,23 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   
   const isSelected = selectedShapeId === shape.id
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
+  const isSelectedByOthers = shape.selectedBy && shape.selectedBy !== user?.uid
   const canDrag = !isLockedByOthers && !!user
 
-  // Simple click to select
-  const handleClick = useCallback(() => {
-    if (!isLockedByOthers) {
+  // Simple click to select with multiplayer sync
+  const handleClick = useCallback(async () => {
+    if (!isLockedByOthers && user) {
       selectShape(shape.id)
+      
+      // Sync selection to other users
+      await syncShapeSelection(
+        shape.id, 
+        user.uid, 
+        user.displayName, 
+        user.cursorColor
+      )
     }
-  }, [shape.id, selectShape, isLockedByOthers])
+  }, [shape.id, selectShape, isLockedByOthers, user])
 
   // Robust drag start with error handling and existence check
   const handleDragStart = useCallback(async (e: any) => {
@@ -114,8 +123,16 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         width={shape.width}
         height={shape.height}
         fill={shape.fill}
-        stroke={isSelected ? (user?.cursorColor || '#0066ff') : 'transparent'}
-        strokeWidth={isSelected ? 2 : 0}
+        stroke={
+          isSelected 
+            ? (user?.cursorColor || '#0066ff') 
+            : isSelectedByOthers
+              ? (shape.selectedByColor || '#888888')
+              : isLockedByOthers
+                ? '#ff6b6b'
+                : 'transparent'
+        }
+        strokeWidth={isSelected || isSelectedByOthers || isLockedByOthers ? 2 : 0}
         draggable={canDrag}
         dragBoundFunc={canDrag ? dragBoundFunc : undefined}
         onClick={handleClick}
@@ -136,12 +153,25 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         />
       )}
       
+      {/* Selection indicator for shapes selected by others */}
+      {isSelectedByOthers && (
+        <Text
+          x={shape.x}
+          y={shape.y - 20}
+          text={`👆 Selected: ${shape.selectedByName || 'Another user'}`}
+          fontSize={12}
+          fontFamily="sans-serif"
+          fill={shape.selectedByColor || '#888888'}
+          listening={false}
+        />
+      )}
+      
       {/* Lock indicator for shapes locked by others */}
       {isLockedByOthers && (
         <Text
           x={shape.x}
-          y={shape.y - 20}
-          text={`🔒 Editing: ${shape.lockedBy === user?.uid ? 'You' : 'Another user'}`}
+          y={shape.y - (isSelectedByOthers ? 40 : 20)}
+          text={`🔒 Editing: ${shape.lockedByName || 'Another user'}`}
           fontSize={12}
           fontFamily="sans-serif"
           fill="#ff6b6b"

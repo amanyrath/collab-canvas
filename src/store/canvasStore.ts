@@ -1,12 +1,11 @@
-// Canvas store for managing shapes, selection, and viewport state
+// Canvas store for managing shapes and selection (viewport handled by Konva Stage)
 import { create } from 'zustand'
-import { Shape, ViewportState } from '../utils/types'
+import { Shape } from '../utils/types'
 
 interface CanvasStore {
   // State
   shapes: Shape[]
   selectedShapeId: string | null
-  viewport: ViewportState
   
   // Actions
   addShape: (shape: Shape) => void
@@ -17,23 +16,12 @@ interface CanvasStore {
   // Selection
   selectShape: (shapeId: string | null) => void
   getSelectedShape: () => Shape | null
-  
-  // Viewport
-  setViewport: (viewport: Partial<ViewportState>) => void
-  resetViewport: () => void
-}
-
-const initialViewport: ViewportState = {
-  x: 0,
-  y: 0,
-  scale: 1
 }
 
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
-  // Initial state
+  // ✅ SIMPLIFIED: Initial state (no viewport - Konva Stage is source of truth)
   shapes: [],
   selectedShapeId: null,
-  viewport: initialViewport,
 
   // Shape management
   addShape: (shape) => set((state) => ({
@@ -59,12 +47,5 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   getSelectedShape: () => {
     const { shapes, selectedShapeId } = get()
     return selectedShapeId ? shapes.find(shape => shape.id === selectedShapeId) || null : null
-  },
-
-  // Viewport management
-  setViewport: (updates) => set((state) => ({
-    viewport: { ...state.viewport, ...updates }
-  })),
-
-  resetViewport: () => set({ viewport: initialViewport })
+  }
 }))

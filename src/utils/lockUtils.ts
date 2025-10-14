@@ -43,6 +43,7 @@ export const acquireLock = async (
       transaction.update(shapeRef, {
         isLocked: true,
         lockedBy: userId,
+        lockedByName: displayName,
         lastModifiedBy: userId,
         lastModifiedAt: serverTimestamp()
       })
@@ -96,6 +97,7 @@ export const releaseLock = async (
       const updates: any = {
         isLocked: false,
         lockedBy: null,
+        lockedByName: null,
         lastModifiedBy: userId,
         lastModifiedAt: serverTimestamp()
       }
@@ -150,6 +152,43 @@ export const setupDisconnectCleanup = async (userId: string, displayName: string
     console.log(`🔒 Set up disconnect cleanup for user: ${displayName}`)
   } catch (error) {
     console.error('Error setting up disconnect cleanup:', error)
+  }
+}
+
+// Sync shape selection across users
+export const syncShapeSelection = async (
+  shapeId: string, 
+  userId: string | null, 
+  displayName: string | null = null, 
+  cursorColor: string | null = null
+) => {
+  try {
+    const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
+    
+    await runTransaction(db, async (transaction) => {
+      const shapeDoc = await transaction.get(shapeRef)
+      
+      if (!shapeDoc.exists()) {
+        console.warn('Shape not found for selection sync')
+        return
+      }
+      
+      // Update selection info
+      transaction.update(shapeRef, {
+        selectedBy: userId,
+        selectedByName: displayName,
+        selectedByColor: cursorColor,
+        lastModifiedAt: serverTimestamp()
+      })
+      
+      if (userId) {
+        console.log(`👆 Shape ${shapeId} selected by ${displayName}`)
+      } else {
+        console.log(`👆 Shape ${shapeId} deselected`)
+      }
+    })
+  } catch (error) {
+    console.error('Error syncing selection:', error)
   }
 }
 

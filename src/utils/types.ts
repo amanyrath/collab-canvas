@@ -24,6 +24,10 @@ export interface Shape {
   lastModifiedAt: any // Firestore timestamp
   isLocked: boolean
   lockedBy: string | null
+  lockedByName?: string | null // Display name of the user who locked it
+  selectedBy?: string | null // User ID who has this shape selected
+  selectedByName?: string | null // Display name of selecting user
+  selectedByColor?: string | null // Cursor color of selecting user
 }
 
 export interface CursorPosition {
@@ -38,17 +42,9 @@ export interface CursorPosition {
   currentlyEditing: string | null // Shape ID or null
 }
 
-export interface ViewportState {
-  x: number
-  y: number
-  scale: number
-}
+// ✅ REMOVED: ViewportState (handled by Konva Stage directly)
 
-export interface CanvasState {
-  shapes: Shape[]
-  selectedShapeId: string | null
-  viewport: ViewportState
-}
+// ✅ REMOVED: CanvasState (simplified to individual pieces)
 
 export interface UserState {
   user: User | null
