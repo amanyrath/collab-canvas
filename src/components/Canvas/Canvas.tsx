@@ -170,137 +170,70 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ SHAPE MODE: Track current shape type and color to create
+  // ✅ SIMPLE STATE: Just track current creation settings
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
-  const [currentColor, setCurrentColor] = useState<string>('#CCCCCC') // Default to original light grey
+  const [currentColor, setCurrentColor] = useState<string>('#CCCCCC')
   
-  // ✅ SHAPE SELECTION HANDLER: Update color picker when shapes are selected
-  const handleShapeSelection = useCallback((selectedShapes: Shape[]) => {
-    // ✅ PREVENT INTERFERENCE: Don't update color during rapid shape creation
-    const now = Date.now()
-    if (now - lastShapeCreationRef.current < 200) {
-      return // Skip color updates during rapid creation
-    }
-    
-    if (selectedShapes.length === 1) {
-      // ✅ SINGLE SELECTION: Update color picker to match shape's color
-      const shapeColor = selectedShapes[0].fill
-      if (shapeColor !== currentColor) {
-        setCurrentColor(shapeColor)
-        const colorName = shapeColor === '#CCCCCC' ? 'Grey' : 
-                         shapeColor === '#ef4444' ? 'Red' : 
-                         shapeColor === '#22c55e' ? 'Green' : 
-                         shapeColor === '#3b82f6' ? 'Blue' : 'Custom'
-        console.log(`🎯 Shape selected - Color picker updated to: ${colorName} (${shapeColor})`)
-      }
-    } else if (selectedShapes.length > 1) {
-      // ✅ MULTI-SELECTION: Check if all shapes have same color
-      const firstColor = selectedShapes[0].fill
-      const allSameColor = selectedShapes.every(shape => shape.fill === firstColor)
-      
-      if (allSameColor && firstColor !== currentColor) {
-        setCurrentColor(firstColor)
-        const colorName = firstColor === '#CCCCCC' ? 'Grey' : 
-                         firstColor === '#ef4444' ? 'Red' : 
-                         firstColor === '#22c55e' ? 'Green' : 
-                         firstColor === '#3b82f6' ? 'Blue' : 'Custom'
-        console.log(`🎯 ${selectedShapes.length} shapes selected (same color) - Color picker updated to: ${colorName} (${firstColor})`)
-      }
-    }
-  }, [currentColor, lastShapeCreationRef])
-
-  // ✅ SUBSCRIBE TO STORE CHANGES: Update color picker when selection changes
-  useEffect(() => {
-    const unsubscribe = useCanvasStore.subscribe((state) => {
-      if (user) {
-        const selectedShapes = state.shapes.filter(shape => shape.lockedBy === user.uid)
-        
-        // ✅ DEBOUNCE: Only update color picker, don't interfere with creation
-        setTimeout(() => {
-          handleShapeSelection(selectedShapes)
-        }, 50) // Small delay to avoid interfering with rapid operations
-      }
-    })
-
-    return unsubscribe
-  }, [user, handleShapeSelection])
-  
-  // ✅ SHAPE MODE HANDLER: Update shape type from UI
+  // ✅ SIMPLE HANDLERS: No complex logic, just update state
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
     setCurrentShapeType(shapeType)
-    const shapeIcon = shapeType === 'rectangle' ? '🔲' : '⭕'
-    console.log(`${shapeIcon} Shape mode: ${shapeType}`)
+    console.log(`🔲 Shape mode: ${shapeType}`)
   }, [])
   
-  // ✅ COLOR HANDLER: Update color from UI or change selected shapes
   const handleColorChange = useCallback((color: string) => {
     setCurrentColor(color)
-    const colorName = color === '#CCCCCC' ? 'Grey' : color === '#ef4444' ? 'Red' : color === '#22c55e' ? 'Green' : 'Blue'
-    console.log(`🎨 Color mode: ${colorName} (${color})`)
+    console.log(`🎨 Color mode: ${color}`)
     
-    // ✅ SMART COLOR CHANGE: If shapes are selected, change their color
+    // ✅ SIMPLE: If shapes selected, change their color
     if (user) {
       const { shapes, updateShapeOptimistic } = useCanvasStore.getState()
       const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
       
-      if (selectedShapes.length > 0) {
-        console.log(`🎨 Changing color of ${selectedShapes.length} selected shapes to ${colorName}`)
-        
-        // ✅ INSTANT: Update colors locally first (keep shapes selected)
-        selectedShapes.forEach(shape => {
-          updateShapeOptimistic(shape.id, { 
-            fill: color,
-            // ✅ KEEP SELECTION: Maintain lock state when changing color
-            isLocked: true,
-            lockedBy: user.uid,
-            lockedByName: user.displayName,
-            lockedByColor: user.cursorColor
-          })
+      selectedShapes.forEach(shape => {
+        updateShapeOptimistic(shape.id, { 
+          fill: color,
+          isLocked: true, // Keep selected
+          lockedBy: user.uid,
+          lockedByName: user.displayName,
+          lockedByColor: user.cursorColor
         })
-        
-        // ✅ BACKGROUND: Sync to Firebase (only color change, not lock state)
-        selectedShapes.forEach(shape => {
-          updateShape(shape.id, { fill: color }, user.uid)
-        })
-      }
+        updateShape(shape.id, { fill: color }, user.uid)
+      })
     }
   }, [user])
   
-  // ✅ KEYBOARD SHORTCUTS: Support both shape and color shortcuts
+  // ✅ SIMPLE COLOR SYNC: Update color picker when selecting shapes
+  const { shapes } = useCanvasStore()
+  useEffect(() => {
+    if (user) {
+      const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+      if (selectedShapes.length === 1) {
+        const shapeColor = selectedShapes[0].fill
+        if (shapeColor !== currentColor) {
+          setCurrentColor(shapeColor)
+        }
+      }
+    }
+  }, [shapes, user, currentColor])
+  
+  // ✅ SIMPLE KEYBOARD SHORTCUTS
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle shortcuts when not typing in inputs
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       
       switch (e.key.toLowerCase()) {
-        // Shape shortcuts
-        case 'r':
-          handleShapeTypeChange('rectangle')
-          break
-        case 'c':
-          handleShapeTypeChange('circle')
-          break
-        // Color shortcuts
-        case '1':
-          handleColorChange('#ef4444') // Red
-          break
-        case '2':
-          handleColorChange('#22c55e') // Green
-          break
-        case '3':
-          handleColorChange('#3b82f6') // Blue
-          break
-        case '4':
-          handleColorChange('#CCCCCC') // Light Grey (original)
-          break
+        case 'r': setCurrentShapeType('rectangle'); break
+        case 'c': setCurrentShapeType('circle'); break
+        case '1': handleColorChange('#ef4444'); break // Red
+        case '2': handleColorChange('#22c55e'); break // Green  
+        case '3': handleColorChange('#3b82f6'); break // Blue
+        case '4': handleColorChange('#CCCCCC'); break // Grey
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleShapeTypeChange, handleColorChange])
+  }, [handleColorChange])
 
   // ✅ SMART UX: Deselect first, then allow creation
   const lastShapeCreationRef = useRef<number>(0)
@@ -345,10 +278,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
     lastShapeCreationRef.current = now
     
-    // ✅ CREATE SHAPE: No selection, so create new shape
-    console.log(`🎯 No selection - creating new ${currentShapeType} with color ${currentColor}`)
+    // ✅ SIMPLE: Create shape with current settings
+    console.log(`🎯 Creating ${currentShapeType} with color ${currentColor}`)
     
-    // ✅ INSTANT: Create shape optimistically
     const stage = stageRef.current!
     const canvasPos = stage.getRelativePointerPosition()!
     const shapeId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -356,28 +288,25 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const x = Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasPos.x))
     const y = Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasPos.y))
     
-    // Create shape locally first (instant feedback) with minimal object creation
     const optimisticShape: Shape = {
       id: shapeId,
-      type: currentShapeType, // ✅ USE SELECTED SHAPE TYPE
+      type: currentShapeType,
       x, y,
       width: 100,
       height: 100,
-      fill: currentColor, // ✅ USE SELECTED COLOR
+      fill: currentColor,
       text: '',
       textColor: '#000000',
       fontSize: 14,
       createdBy: user.uid,
-      createdAt: new Date(), // Temporary local timestamp
+      createdAt: new Date(),
       lastModifiedBy: user.uid,
       lastModifiedAt: new Date(),
-      isLocked: false, // ✅ START UNSELECTED: Auto-deselect for consistent UX
+      isLocked: false,
       lockedBy: null,
       lockedByName: null,
       lockedByColor: null
     }
-    
-    console.log(`🚀 Creating optimistic ${optimisticShape.type} shape with fill ${optimisticShape.fill}`)
     
     // ✅ FASTEST: Direct store update without validation delays
     addShape(optimisticShape)
