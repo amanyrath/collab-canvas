@@ -169,23 +169,18 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ CLEAN UX: Separate deselect from shape creation
+  // ✅ SMART UX: Deselect first, then allow creation
   const lastShapeCreationRef = useRef<number>(0)
-  const lastClickRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current || isSpacePressed || !user) return
     
-    const now = Date.now()
-    const timeSinceLastClick = now - lastClickRef.current
-    lastClickRef.current = now
-    
-    // ✅ ALWAYS DESELECT: Clean state on any canvas click
     const { shapes, addShape, updateShapeOptimistic } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
+    // ✅ SMART LOGIC: If shapes are selected, just deselect (no creation)
     if (userLockedShapes.length > 0) {
       // ✅ INSTANT DESELECT: Update UI immediately
       userLockedShapes.forEach(shape => {
@@ -204,16 +199,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         )
       )
       
-      console.log(`🔓 Deselected ${userLockedShapes.length} shapes`)
+      console.log(`🔓 Deselected ${userLockedShapes.length} shapes (no creation)`)
+      return // Don't create when deselecting
     }
     
-    // ✅ DOUBLE-CLICK TO CREATE: Only create on rapid double-click
-    const isDoubleClick = timeSinceLastClick < 300 // 300ms window for double-click
-    
-    if (!isDoubleClick) {
-      console.log(`👆 Single click - deselect only`)
-      return // Single click only deselects
-    }
+    // ✅ CREATE SHAPE: No selection, so create new shape
+    const now = Date.now()
     
     // ✅ THROTTLE CREATION: Prevent spam (10 shapes/sec)
     if (now - lastShapeCreationRef.current < 100) {
@@ -221,8 +212,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
     lastShapeCreationRef.current = now
     
-    // ✅ CREATE SHAPE: Double-click detected
-    console.log(`🎯 Double-click detected - creating new shape`)
+    // ✅ CREATE SHAPE: No selection, so create new shape
+    console.log(`🎯 No selection - creating new shape`)
     
     // ✅ INSTANT: Create shape optimistically
     const stage = stageRef.current!
