@@ -10,30 +10,21 @@ interface ShapeLayerProps {
   listening: boolean
 }
 
-// Ultra-simple shape component with React.memo for performance
+// ✅ SIMPLIFIED: Selection = Locking (no dual state)
 const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
-  const { selectShape, selectedShapeId, shapes } = useCanvasStore()
+  const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   
-  const isSelected = selectedShapeId === shape.id
+  const isLockedByMe = shape.isLocked && shape.lockedBy === user?.uid
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
-  const isSelectedByOthers = shape.selectedBy && shape.selectedBy !== user?.uid
   const canDrag = !isLockedByOthers && !!user
 
-  // Simple click to select with multiplayer sync
+  // ✅ SIMPLIFIED: Click to lock (this IS selection)
   const handleClick = useCallback(async () => {
     if (!isLockedByOthers && user) {
-      selectShape(shape.id)
-      
-      // Sync selection to other users
-      await syncShapeSelection(
-        shape.id, 
-        user.uid, 
-        user.displayName, 
-        user.cursorColor
-      )
+      await acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
-  }, [shape.id, selectShape, isLockedByOthers, user])
+  }, [shape.id, isLockedByOthers, user])
 
   // Robust drag start with error handling and existence check
   const handleDragStart = useCallback(async (e: any) => {
@@ -51,18 +42,17 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
     }
 
     try {
-      const lockResult = await acquireLock(shape.id, user.uid, user.displayName)
+      const lockResult = await acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
       if (!lockResult.success) {
         console.warn(`Failed to acquire lock: ${lockResult.error}`)
         e.target.stopDrag()
-      } else {
-        selectShape(shape.id)
       }
+      // ✅ SIMPLIFIED: No separate selection - lock IS selection
     } catch (error) {
       console.error('Error in drag start:', error)
       e.target.stopDrag()
     }
-  }, [user, shape.id, selectShape, shapes])
+  }, [user, shape.id, shapes])
 
   // Robust drag end with error handling and recovery
   const handleDragEnd = useCallback(async (e: any) => {
@@ -83,10 +73,10 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       // Update position in database
       await updateShape(shape.id, { x: finalX, y: finalY }, user.uid)
       
-      // Release lock
-      await releaseLock(shape.id, user.uid, user.displayName)
+      // ✅ SIMPLIFIED: Keep lock after drag (Figma-like behavior)
+      // Don't release lock - user stays "selected/locked" until canvas click
       
-      console.log(`✅ Drag completed: ${shape.id} -> (${finalX}, ${finalY})`)
+      console.log(`✅ Drag completed: ${shape.id} -> (${finalX}, ${finalY}) - kept locked`)
     } catch (error) {
       console.error('Drag end failed:', error)
       
@@ -124,15 +114,13 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         height={shape.height}
         fill={shape.fill}
         stroke={
-          isSelected 
-            ? (user?.cursorColor || '#0066ff') 
-            : isSelectedByOthers
-              ? (shape.selectedByColor || '#888888')
-              : isLockedByOthers
-                ? '#ff6b6b'
-                : 'transparent'
+          isLockedByMe 
+            ? (user?.cursorColor || '#0066ff')
+            : isLockedByOthers
+              ? (shape.lockedByColor || '#ff6b6b')
+              : 'transparent'
         }
-        strokeWidth={isSelected || isSelectedByOthers || isLockedByOthers ? 2 : 0}
+        strokeWidth={isLockedByMe || isLockedByOthers ? 2 : 0}
         draggable={canDrag}
         dragBoundFunc={canDrag ? dragBoundFunc : undefined}
         onClick={handleClick}
@@ -153,28 +141,15 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         />
       )}
       
-      {/* Selection indicator for shapes selected by others */}
-      {isSelectedByOthers && (
-        <Text
-          x={shape.x}
-          y={shape.y - 20}
-          text={`👆 Selected: ${shape.selectedByName || 'Another user'}`}
-          fontSize={12}
-          fontFamily="sans-serif"
-          fill={shape.selectedByColor || '#888888'}
-          listening={false}
-        />
-      )}
-      
-      {/* Lock indicator for shapes locked by others */}
+      {/* ✅ SIMPLIFIED: Single lock indicator (selection = locking) */}
       {isLockedByOthers && (
         <Text
           x={shape.x}
-          y={shape.y - (isSelectedByOthers ? 40 : 20)}
-          text={`🔒 Editing: ${shape.lockedByName || 'Another user'}`}
+          y={shape.y - 20}
+          text={`🔒 Locked: ${shape.lockedByName || 'Another user'}`}
           fontSize={12}
           fontFamily="sans-serif"
-          fill="#ff6b6b"
+          fill={shape.lockedByColor || '#ff6b6b'}
           listening={false}
         />
       )}

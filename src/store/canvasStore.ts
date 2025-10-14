@@ -3,25 +3,19 @@ import { create } from 'zustand'
 import { Shape } from '../utils/types'
 
 interface CanvasStore {
-  // State
+  // State - ✅ SIMPLIFIED: No selection state (selection = locking)
   shapes: Shape[]
-  selectedShapeId: string | null
   
   // Actions
   addShape: (shape: Shape) => void
   updateShape: (shapeId: string, updates: Partial<Shape>) => void
   deleteShape: (shapeId: string) => void
   setShapes: (shapes: Shape[]) => void
-  
-  // Selection
-  selectShape: (shapeId: string | null) => void
-  getSelectedShape: () => Shape | null
 }
 
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
-  // ✅ SIMPLIFIED: Initial state (no viewport - Konva Stage is source of truth)
+  // ✅ SIMPLIFIED: Just shapes (selection handled via isLocked/lockedBy)
   shapes: [],
-  selectedShapeId: null,
 
   // Shape management
   addShape: (shape) => set((state) => ({
@@ -35,17 +29,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   })),
 
   deleteShape: (shapeId) => set((state) => ({
-    shapes: state.shapes.filter(shape => shape.id !== shapeId),
-    selectedShapeId: state.selectedShapeId === shapeId ? null : state.selectedShapeId
+    shapes: state.shapes.filter(shape => shape.id !== shapeId)
   })),
 
-  setShapes: (shapes) => set({ shapes }),
-
-  // Selection management
-  selectShape: (shapeId) => set({ selectedShapeId: shapeId }),
-  
-  getSelectedShape: () => {
-    const { shapes, selectedShapeId } = get()
-    return selectedShapeId ? shapes.find(shape => shape.id === selectedShapeId) || null : null
-  }
+  setShapes: (shapes) => set({ shapes })
 }))

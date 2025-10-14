@@ -12,11 +12,12 @@ export interface LockResult {
   lockedBy?: string
 }
 
-// Acquire lock on a shape using Firestore transaction
+// Acquire lock on a shape using Firestore transaction (this IS selection)
 export const acquireLock = async (
   shapeId: string, 
   userId: string, 
-  displayName: string
+  displayName: string,
+  cursorColor: string
 ): Promise<LockResult> => {
   try {
     const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
@@ -39,11 +40,12 @@ export const acquireLock = async (
         }
       }
       
-      // Acquire lock atomically
+      // Acquire lock atomically (this IS selection)
       transaction.update(shapeRef, {
         isLocked: true,
         lockedBy: userId,
         lockedByName: displayName,
+        lockedByColor: cursorColor,
         lastModifiedBy: userId,
         lastModifiedAt: serverTimestamp()
       })
@@ -98,6 +100,7 @@ export const releaseLock = async (
         isLocked: false,
         lockedBy: null,
         lockedByName: null,
+        lockedByColor: null,
         lastModifiedBy: userId,
         lastModifiedAt: serverTimestamp()
       }
@@ -155,42 +158,7 @@ export const setupDisconnectCleanup = async (userId: string, displayName: string
   }
 }
 
-// Sync shape selection across users
-export const syncShapeSelection = async (
-  shapeId: string, 
-  userId: string | null, 
-  displayName: string | null = null, 
-  cursorColor: string | null = null
-) => {
-  try {
-    const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
-    
-    await runTransaction(db, async (transaction) => {
-      const shapeDoc = await transaction.get(shapeRef)
-      
-      if (!shapeDoc.exists()) {
-        console.warn('Shape not found for selection sync')
-        return
-      }
-      
-      // Update selection info
-      transaction.update(shapeRef, {
-        selectedBy: userId,
-        selectedByName: displayName,
-        selectedByColor: cursorColor,
-        lastModifiedAt: serverTimestamp()
-      })
-      
-      if (userId) {
-        console.log(`👆 Shape ${shapeId} selected by ${displayName}`)
-      } else {
-        console.log(`👆 Shape ${shapeId} deselected`)
-      }
-    })
-  } catch (error) {
-    console.error('Error syncing selection:', error)
-  }
-}
+// ✅ REMOVED: syncShapeSelection (selection = locking now)
 
 // Force release all locks held by a user (for disconnect cleanup)
 export const releaseAllUserLocks = async (userId: string) => {

@@ -6,6 +6,7 @@ import { useUserStore } from '../../store/userStore'
 import { useShapeSync } from '../../hooks/useShapeSync'
 import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
 import { createShape } from '../../utils/shapeUtils'
+import { acquireLock, releaseLock } from '../../utils/lockUtils'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
 import CursorLayer from './CursorLayer'
@@ -23,7 +24,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const stageRef = useRef<Konva.Stage>(null)
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   
-  const { selectShape } = useCanvasStore()
+  // ✅ SIMPLIFIED: No selection state - using locks only
   const { user } = useUserStore()
   
   useShapeSync()
@@ -37,8 +38,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         setIsSpacePressed(true)
         
         // ✅ CUSTOM: Only enable stage dragging when no shapes are being interacted with
-        const stage = stageRef.current
-        if (stage) {
+    const stage = stageRef.current
+    if (stage) {
           // Disable all shape interactions during space+drag
           stage.find('Rect').forEach(rect => rect.draggable(false))
           stage.draggable(true)
@@ -50,8 +51,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         setIsSpacePressed(false)
-        
-        const stage = stageRef.current
+
+    const stage = stageRef.current
         if (stage) {
           stage.draggable(false)
           // Re-enable shape dragging
@@ -98,31 +99,41 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ BUILT-IN: Simple click handling
+  // ✅ SIMPLIFIED: Click canvas to release all user locks OR create shape
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (e.target !== stageRef.current || isSpacePressed) return
-
-    const { selectedShapeId } = useCanvasStore.getState()
+    if (e.target !== stageRef.current || isSpacePressed || !user) return
     
-    if (selectedShapeId) {
-      selectShape(null)
-      console.log('🎯 Deselected shape:', selectedShapeId)
+    // ✅ Release all locks held by current user (deselect everything)
+    const { shapes } = useCanvasStore.getState()
+    const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+    
+    if (userLockedShapes.length > 0) {
+      // Release all user's locks
+      await Promise.all(
+        userLockedShapes.map(shape => 
+          releaseLock(shape.id, user.uid, user.displayName)
+        )
+      )
+      console.log(`🔓 Released ${userLockedShapes.length} locks`)
       return
     }
     
-    if (!user) return
-    
+    // ✅ No locks to release - create new shape and auto-lock it
     const stage = stageRef.current!
     const canvasPos = stage.getRelativePointerPosition()!
     
-    await createShape(
+    const shapeId = await createShape(
       Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasPos.x)),
       Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasPos.y)),
       user.uid, 
       user.displayName
     )
-    console.log(`✨ Shape created at (${canvasPos.x}, ${canvasPos.y})`)
-  }, [isSpacePressed, user, selectShape])
+    
+    // ✅ Auto-lock the newly created shape (this IS selection)
+    await acquireLock(shapeId, user.uid, user.displayName, user.cursorColor)
+    
+    console.log(`✨ Shape created and locked:`, shapeId)
+  }, [isSpacePressed, user])
 
   return (
     <div className={`relative overflow-hidden bg-white border border-gray-300 rounded-lg shadow-sm ${
@@ -176,8 +187,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       {isSpacePressed && (
         <div className="absolute bottom-2 left-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded shadow">
           Space + Drag to Pan
-        </div>
-      )}
+          </div>
+        )}
     </div>
   )
 }

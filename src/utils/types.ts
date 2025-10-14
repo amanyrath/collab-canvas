@@ -25,9 +25,8 @@ export interface Shape {
   isLocked: boolean
   lockedBy: string | null
   lockedByName?: string | null // Display name of the user who locked it
-  selectedBy?: string | null // User ID who has this shape selected
-  selectedByName?: string | null // Display name of selecting user
-  selectedByColor?: string | null // Cursor color of selecting user
+  lockedByColor?: string | null // Cursor color of the user who locked it
+  // ✅ SIMPLIFIED: No separate selection state - selection = locking
 }
 
 export interface CursorPosition {

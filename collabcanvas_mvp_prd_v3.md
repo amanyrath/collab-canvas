@@ -679,13 +679,14 @@
 yes
 ### Phase 5: Selection & Movement with Locking (MOVED UP)
 - Handle click on rectangle to select
+- Lock upon select
 - Show visual selection indicator
 - Implement drag-to-move with Konva
 - Use Firestore transaction for atomic lock acquisition
 - Update position on drag end
-- Release lock automatically with transaction
 - Prevent editing locked shapes
 - Show "Editing: [Username]" on locked shapes
+- Click on canvas to de-select
 
 **Deliverable:** Smooth shape movement with transaction-based conflict prevention
 
