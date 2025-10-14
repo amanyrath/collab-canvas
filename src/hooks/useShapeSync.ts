@@ -14,7 +14,10 @@ export const useShapeSync = () => {
       (shapes) => {
         // Update Zustand store with shapes from Firestore
         setShapes(shapes)
-        console.log(`📦 Loaded ${shapes.length} shapes from Firestore`)
+        console.log(`📦 Loaded ${shapes.length} shapes from Firestore:`)
+        shapes.forEach(shape => {
+          console.log(`   Shape ${shape.id}: (${shape.x}, ${shape.y}) locked: ${shape.isLocked}`)
+        })
       },
       (error) => {
         console.error('❌ Shape sync error:', error)

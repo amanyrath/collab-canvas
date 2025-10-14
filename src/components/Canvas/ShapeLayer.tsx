@@ -4,6 +4,7 @@ import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
 import { acquireLock, releaseLock } from '../../utils/lockUtils'
+import { updateShape } from '../../utils/shapeUtils'
 
 interface ShapeLayerProps {
   listening: boolean
@@ -153,10 +154,17 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       updateLocalShape(shape.id, { x: newPos.x, y: newPos.y })
       console.log(`🔄 Updated local store position: ${shape.id} -> (${newPos.x}, ${newPos.y})`)
       
-      // Only try to release lock if we actually have it
+      // Update Firestore directly for other users (separate from lock release)
+      try {
+        await updateShape(shape.id, { x: newPos.x, y: newPos.y }, user.uid)
+        console.log(`🔥 Updated Firestore position: ${shape.id} -> (${newPos.x}, ${newPos.y})`)
+      } catch (firestoreError) {
+        console.error('Failed to update Firestore position:', firestoreError)
+      }
+      
+      // Release lock (without position update since we did it above)
       if (hasLock) {
-        // Release lock with final position - this updates Firestore for other users
-        await releaseLock(shape.id, user.uid, user.displayName, newPos)
+        await releaseLock(shape.id, user.uid, user.displayName) // No position parameter
         setHasLock(false)
         console.log(`✅ Lock released for shape: ${shape.id}`)
       } else {
