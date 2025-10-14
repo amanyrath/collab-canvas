@@ -1,0 +1,53 @@
+type User @table {
+  email: String!
+  displayName: String!
+  createdAt: Timestamp!
+  photoUrl: String
+}
+
+type Project @table {
+  owner: User!
+  name: String!
+  createdAt: Timestamp!
+  description: String
+}
+
+type ProjectCollaborator @table(key: ["user", "project"]) {
+  user: User!
+  project: Project!
+  role: String!
+  assignedAt: Timestamp!
+}
+
+type DesignFile @table {
+  project: Project!
+  name: String!
+  createdAt: Timestamp!
+  lastModifiedAt: Timestamp
+}
+
+type DesignElement @table {
+  designFile: DesignFile!
+  type: String!
+  x: Float!
+  y: Float!
+  width: Float!
+  height: Float!
+  layerOrder: Int!
+  createdAt: Timestamp!
+  fillColor: String
+  strokeColor: String
+  strokeWidth: Float
+  textString: String
+  fontFamily: String
+  fontSize: Int
+  imageUrl: String
+}
+
+type VersionHistory @table {
+  designFile: DesignFile!
+  createdBy: User!
+  versionName: String!
+  createdAt: Timestamp!
+  fileContent: String!
+}

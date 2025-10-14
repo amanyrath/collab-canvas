@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "sessions": {
+      "global-canvas-v1": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.hasChildren(['userId', 'displayName', 'cursorX', 'cursorY', 'isOnline']) && newData.child('userId').val() == $uid"
+        }
+      }
+    }
+  }
+}

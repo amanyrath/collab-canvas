@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to read and write to canvas shapes
+    match /canvas/{canvasId}/shapes/{shapeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null 
+        && request.auth.uid == resource.data.createdBy
+        && validateShapeData();
+      allow update: if request.auth != null 
+        && (resource.data.isLocked == false || resource.data.lockedBy == request.auth.uid)
+        && validateShapeUpdate();
+      allow delete: if request.auth != null 
+        && resource.data.isLocked == false;
+    }
+    
+    // Validation functions
+    function validateShapeData() {
+      return request.resource.data.keys().hasAll(['id', 'type', 'x', 'y', 'width', 'height', 'fill', 'createdBy', 'createdAt']) &&
+             request.resource.data.type == 'rectangle' &&
+             request.resource.data.x >= 0 && request.resource.data.x <= 5000 &&
+             request.resource.data.y >= 0 && request.resource.data.y <= 5000 &&
+             request.resource.data.width > 0 && request.resource.data.width <= 1000 &&
+             request.resource.data.height > 0 && request.resource.data.height <= 1000;
+    }
+    
+    function validateShapeUpdate() {
+      return request.resource.data.id == resource.data.id &&
+             request.resource.data.type == resource.data.type &&
+             request.resource.data.createdBy == resource.data.createdBy;
+    }
+  }
+}
