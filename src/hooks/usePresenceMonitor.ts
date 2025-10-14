@@ -1,19 +1,14 @@
 // Hook to monitor user presence and cleanup locks for disconnected users
 import { useEffect } from 'react'
-import { getDatabase, ref, onValue, off } from 'firebase/database'
+import { ref, onValue } from 'firebase/database'
+import { rtdb } from '../utils/firebase'
 import { releaseAllUserLocks } from '../utils/lockUtils'
-
-interface PresenceData {
-  userId: string
-  displayName: string
-  online: boolean
-  lastSeen: number
-}
+import type { PresenceData } from '../utils/presenceUtils'
 
 export const usePresenceMonitor = () => {
   useEffect(() => {
-    const database = getDatabase()
-    const presenceRef = ref(database, 'presence')
+    console.log('🔄 Starting presence monitoring for lock cleanup')
+    const presenceRef = ref(rtdb, '/sessions/global-canvas-v1')
     
     const handlePresenceChange = (snapshot: any) => {
       if (!snapshot.exists()) return
@@ -24,20 +19,27 @@ export const usePresenceMonitor = () => {
       Object.entries(presenceData).forEach(([userId, data]: [string, any]) => {
         const user = data as PresenceData
         
-        if (!user.online && Date.now() - user.lastSeen > 5000) { // 5 second grace period
-          console.log(`👻 Detected offline user: ${user.displayName}, cleaning up locks`)
-          releaseAllUserLocks(userId).catch(error => {
-            console.error('Failed to cleanup locks for offline user:', error)
-          })
+        // ✅ Use correct isOnline field and lastSeen timestamp
+        if (!user.isOnline && user.lastSeen && typeof user.lastSeen === 'number') {
+          const timeSinceLastSeen = Date.now() - user.lastSeen
+          if (timeSinceLastSeen > 5000) { // 5 second grace period
+            console.log(`👻 Detected offline user: ${user.displayName}, cleaning up locks`)
+            releaseAllUserLocks(userId).catch(error => {
+              console.error('Failed to cleanup locks for offline user:', error)
+            })
+          }
         }
       })
     }
     
     // Listen for presence changes
-    onValue(presenceRef, handlePresenceChange)
+    const unsubscribe = onValue(presenceRef, handlePresenceChange, (error) => {
+      console.error('❌ Presence monitoring error:', error)
+    })
     
     return () => {
-      off(presenceRef, 'value', handlePresenceChange)
+      console.log('🔄 Stopping presence monitoring')
+      unsubscribe()
     }
   }, [])
 }

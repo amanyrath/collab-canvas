@@ -191,17 +191,31 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         />
       )}
       
-      {/* ✅ SIMPLIFIED: Single lock indicator (selection = locking) */}
-      {isLockedByOthers && (
-        <Text
-          x={shape.x}
-          y={shape.y - 20}
-          text={`🔒 Locked: ${shape.lockedByName || 'Another user'}`}
-          fontSize={12}
-          fontFamily="sans-serif"
-          fill={shape.lockedByColor || '#ff6b6b'}
-          listening={false}
-        />
+      {/* ✅ USER INDICATOR: Show who's editing with their color */}
+      {isLockedByOthers && shape.lockedByName && (
+        <>
+          {/* Colored background for better visibility */}
+          <Rect
+            x={shape.x - 2}
+            y={shape.y - 24}
+            width={`Editing: ${shape.lockedByName}`.length * 7 + 8}
+            height={18}
+            fill={shape.lockedByColor || '#ff6b6b'}
+            cornerRadius={3}
+            listening={false}
+          />
+          {/* White text on colored background */}
+          <Text
+            x={shape.x + 2}
+            y={shape.y - 21}
+            text={`Editing: ${shape.lockedByName}`}
+            fontSize={11}
+            fontFamily="Arial"
+            fontStyle="bold"
+            fill="white"
+            listening={false}
+          />
+        </>
       )}
     </>
   )

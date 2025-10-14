@@ -1,36 +1,61 @@
-// Simplified cursor tracking using requestAnimationFrame
+// ⚡ ULTRA-FAST Firebase cursor tracking - optimized for speed
 import { useCallback, useRef } from 'react'
-import { updateCursorPosition } from '../utils/presenceUtils'
+import { ref, set } from 'firebase/database'
+import { rtdb } from '../utils/firebase'
 import type { User } from '../utils/types'
 
 /**
- * ✅ BUILT-IN: Use requestAnimationFrame for optimal throttling
- * Much simpler than custom setTimeout logic
+ * ⚡ SUPER FAST: 16ms (60fps) cursor updates with minimal Firebase calls
+ * - Direct Firebase set() calls (no complex functions)
+ * - Minimal data structure (just x, y, color, name)
+ * - Simple setTimeout throttling (no requestAnimationFrame complexity)
  */
-export const useSimpleCursorTracking = (user: User | null, currentlyEditing: string | null = null) => {
-  const pendingUpdateRef = useRef<{ x: number; y: number } | null>(null)
-  const isScheduledRef = useRef(false)
+export const useSimpleCursorTracking = (user: User | null) => {
+  const lastUpdateRef = useRef<number>(0)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   const updateCursor = useCallback((x: number, y: number) => {
     if (!user) return
     
-    // Store latest position
-    pendingUpdateRef.current = { x, y }
+    const now = Date.now()
     
-    // ✅ BUILT-IN: Schedule update on next frame (auto-throttles to 60fps max)
-    if (!isScheduledRef.current) {
-      isScheduledRef.current = true
-      requestAnimationFrame(() => {
-        if (pendingUpdateRef.current && user) {
-          const { x: pendingX, y: pendingY } = pendingUpdateRef.current
-          updateCursorPosition(user.uid, pendingX, pendingY, currentlyEditing).catch(console.error)
-        }
-        isScheduledRef.current = false
-      })
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
     }
-  }, [user, currentlyEditing])
+    
+    const timeElapsed = now - lastUpdateRef.current
+    
+    if (timeElapsed >= 16) { // 60fps = 16ms
+      // ⚡ INSTANT: Direct Firebase set - no wrapper functions
+      performCursorUpdate(user, x, y)
+      lastUpdateRef.current = now
+    } else {
+      // ⚡ FAST: Simple timeout to next available slot
+      timeoutRef.current = setTimeout(() => {
+        performCursorUpdate(user, x, y)
+        lastUpdateRef.current = Date.now()
+      }, 16 - timeElapsed)
+    }
+  }, [user])
   
   return { updateCursor }
+}
+
+/**
+ * ⚡ DIRECT Firebase call - minimal overhead
+ */
+const performCursorUpdate = (user: User, x: number, y: number) => {
+  const cursorRef = ref(rtdb, `/cursors/${user.uid}`)
+  
+  // ⚡ MINIMAL data structure - only what's needed for rendering
+  set(cursorRef, {
+    x: Math.round(x), // Round to reduce precision/bytes
+    y: Math.round(y),
+    name: user.displayName,
+    color: user.cursorColor
+  }).catch(() => {}) // Silent fail - don't block UI
 }
 
 /**

@@ -1,96 +1,94 @@
-// Simplified cursor rendering using built-in Konva shapes
+// ⚡ ULTRA-FAST cursor rendering - optimized Firebase structure
 import React, { useEffect, useState } from 'react'
 import { Layer, Group, Circle, Text, Rect } from 'react-konva'
-import { subscribeToPresence, type PresenceData } from '../../utils/presenceUtils'
+import { ref, onValue } from 'firebase/database'
+import { rtdb } from '../../utils/firebase'
 import { useUserStore } from '../../store/userStore'
 
+// ⚡ MINIMAL cursor data structure
+interface FastCursor {
+  x: number
+  y: number
+  name: string
+  color: string
+}
+
 /**
- * ✅ BUILT-IN: Simple cursor layer using basic Konva shapes
+ * ⚡ SUPER FAST: Direct Firebase /cursors subscription - no wrapper functions
  */
 export const SimpleCursorLayer: React.FC = () => {
   const { user } = useUserStore()
-  const [presenceData, setPresenceData] = useState<Record<string, PresenceData>>({})
+  const [cursors, setCursors] = useState<Record<string, FastCursor>>({})
 
   useEffect(() => {
-    const unsubscribe = subscribeToPresence((data) => {
-      // Filter out current user and offline users
-      const onlineUsers = Object.entries(data).reduce((acc, [userId, presence]) => {
-        if (userId !== user?.uid && presence.isOnline) {
-          acc[userId] = presence
-        }
-        return acc
-      }, {} as Record<string, PresenceData>)
+    if (!user) return
+    
+    console.log('⚡ Setting up FAST cursor subscription')
+    
+    // ⚡ DIRECT Firebase subscription to /cursors path
+    const cursorsRef = ref(rtdb, '/cursors')
+    
+    const unsubscribe = onValue(cursorsRef, (snapshot) => {
+      const data = snapshot.val() || {}
       
-      setPresenceData(onlineUsers)
-    })
+      // ⚡ FAST: Filter out current user, keep all others
+      const { [user.uid]: _, ...otherCursors } = data
+      setCursors(otherCursors)
+      
+    }, { onlyOnce: false })
 
-    return unsubscribe
+    return () => unsubscribe()
   }, [user?.uid])
 
-  const onlineUsers = Object.values(presenceData)
-  if (onlineUsers.length === 0) return <Layer listening={false} />
+  const cursorList = Object.entries(cursors)
+  if (cursorList.length === 0) return <Layer listening={false} />
 
   return (
     <Layer listening={false}>
-      {onlineUsers.map((presence) => (
-        <SimpleCursorComponent 
-          key={presence.userId} 
-          presence={presence} 
-        />
+      {cursorList.map(([userId, cursor]) => (
+        <FastCursor key={userId} cursor={cursor} />
       ))}
     </Layer>
   )
 }
 
 /**
- * ✅ BUILT-IN: Super simple cursor using Circle + Text
+ * ⚡ SUPER FAST: Minimal cursor component - just circle + name
  */
-interface SimpleCursorComponentProps {
-  presence: PresenceData
+interface FastCursorProps {
+  cursor: FastCursor
 }
 
-const SimpleCursorComponent: React.FC<SimpleCursorComponentProps> = ({ presence }) => {
-  const { cursorX, cursorY, displayName, cursorColor, currentlyEditing } = presence
+const FastCursor: React.FC<FastCursorProps> = ({ cursor }) => {
+  const { x, y, name, color } = cursor
   
   return (
-    <Group x={cursorX} y={cursorY}>
-      {/* ✅ BUILT-IN: Simple circle cursor */}
+    <Group x={x} y={y}>
+      {/* ⚡ Simple cursor dot */}
       <Circle
-        radius={8}
-        fill={cursorColor}
+        radius={6}
+        fill={color}
         stroke="white"
         strokeWidth={2}
       />
       
-      {/* ✅ BUILT-IN: Simple text label */}
-      <Group x={15} y={-5}>
+      {/* ⚡ Name label */}
+      <Group x={12} y={-8}>
         <Rect
-          width={displayName.length * 6 + 8}
-          height={20}
-          fill={cursorColor}
-          cornerRadius={3}
+          width={name.length * 6 + 6}
+          height={16}
+          fill={color}
+          cornerRadius={2}
         />
         <Text
-          text={displayName}
-          fontSize={12}
+          text={name}
+          fontSize={11}
           fontFamily="Arial"
           fill="white"
-          x={4}
-          y={4}
+          x={3}
+          y={2}
         />
       </Group>
-      
-      {/* ✅ Simple editing indicator */}
-      {currentlyEditing && (
-        <Circle
-          x={0}
-          y={20}
-          radius={4}
-          fill="orange"
-          stroke="white"
-          strokeWidth={1}
-        />
-      )}
     </Group>
   )
 }

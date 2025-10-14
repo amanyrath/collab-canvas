@@ -27,12 +27,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   
-  const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   
-  // ✅ PHASE 8: Simplified cursor tracking
-  const currentlyEditingShape = shapes.find(shape => shape.lockedBy === user?.uid)?.id || null
-  const { updateCursor } = useSimpleCursorTracking(user, currentlyEditingShape)
+  // ⚡ ULTRA-FAST cursor tracking
+  const { updateCursor } = useSimpleCursorTracking(user)
   
   // ✅ FIGMA UX: Industry-standard trackpad navigation with conflict prevention
   const { handleWheel, handleTouchStart, handleTouchMove } = useFigmaNavigation(stageRef, setIsNavigating)

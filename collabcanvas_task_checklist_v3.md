@@ -329,9 +329,6 @@ Each section represents a vertical slice of functionality that should be complet
 ## 👥 Phase 8: Consolidated Cursors & Presence
 
 ### Unified Data Structure
-- [ ] Create consolidated presence structure in Realtime DB
-- [ ] Path: `/sessions/global-canvas-v1/{userId}`
-- [ ] Include: userId, displayName, email, cursorColor, cursorX, cursorY, lastSeen, isOnline, currentlyEditing
 
 ### Cursor Tracking
 - [ ] Listen to mousemove events on canvas
@@ -347,15 +344,14 @@ Each section represents a vertical slice of functionality that should be complet
 - [ ] Set isOnline: true on connect, false on disconnect
 
 ### Cursor Rendering
-- [ ] Subscribe to `/sessions/global-canvas-v1/` in Realtime DB
-- [ ] Create `src/components/Canvas/CursorLayer.tsx`
-- [ ] Render cursor SVG for each online user (on Cursors Layer)
+
+- [ ] Render cursor for each online user 
 - [ ] Show name label below cursor
 - [ ] Apply user's assigned color to cursor
 - [ ] Update cursor positions smoothly (no jitter)
 
 ### Presence Sidebar
-- [ ] Create `src/components/Canvas/PresenceSidebar.tsx`
+- [ ] 
 - [ ] Display list of online users
 - [ ] Show user name and color indicator
 - [ ] Show green dot for online status

@@ -4,7 +4,7 @@ import Navbar from './components/Layout/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import ConnectionBanner from './components/ConnectionBanner'
-import PresenceSidebar from './components/Canvas/PresenceSidebar'
+import FastPresenceSidebar from './components/Canvas/FastPresenceSidebar'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -66,8 +66,8 @@ function App() {
               
               {/* Sidebar */}
               <div className="w-64 space-y-4">
-                {/* ✅ PHASE 8: Presence sidebar */}
-                <PresenceSidebar />
+                {/* ⚡ FAST: Minimal presence sidebar */}
+                <FastPresenceSidebar />
                 
                 {/* Canvas tools */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

@@ -1,5 +1,6 @@
 // Firebase Realtime Database presence and cursor utilities
-import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp, off } from 'firebase/database'
+import { ref, set, onValue, onDisconnect, serverTimestamp, update } from 'firebase/database'
+import { rtdb } from './firebase' // Use our configured database instance
 import type { User } from './types'
 
 export interface PresenceData {
@@ -19,41 +20,48 @@ export interface PresenceData {
  */
 
 /**
- * ✅ SIMPLIFIED: Initialize user presence in Realtime DB
+ * ✅ PHASE 8: Initialize user presence in Realtime DB
  */
 export const initializePresence = async (user: User): Promise<void> => {
-  const database = getDatabase()
-  const presenceRef = ref(database, `/sessions/global-canvas-v1/${user.uid}`)
-  
-  const presenceData: PresenceData = {
-    userId: user.uid,
-    displayName: user.displayName || 'Anonymous',
-    email: user.email || '',
-    cursorColor: user.cursorColor, // ✅ Use existing user color
-    cursorX: 0,
-    cursorY: 0,
-    lastSeen: serverTimestamp(),
-    isOnline: true,
-    currentlyEditing: null
+  try {
+    console.log('🔄 Initializing presence for:', user.displayName, user.uid)
+    
+    const presenceRef = ref(rtdb, `/sessions/global-canvas-v1/${user.uid}`)
+    
+    const presenceData: PresenceData = {
+      userId: user.uid,
+      displayName: user.displayName || 'Anonymous',
+      email: user.email || '',
+      cursorColor: user.cursorColor, // ✅ Use existing user color
+      cursorX: 0,
+      cursorY: 0,
+      lastSeen: serverTimestamp(),
+      isOnline: true,
+      currentlyEditing: null
+    }
+    
+    console.log('📝 Writing presence data:', presenceData)
+    
+    // ✅ BUILT-IN: Set presence data
+    await set(presenceRef, presenceData)
+    
+    // ✅ BUILT-IN: Auto-cleanup on disconnect
+    const disconnectRef = onDisconnect(presenceRef)
+    await disconnectRef.update({
+      isOnline: false,
+      lastSeen: serverTimestamp(),
+      currentlyEditing: null
+    })
+    
+    console.log(`🟢 Presence initialized successfully for ${user.displayName}`)
+  } catch (error) {
+    console.error('❌ Failed to initialize presence:', error)
+    throw error
   }
-  
-  // ✅ BUILT-IN: Set presence data
-  await set(presenceRef, presenceData)
-  
-  // ✅ BUILT-IN: Auto-cleanup on disconnect
-  const disconnectRef = onDisconnect(presenceRef)
-  await disconnectRef.set({
-    ...presenceData,
-    isOnline: false,
-    lastSeen: serverTimestamp(),
-    currentlyEditing: null
-  })
-  
-  console.log(`🟢 Presence initialized for ${user.displayName}`)
 }
 
 /**
- * ✅ SIMPLIFIED: Update cursor position (no redundant fields)
+ * ✅ PHASE 8: Update cursor position (optimized)
  */
 export const updateCursorPosition = async (
   userId: string, 
@@ -61,66 +69,86 @@ export const updateCursorPosition = async (
   y: number, 
   currentlyEditing: string | null = null
 ): Promise<void> => {
-  const database = getDatabase()
-  
-  // ✅ BUILT-IN: Partial update - only what changed
-  const updates: any = {
-    [`/sessions/global-canvas-v1/${userId}/cursorX`]: x,
-    [`/sessions/global-canvas-v1/${userId}/cursorY`]: y,
-    [`/sessions/global-canvas-v1/${userId}/lastSeen`]: serverTimestamp(),
-    [`/sessions/global-canvas-v1/${userId}/isOnline`]: true
+  try {
+    const userRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}`)
+    
+    // ✅ BUILT-IN: Partial update - only what changed  
+    const updates: any = {
+      cursorX: x,
+      cursorY: y,
+      lastSeen: serverTimestamp(),
+      isOnline: true
+    }
+    
+    if (currentlyEditing !== undefined) {
+      updates.currentlyEditing = currentlyEditing
+    }
+    
+    await update(userRef, updates)
+  } catch (error) {
+    console.error('❌ Failed to update cursor position:', error)
+    // Don't throw - cursor updates should be non-blocking
   }
-  
-  if (currentlyEditing !== undefined) {
-    updates[`/sessions/global-canvas-v1/${userId}/currentlyEditing`] = currentlyEditing
-  }
-  
-  await set(ref(database), updates)
 }
 
 /**
- * Update currently editing shape
+ * ✅ PHASE 8: Update currently editing shape
  */
 export const updateCurrentlyEditing = async (userId: string, shapeId: string | null): Promise<void> => {
-  const database = getDatabase()
-  const editingRef = ref(database, `/sessions/global-canvas-v1/${userId}/currentlyEditing`)
-  
-  await set(editingRef, shapeId)
-  console.log(`📝 User ${userId} now editing: ${shapeId || 'nothing'}`)
+  try {
+    const editingRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}/currentlyEditing`)
+    await set(editingRef, shapeId)
+    console.log(`📝 User ${userId} now editing: ${shapeId || 'nothing'}`)
+  } catch (error) {
+    console.error('❌ Failed to update currently editing:', error)
+  }
 }
 
 /**
- * Subscribe to all user presence data
+ * ✅ PHASE 8: Subscribe to all user presence data
  */
 export const subscribeToPresence = (
   callback: (presenceData: Record<string, PresenceData>) => void
 ): (() => void) => {
-  const database = getDatabase()
-  const presenceRef = ref(database, '/sessions/global-canvas-v1')
+  console.log('🔄 Subscribing to presence updates...')
+  
+  const presenceRef = ref(rtdb, '/sessions/global-canvas-v1')
   
   // ✅ BUILT-IN: Real-time presence updates
-  onValue(presenceRef, (snapshot) => {
-    const data = snapshot.val() || {}
-    callback(data)
-  })
+  const unsubscribe = onValue(presenceRef, 
+    (snapshot) => {
+      const data = snapshot.val() || {}
+      console.log('📡 Presence update received:', Object.keys(data).length, 'users')
+      callback(data)
+    },
+    (error) => {
+      console.error('❌ Presence subscription error:', error)
+    }
+  )
   
   // Return cleanup function
-  return () => off(presenceRef)
+  return () => {
+    console.log('🔄 Unsubscribing from presence updates')
+    unsubscribe()
+  }
 }
 
 /**
- * Cleanup user presence on logout
+ * ✅ PHASE 8: Cleanup user presence on logout
  */
 export const cleanupPresence = async (userId: string): Promise<void> => {
-  const database = getDatabase()
-  const presenceRef = ref(database, `/sessions/global-canvas-v1/${userId}`)
-  
-  // ✅ Set offline status instead of removing (for graceful cleanup)
-  await set(presenceRef, {
-    isOnline: false,
-    lastSeen: serverTimestamp(),
-    currentlyEditing: null
-  })
-  
-  console.log(`🔴 Presence cleaned up for user: ${userId}`)
+  try {
+    const presenceRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}`)
+    
+    // ✅ Set offline status instead of removing (for graceful cleanup)
+    await update(presenceRef, {
+      isOnline: false,
+      lastSeen: serverTimestamp(),
+      currentlyEditing: null
+    })
+    
+    console.log(`🔴 Presence cleaned up for user: ${userId}`)
+  } catch (error) {
+    console.error('❌ Failed to cleanup presence:', error)
+  }
 }
