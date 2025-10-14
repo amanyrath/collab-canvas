@@ -19,20 +19,23 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
   const canDrag = !isLockedByOthers && !!user
 
-  // ✅ ULTRA-FAST: Instant UI updates with minimal Firebase calls
+  // ✅ SINGLE SELECTION: Only one shape selected at a time (Figma-like UX)
   const handleClick = useCallback(async () => {
     if (!isLockedByOthers && user) {
       // ✅ Skip if already locked by current user (avoid unnecessary operations)
       if (isLockedByMe) {
+        console.log(`🔒 [${user.displayName}] Shape ${shape.id.slice(-4)} already selected - no action needed`)
         return // Already selected, no work needed
       }
       
       const { updateShapeOptimistic } = useCanvasStore.getState()
       const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
-      // ✅ INSTANT: Optimistic UI updates 
-      // Release previous locks locally (instant visual feedback)
+      console.log(`🎯 [${user.displayName}] Selecting shape ${shape.id.slice(-4)}, releasing ${userLockedShapes.length} previous selections`)
+      
+      // ✅ INSTANT: Release ALL previous selections (single-select behavior)
       userLockedShapes.forEach(s => {
+        console.log(`🔓 [${user.displayName}] Releasing shape ${s.id.slice(-4)}`)
         updateShapeOptimistic(s.id, { 
           isLocked: false, 
           lockedBy: null, 
@@ -41,7 +44,8 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         })
       })
       
-      // Lock current shape locally (instant selection highlight)
+      // ✅ INSTANT: Lock new shape (single selection)
+      console.log(`🔒 [${user.displayName}] Locking shape ${shape.id.slice(-4)}`)
       updateShapeOptimistic(shape.id, {
         isLocked: true,
         lockedBy: user.uid,
@@ -62,12 +66,27 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
     }
   }, [shape.id, isLockedByMe, isLockedByOthers, user, shapes])
 
-  // ✅ OPTIMISTIC DRAG START: Instant feedback
+  // ✅ DRAG START: Ensure single selection + lock for dragging
   const handleDragStart = useCallback(() => {
     if (!isLockedByMe && user) {
       const { updateShapeOptimistic } = useCanvasStore.getState()
+      const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
-      // Instantly lock the shape being dragged
+      console.log(`🖱️ [${user.displayName}] Drag start on ${shape.id.slice(-4)}, releasing ${userLockedShapes.length} other selections`)
+      
+      // ✅ SINGLE SELECTION: Release other shapes when starting drag
+      userLockedShapes.forEach(s => {
+        console.log(`🔓 [${user.displayName}] Drag-releasing shape ${s.id.slice(-4)}`)
+        updateShapeOptimistic(s.id, { 
+          isLocked: false, 
+          lockedBy: null, 
+          lockedByName: null, 
+          lockedByColor: null 
+        })
+        releaseLock(s.id, user.uid, user.displayName)
+      })
+      
+      // Lock the shape being dragged
       updateShapeOptimistic(shape.id, {
         isLocked: true,
         lockedBy: user.uid,
@@ -78,7 +97,7 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       // Background Firebase lock acquisition
       acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
-  }, [shape.id, isLockedByMe, user])
+  }, [shape.id, isLockedByMe, user, shapes])
 
   // ✅ OPTIMISTIC DRAG END: Instant position updates with proper circle handling
   const handleDragEnd = useCallback((e: any) => {
