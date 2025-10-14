@@ -4,241 +4,39 @@ import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { useShapeSync } from '../../hooks/useShapeSync'
-import { createShape, updateShape } from '../../utils/shapeUtils'
-import { acquireLock, releaseLock } from '../../utils/lockUtils'
+import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
+import { createShape } from '../../utils/shapeUtils'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
 import CursorLayer from './CursorLayer'
 import SelectionLayer from './SelectionLayer'
 
-// Canvas constants from PRD
+// Canvas constants
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
 const MIN_SCALE = 0.1
 const MAX_SCALE = 3
-const GRID_SIZE = 20 // For snapping
-const DRAG_SCALE_FACTOR = 1.05 // Slight scale up during drag
-
-// Performance constants
-const ANIMATION_DURATION = 0.2
 
 interface CanvasProps {
   width: number
   height: number
 }
 
-interface DragState {
-  isDragging: boolean
-  shapeId: string | null
-  startPos: { x: number; y: number }
-  hasLock: boolean
-  originalScale: { x: number; y: number }
-  originalZIndex: number
-}
-
 const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const stageRef = useRef<Konva.Stage>(null)
   const [isPanning, setIsPanning] = useState(false)
-  const [isCreatingShape, setIsCreatingShape] = useState(false)
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 })
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    shapeId: null,
-    startPos: { x: 0, y: 0 },
-    hasLock: false,
-    originalScale: { x: 1, y: 1 },
-    originalZIndex: 0
-  })
-  const [justFinishedDrag, setJustFinishedDrag] = useState(false)
-  const dragThrottleRef = useRef<NodeJS.Timeout | null>(null)
   
-  const { viewport, setViewport, selectShape, shapes, updateShape: updateLocalShape } = useCanvasStore()
+  const { viewport, setViewport, selectShape } = useCanvasStore()
   const { user } = useUserStore()
   
   // Set up real-time shape synchronization
   useShapeSync()
 
-  // Snap to grid utility
-  const snapToGrid = useCallback((value: number) => {
-    return Math.round(value / GRID_SIZE) * GRID_SIZE
-  }, [])
+  // Monitor user presence and cleanup locks for disconnected users
+  usePresenceMonitor()
 
-  // Update cursor based on state
-  const updateCursor = useCallback((newCursor: string) => {
-    const stage = stageRef.current
-    if (stage) {
-      stage.container().style.cursor = newCursor
-    }
-  }, [])
-
-  // Robust drag start handler
-  const handleDragStart = useCallback(async (shapeId: string, startX: number, startY: number) => {
-    if (!user || dragState.isDragging) return false
-
-    console.log(`🚀 Starting drag for shape: ${shapeId}`)
-    
-    try {
-      // Acquire lock
-      const lockResult = await acquireLock(shapeId, user.uid, user.displayName)
-      if (!lockResult.success) {
-        console.warn('Failed to acquire lock:', lockResult.error)
-        return false
-      }
-
-      const stage = stageRef.current
-      if (!stage) return false
-
-      // Find the shape node
-      const shapeNode = stage.findOne(`#shape-${shapeId}`)
-      if (!shapeNode) return false
-
-      // Store original properties
-      const originalScale = { x: shapeNode.scaleX(), y: shapeNode.scaleY() }
-      const originalZIndex = shapeNode.zIndex()
-
-      // Move to top and scale up for visual feedback
-      shapeNode.moveToTop()
-      shapeNode.scale({ 
-        x: originalScale.x * DRAG_SCALE_FACTOR, 
-        y: originalScale.y * DRAG_SCALE_FACTOR 
-      })
-      
-      // Enable caching for performance
-      shapeNode.cache()
-
-      setDragState({
-        isDragging: true,
-        shapeId,
-        startPos: { x: startX, y: startY },
-        hasLock: true,
-        originalScale,
-        originalZIndex
-      })
-
-      updateCursor('grabbing')
-      selectShape(shapeId)
-
-      // Force redraw
-      stage.batchDraw()
-      
-      console.log(`✅ Drag started for shape: ${shapeId}`)
-      return true
-    } catch (error) {
-      console.error('Error starting drag:', error)
-      return false
-    }
-  }, [user, dragState.isDragging, updateCursor, selectShape])
-
-  // Simplified drag move handler - placeholder for potential throttled updates
-  const handleDragMove = useCallback((_newX: number, _newY: number) => {
-    // Konva handles the visual updates during drag
-    // This can be used for throttled multiplayer updates if needed in the future
-  }, [])
-
-  // Robust drag end handler - receives final position directly from Konva
-  const handleDragEnd = useCallback(async (finalX: number, finalY: number) => {
-    if (!dragState.isDragging || !dragState.shapeId || !user) return
-
-    console.log(`🎯 Ending drag for shape: ${dragState.shapeId}`)
-
-    const stage = stageRef.current
-    if (!stage) return
-
-    const shapeNode = stage.findOne(`#shape-${dragState.shapeId}`)
-    const shape = shapes.find(s => s.id === dragState.shapeId)
-    
-    if (!shapeNode || !shape) return
-
-    try {
-      // Apply snap-to-grid to the passed final position
-      const snappedX = snapToGrid(finalX)
-      const snappedY = snapToGrid(finalY)
-
-      // Apply boundary constraints to snapped position
-      const finalPosX = Math.max(0, Math.min(CANVAS_WIDTH - shape.width, snappedX))
-      const finalPosY = Math.max(0, Math.min(CANVAS_HEIGHT - shape.height, snappedY))
-
-      // Animate to final position with easing
-      const tween = new Konva.Tween({
-        node: shapeNode,
-        duration: ANIMATION_DURATION,
-        x: finalPosX,
-        y: finalPosY,
-        scaleX: dragState.originalScale.x,
-        scaleY: dragState.originalScale.y,
-        easing: Konva.Easings.EaseOut,
-        onFinish: () => {
-          // Clear cache after animation
-          shapeNode.clearCache()
-          
-          // Restore original z-index
-          shapeNode.zIndex(dragState.originalZIndex)
-          
-          stage.batchDraw()
-        }
-      })
-      tween.play()
-
-      // ENDPOINT SYNC: Update both Firestore and local store with final position
-      await updateShape(dragState.shapeId, { 
-        x: finalPosX, 
-        y: finalPosY 
-      }, user.uid)
-
-      // Update local store with final position (this triggers multiplayer sync)
-      updateLocalShape(dragState.shapeId, { x: finalPosX, y: finalPosY })
-
-      // Release lock
-      if (dragState.hasLock) {
-        await releaseLock(dragState.shapeId, user.uid, user.displayName)
-      }
-
-      console.log(`✅ Drag completed: ${dragState.shapeId} -> (${finalPosX}, ${finalPosY})`)
-      console.log(`🔄 Synced final position to multiplayer`)
-
-      // Auto-deselect after drag for clean UX
-      selectShape(null)
-
-      // Set flag to prevent immediate actions after drag
-      setJustFinishedDrag(true)
-      setTimeout(() => {
-        setJustFinishedDrag(false)
-        console.log(`⏰ Re-enabled interactions after drag: ${dragState.shapeId}`)
-      }, 100) // 100ms delay - just enough to prevent accidental double-actions
-
-    } catch (error) {
-      console.error('Error ending drag:', error)
-      
-      // Reset to original position on error
-      if (shapeNode) {
-        shapeNode.x(dragState.startPos.x)
-        shapeNode.y(dragState.startPos.y)
-        shapeNode.scale(dragState.originalScale)
-        shapeNode.clearCache()
-        stage.batchDraw()
-      }
-    } finally {
-      // Clear drag state
-      setDragState({
-        isDragging: false,
-        shapeId: null,
-        startPos: { x: 0, y: 0 },
-        hasLock: false,
-        originalScale: { x: 1, y: 1 },
-        originalZIndex: 0
-      })
-
-      updateCursor('default')
-      
-      // Clear any pending throttle
-      if (dragThrottleRef.current) {
-        clearTimeout(dragThrottleRef.current)
-        dragThrottleRef.current = null
-      }
-    }
-  }, [dragState, user, shapes, snapToGrid, updateLocalShape, selectShape, updateCursor])
-
-  // Konva's drag system handles drag-end reliability, so no global listeners needed
+  // All drag logic is now handled by ShapeLayer using Konva's built-ins
 
   // Handle wheel zoom
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -355,60 +153,45 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [isPanning])
 
-  // Handle stage click (deselect or create shape)
+  // Smart stage click - deselect if something selected, otherwise create shape
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
-    // Only handle left clicks on the stage itself (empty area), not Ctrl+clicks
-    if (e.target !== stageRef.current || e.evt.button !== 0 || e.evt.ctrlKey) {
+    if (e.target !== stageRef.current || e.evt.button !== 0 || e.evt.ctrlKey || isPanning) {
       return
     }
     
-    // Don't do anything if we were panning
-    if (isPanning) {
-      console.log('Was panning, ignoring click')
+    // Check if something is currently selected
+    const { selectedShapeId } = useCanvasStore.getState()
+    
+    if (selectedShapeId) {
+      // Something is selected, just deselect it (don't create new shape)
+      console.log('🎯 Deselecting shape:', selectedShapeId)
+      selectShape(null)
       return
     }
     
-    // Always deselect shapes when clicking on empty canvas (even after drag)
-    console.log('🎯 Stage clicked - deselecting shapes')
-    selectShape(null)
-    
-    // Don't create shapes if we just finished dragging
-    if (justFinishedDrag) {
-      console.log('Just finished drag, only deselecting (not creating shape)')
-      return
-    }
-    
-    // Don't create shapes if user is not authenticated
+    // Nothing selected, create new shape
     if (!user) return
     
     try {
-      setIsCreatingShape(true)
-      
-      // Get click position relative to canvas
       const stage = stageRef.current
       if (!stage) return
       
       const pointerPosition = stage.getPointerPosition()
       if (!pointerPosition) return
       
-      // Convert screen coordinates to canvas coordinates
       const canvasX = (pointerPosition.x - viewport.x) / viewport.scale
       const canvasY = (pointerPosition.y - viewport.y) / viewport.scale
       
-      // Constrain to canvas boundaries (account for shape size)
       const constrainedX = Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasX))
       const constrainedY = Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasY))
       
-      // Create shape in Firestore
       await createShape(constrainedX, constrainedY, user.uid, user.displayName)
       
-      console.log(`✨ Shape created at (${constrainedX}, ${constrainedY}) by ${user.displayName}`)
+      console.log(`✨ Shape created at (${constrainedX}, ${constrainedY})`)
     } catch (error) {
       console.error('Error creating shape:', error)
-    } finally {
-      setIsCreatingShape(false)
     }
-  }, [isPanning, justFinishedDrag, user, viewport, selectShape])
+  }, [isPanning, user, viewport, selectShape])
 
   // Update stage position when viewport changes externally
   useEffect(() => {
@@ -444,14 +227,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         />
         
         {/* Shapes Layer - Interactive shapes */}
-        <ShapeLayer 
-          listening={true}
-          onDragStart={handleDragStart}
-          onDragMove={handleDragMove}
-          onDragEnd={handleDragEnd}
-          isDragging={dragState.isDragging}
-          draggingShapeId={dragState.shapeId}
-        />
+        <ShapeLayer listening={true} />
         
         {/* Selection Layer - Visual indicators */}
         <SelectionLayer listening={false} />
@@ -460,38 +236,20 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         <CursorLayer listening={false} />
       </Stage>
       
-      {/* Performance and state indicators */}
-      <div className="absolute top-2 right-2 space-y-1">
+      {/* Simple indicators */}
+      <div className="absolute top-2 right-2">
         <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded shadow">
           Scale: {(viewport.scale * 100).toFixed(0)}%
         </div>
-        {dragState.isDragging && (
-          <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded shadow">
-            Dragging: {dragState.shapeId}
-          </div>
-        )}
       </div>
       
-      {/* Status indicators */}
-      <div className="absolute bottom-2 left-2 space-y-1">
         {isPanning && (
+        <div className="absolute bottom-2 left-2">
           <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded shadow">
-            Panning canvas...
+            Panning...
+          </div>
           </div>
         )}
-        
-        {isCreatingShape && (
-          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded shadow">
-            Creating rectangle...
-          </div>
-        )}
-        
-        {dragState.isDragging && (
-          <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded shadow">
-            🎯 Dragging (Snap to grid: {GRID_SIZE}px)
-          </div>
-        )}
-      </div>
     </div>
   )
 }

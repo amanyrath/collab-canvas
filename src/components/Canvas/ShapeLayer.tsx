@@ -3,136 +3,135 @@ import { Layer, Rect, Text } from 'react-konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
+import { updateShape } from '../../utils/shapeUtils'
+import { acquireLock, releaseLock } from '../../utils/lockUtils'
 
 interface ShapeLayerProps {
   listening: boolean
-  onDragStart: (shapeId: string, x: number, y: number) => Promise<boolean>
-  onDragMove: (x: number, y: number) => void
-  onDragEnd: (finalX: number, finalY: number) => void
-  isDragging: boolean
-  draggingShapeId: string | null
 }
 
-// Individual shape component with React.memo for performance
-const ShapeComponent: React.FC<{ 
-  shape: Shape
-  onDragStart: (shapeId: string, x: number, y: number) => Promise<boolean>
-  onDragMove: (x: number, y: number) => void
-  onDragEnd: (finalX: number, finalY: number) => void
-  isDragging: boolean
-  draggingShapeId: string | null
-}> = React.memo(({ shape, onDragStart, onDragMove, onDragEnd, isDragging, draggingShapeId }) => {
-  const { selectShape, selectedShapeId } = useCanvasStore()
+// Ultra-simple shape component with React.memo for performance
+const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
+  const { selectShape, selectedShapeId, shapes } = useCanvasStore()
   const { user } = useUserStore()
   
   const isSelected = selectedShapeId === shape.id
-  const isLocked = shape.isLocked
-  const isLockedByOthers = isLocked && shape.lockedBy !== user?.uid
-  const isBeingDragged = isDragging && draggingShapeId === shape.id
-  
-  // Determine if shape can be dragged
-  const isDraggable = !isLockedByOthers && !!user
+  const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
+  const canDrag = !isLockedByOthers && !!user
 
-  // Handle shape click (selection only) - prevent during or just after drag
-  const handleClick = useCallback((e: any) => {
-    e.cancelBubble = true
-    e.evt.stopPropagation()
-    
-    // Don't select during drag or if locked by others
-    if (!isLockedByOthers && !isDragging && !isBeingDragged) {
+  // Simple click to select
+  const handleClick = useCallback(() => {
+    if (!isLockedByOthers) {
       selectShape(shape.id)
-      console.log(`🎯 Selected shape: ${shape.id}`)
     }
-  }, [shape.id, selectShape, isLockedByOthers, isDragging, isBeingDragged])
+  }, [shape.id, selectShape, isLockedByOthers])
 
-  // Konva drag start handler
-  const handleKonvaDragStart = useCallback(async (e: any) => {
-    const node = e.target
-    console.log(`🚀 Konva drag start: ${shape.id}`)
-    
-    // Call parent drag start handler
-    const success = await onDragStart(shape.id, node.x(), node.y())
-    if (!success) {
-      // Lock failed, stop Konva's drag operation immediately
+  // Robust drag start with error handling and existence check
+  const handleDragStart = useCallback(async (e: any) => {
+    if (!user) {
       e.target.stopDrag()
-      console.warn(`❌ Failed to start drag for shape: ${shape.id}`)
+      return
     }
-  }, [onDragStart, shape.id])
 
-  // Konva drag move handler
-  const handleKonvaDragMove = useCallback((e: any) => {
+    // Check if shape still exists (could be deleted by another user)
+    const currentShape = shapes.find(s => s.id === shape.id)
+    if (!currentShape) {
+      console.warn(`Shape ${shape.id} no longer exists, stopping drag`)
+      e.target.stopDrag()
+      return
+    }
+
+    try {
+      const lockResult = await acquireLock(shape.id, user.uid, user.displayName)
+      if (!lockResult.success) {
+        console.warn(`Failed to acquire lock: ${lockResult.error}`)
+        e.target.stopDrag()
+      } else {
+        selectShape(shape.id)
+      }
+    } catch (error) {
+      console.error('Error in drag start:', error)
+      e.target.stopDrag()
+    }
+  }, [user, shape.id, selectShape, shapes])
+
+  // Robust drag end with error handling and recovery
+  const handleDragEnd = useCallback(async (e: any) => {
+    if (!user) return
+
     const node = e.target
-    onDragMove(node.x(), node.y())
-  }, [onDragMove])
+    const finalX = node.x()
+    const finalY = node.y()
 
-  // Konva drag end handler
-  const handleKonvaDragEnd = useCallback((e: any) => {
-    const node = e.target
-    console.log(`🎯 Konva drag end: ${shape.id} -> (${node.x()}, ${node.y()})`)
-    onDragEnd(node.x(), node.y())
-  }, [onDragEnd, shape.id])
+    try {
+      // Check if shape still exists
+      const currentShape = shapes.find(s => s.id === shape.id)
+      if (!currentShape) {
+        console.warn(`Shape ${shape.id} was deleted during drag`)
+        return
+      }
 
-  // Konva drag boundary function to constrain drag within canvas
+      // Update position in database
+      await updateShape(shape.id, { x: finalX, y: finalY }, user.uid)
+      
+      // Release lock
+      await releaseLock(shape.id, user.uid, user.displayName)
+      
+      console.log(`✅ Drag completed: ${shape.id} -> (${finalX}, ${finalY})`)
+    } catch (error) {
+      console.error('Drag end failed:', error)
+      
+      // Reset shape to original position on error
+      try {
+        node.x(shape.x)
+        node.y(shape.y)
+        console.log(`🔄 Reset shape ${shape.id} to original position after error`)
+        
+        // Still try to release the lock to prevent permanent locks
+        await releaseLock(shape.id, user.uid, user.displayName)
+      } catch (resetError) {
+        console.error('Failed to reset shape position:', resetError)
+      }
+    }
+  }, [user, shape.id, shape.x, shape.y, shapes])
+
+  // Use Konva's built-in dragBoundFunc for all positioning logic
   const dragBoundFunc = useCallback((pos: { x: number; y: number }) => {
-    // Constrain to canvas boundaries
-    const constrainedX = Math.max(0, Math.min(5000 - shape.width, pos.x)) // CANVAS_WIDTH
-    const constrainedY = Math.max(0, Math.min(5000 - shape.height, pos.y)) // CANVAS_HEIGHT
-    
+    // Snap to 20px grid + constrain to canvas bounds
+    const snappedX = Math.round(pos.x / 20) * 20
+    const snappedY = Math.round(pos.y / 20) * 20
     return {
-      x: constrainedX,
-      y: constrainedY
+      x: Math.max(0, Math.min(4900, snappedX)), // 5000 - 100 (shape width)
+      y: Math.max(0, Math.min(4900, snappedY))  // 5000 - 100 (shape height)
     }
-  }, [shape.width, shape.height])
-  const getCursor = () => {
-    if (isLockedByOthers) return 'not-allowed'
-    if (isBeingDragged) return 'grabbing'
-    if (isDraggable && isSelected) return 'grab'
-    return 'default'
-  }
+  }, [])
 
   return (
     <>
-      {/* Rectangle */}
       <Rect
-        id={`shape-${shape.id}`} // Important: ID for Canvas drag system
         x={shape.x}
         y={shape.y}
         width={shape.width}
         height={shape.height}
         fill={shape.fill}
-        stroke={isSelected ? (user?.cursorColor || '#0066ff') : isLockedByOthers ? '#ff6b6b' : 'transparent'}
-        strokeWidth={isSelected || isLockedByOthers ? 2 : 0}
-        opacity={isLockedByOthers ? 0.7 : 1}
-        draggable={isDraggable}
-        dragBoundFunc={isDraggable ? dragBoundFunc : undefined}
+        stroke={isSelected ? (user?.cursorColor || '#0066ff') : 'transparent'}
+        strokeWidth={isSelected ? 2 : 0}
+        draggable={canDrag}
+        dragBoundFunc={canDrag ? dragBoundFunc : undefined}
         onClick={handleClick}
-        onTap={handleClick}
-        onDragStart={handleKonvaDragStart}
-        onDragMove={handleKonvaDragMove}
-        onDragEnd={handleKonvaDragEnd}
-        onMouseEnter={(e) => {
-          e.target.getStage()!.container().style.cursor = getCursor()
-        }}
-        onMouseLeave={(e) => {
-          if (!isBeingDragged) {
-            e.target.getStage()!.container().style.cursor = 'default'
-          }
-        }}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       />
       
-      {/* Text overlay if shape has text */}
       {shape.text && (
         <Text
           x={shape.x}
-          y={shape.y + shape.height / 2 - shape.fontSize / 2}
+          y={shape.y + 42}
           width={shape.width}
-          height={shape.fontSize}
           text={shape.text}
-          fontSize={shape.fontSize}
-          fontFamily="sans-serif"
-          fill={shape.textColor}
+          fontSize={14}
+          fill="#000"
           align="center"
-          verticalAlign="middle"
           listening={false}
         />
       )}
@@ -153,30 +152,15 @@ const ShapeComponent: React.FC<{
   )
 })
 
-ShapeComponent.displayName = 'ShapeComponent'
+SimpleShape.displayName = 'SimpleShape'
 
-const ShapeLayer: React.FC<ShapeLayerProps> = ({ 
-  listening, 
-  onDragStart, 
-  onDragMove, 
-  onDragEnd, 
-  isDragging, 
-  draggingShapeId 
-}) => {
+const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
   const { shapes } = useCanvasStore()
 
   return (
     <Layer listening={listening}>
       {shapes.map((shape) => (
-        <ShapeComponent 
-          key={shape.id} 
-          shape={shape}
-          onDragStart={onDragStart}
-          onDragMove={onDragMove}
-          onDragEnd={onDragEnd}
-          isDragging={isDragging}
-          draggingShapeId={draggingShapeId}
-        />
+        <SimpleShape key={shape.id} shape={shape} />
       ))}
     </Layer>
   )

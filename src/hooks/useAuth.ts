@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth'
 import { auth } from '../utils/firebase'
 import { useUserStore, createUserFromFirebase } from '../store/userStore'
+import { setupDisconnectCleanup } from '../utils/lockUtils'
 
 export const useAuth = () => {
   const { setUser, setLoading, setError, clearUser } = useUserStore()
@@ -10,12 +11,15 @@ export const useAuth = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth, 
-      (firebaseUser: FirebaseUser | null) => {
+      async (firebaseUser: FirebaseUser | null) => {
         try {
           if (firebaseUser) {
             const user = createUserFromFirebase(firebaseUser)
             setUser(user, firebaseUser)
             console.log('🔥 User authenticated:', user.displayName)
+            
+            // Set up disconnect cleanup for lock management
+            await setupDisconnectCleanup(user.uid, user.displayName)
           } else {
             clearUser()
             console.log('🔥 User signed out')

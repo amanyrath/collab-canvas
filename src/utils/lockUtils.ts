@@ -1,5 +1,6 @@
 // Firestore transaction-based locking utilities
-import { doc, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { doc, runTransaction, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore'
+import { getDatabase, ref, onDisconnect, set } from 'firebase/database'
 import { db } from './firebase'
 
 const SHAPES_COLLECTION = 'canvas/global-canvas-v1/shapes'
@@ -124,17 +125,62 @@ export const releaseLock = async (
   }
 }
 
-// Force release all locks held by a user (for disconnect cleanup)
-export const releaseAllUserLocks = async (displayName: string) => {
+// Set up automatic lock cleanup on user disconnect
+export const setupDisconnectCleanup = async (userId: string, displayName: string) => {
   try {
-    // Note: This would require a collection query and batch update
-    // For MVP, we'll handle this with onDisconnect in Realtime Database
-    console.log(`🧹 Releasing all locks for user: ${displayName}`)
+    const database = getDatabase()
+    const userPresenceRef = ref(database, `presence/${userId}`)
     
-    // Implementation would go here for production
-    // This is a placeholder for the basic lock cleanup
+    // Set user as online
+    await set(userPresenceRef, {
+      userId,
+      displayName,
+      online: true,
+      lastSeen: Date.now()
+    })
     
+    // Set up disconnect cleanup - clear presence and trigger lock cleanup
+    await onDisconnect(userPresenceRef).set({
+      userId,
+      displayName,
+      online: false,
+      lastSeen: Date.now()
+    })
+    
+    console.log(`🔒 Set up disconnect cleanup for user: ${displayName}`)
   } catch (error) {
-    console.error('Error releasing user locks:', error)
+    console.error('Error setting up disconnect cleanup:', error)
+  }
+}
+
+// Force release all locks held by a user (for disconnect cleanup)
+export const releaseAllUserLocks = async (userId: string) => {
+  try {
+    console.log(`🧹 Force releasing all locks for user: ${userId}`)
+    
+    const shapesRef = collection(db, SHAPES_COLLECTION)
+    const lockedShapesQuery = query(shapesRef, where('lockedBy', '==', userId))
+    const snapshot = await getDocs(lockedShapesQuery)
+    
+    const unlockPromises = snapshot.docs.map(async (shapeDoc) => {
+      const shapeRef = doc(db, SHAPES_COLLECTION, shapeDoc.id)
+      
+      return runTransaction(db, async (transaction) => {
+        const currentDoc = await transaction.get(shapeRef)
+        if (currentDoc.exists() && currentDoc.data().lockedBy === userId) {
+          transaction.update(shapeRef, {
+            isLocked: false,
+            lockedBy: null,
+            lastModifiedAt: serverTimestamp()
+          })
+          console.log(`🔓 Force unlocked shape: ${shapeDoc.id}`)
+        }
+      })
+    })
+    
+    await Promise.all(unlockPromises)
+    console.log(`✅ Released ${snapshot.docs.length} locks for user: ${userId}`)
+  } catch (error) {
+    console.error('Error force releasing user locks:', error)
   }
 }

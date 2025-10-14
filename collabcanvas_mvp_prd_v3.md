@@ -676,7 +676,7 @@
 **Deliverable:** Rectangle creation syncs across users, persists in database
 
 ---
-
+yes
 ### Phase 5: Selection & Movement with Locking (MOVED UP)
 - Handle click on rectangle to select
 - Show visual selection indicator
