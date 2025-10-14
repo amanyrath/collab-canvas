@@ -176,18 +176,24 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   
   // ✅ SIMPLE HANDLERS: No complex logic, just update state
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
+    console.log(`🔲 Shape button clicked: ${shapeType}`)
     setCurrentShapeType(shapeType)
-    console.log(`🔲 Shape mode: ${shapeType}`)
+    console.log(`🔲 Shape mode updated to: ${shapeType}`)
   }, [])
   
   const handleColorChange = useCallback((color: string) => {
+    console.log(`🎨 Color button clicked: ${color}`)
     setCurrentColor(color)
-    console.log(`🎨 Color mode: ${color}`)
+    console.log(`🎨 Color mode updated to: ${color}`)
     
     // ✅ SIMPLE: If shapes selected, change their color
     if (user) {
       const { shapes, updateShapeOptimistic } = useCanvasStore.getState()
       const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+      
+      if (selectedShapes.length > 0) {
+        console.log(`🎨 Updating ${selectedShapes.length} selected shapes to ${color}`)
+      }
       
       selectedShapes.forEach(shape => {
         updateShapeOptimistic(shape.id, { 
@@ -384,6 +390,13 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         currentColor={currentColor}
         onColorChange={handleColorChange}
       />
+      
+      {/* Debug Info */}
+      {import.meta.env.DEV && (
+        <div className="absolute top-4 right-4 z-10 bg-black text-white p-2 rounded text-xs">
+          Shape: {currentShapeType} | Color: {currentColor}
+        </div>
+      )}
       
       <Stage
         ref={stageRef}
