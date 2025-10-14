@@ -196,7 +196,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       console.log(`✅ Drag completed: ${dragState.shapeId} -> (${finalPosX}, ${finalPosY})`)
       console.log(`🔄 Synced final position to multiplayer`)
 
-      // Auto-deselect after drag
+      // Auto-deselect after drag for clean UX
       selectShape(null)
 
       // Set flag to prevent immediate actions after drag
@@ -204,7 +204,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       setTimeout(() => {
         setJustFinishedDrag(false)
         console.log(`⏰ Re-enabled interactions after drag: ${dragState.shapeId}`)
-      }, 500) // 500ms delay to prevent accidental actions
+      }, 100) // 100ms delay - just enough to prevent accidental double-actions
 
     } catch (error) {
       console.error('Error ending drag:', error)
@@ -362,15 +362,19 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       return
     }
     
-    // Don't create shapes if we were panning
+    // Don't do anything if we were panning
     if (isPanning) {
       console.log('Was panning, ignoring click')
       return
     }
     
+    // Always deselect shapes when clicking on empty canvas (even after drag)
+    console.log('🎯 Stage clicked - deselecting shapes')
+    selectShape(null)
+    
     // Don't create shapes if we just finished dragging
     if (justFinishedDrag) {
-      console.log('Just finished drag, ignoring stage click')
+      console.log('Just finished drag, only deselecting (not creating shape)')
       return
     }
     
@@ -397,9 +401,6 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       
       // Create shape in Firestore
       await createShape(constrainedX, constrainedY, user.uid, user.displayName)
-      
-      // Deselect any selected shape
-      selectShape(null)
       
       console.log(`✨ Shape created at (${constrainedX}, ${constrainedY}) by ${user.displayName}`)
     } catch (error) {

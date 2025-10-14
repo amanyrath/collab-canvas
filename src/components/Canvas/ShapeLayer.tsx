@@ -33,17 +33,17 @@ const ShapeComponent: React.FC<{
   // Determine if shape can be dragged
   const isDraggable = !isLockedByOthers && !!user
 
-  // Handle shape click (selection only)
+  // Handle shape click (selection only) - prevent during or just after drag
   const handleClick = useCallback((e: any) => {
     e.cancelBubble = true
     e.evt.stopPropagation()
     
-    // Only select if we're not dragging and not locked by others
-    if (!isLockedByOthers && !isDragging) {
+    // Don't select during drag or if locked by others
+    if (!isLockedByOthers && !isDragging && !isBeingDragged) {
       selectShape(shape.id)
       console.log(`🎯 Selected shape: ${shape.id}`)
     }
-  }, [shape.id, selectShape, isLockedByOthers, isDragging])
+  }, [shape.id, selectShape, isLockedByOthers, isDragging, isBeingDragged])
 
   // Konva drag start handler
   const handleKonvaDragStart = useCallback(async (e: any) => {
@@ -72,7 +72,17 @@ const ShapeComponent: React.FC<{
     onDragEnd(node.x(), node.y())
   }, [onDragEnd, shape.id])
 
-  // Determine cursor style
+  // Konva drag boundary function to constrain drag within canvas
+  const dragBoundFunc = useCallback((pos: { x: number; y: number }) => {
+    // Constrain to canvas boundaries
+    const constrainedX = Math.max(0, Math.min(5000 - shape.width, pos.x)) // CANVAS_WIDTH
+    const constrainedY = Math.max(0, Math.min(5000 - shape.height, pos.y)) // CANVAS_HEIGHT
+    
+    return {
+      x: constrainedX,
+      y: constrainedY
+    }
+  }, [shape.width, shape.height])
   const getCursor = () => {
     if (isLockedByOthers) return 'not-allowed'
     if (isBeingDragged) return 'grabbing'
@@ -94,6 +104,7 @@ const ShapeComponent: React.FC<{
         strokeWidth={isSelected || isLockedByOthers ? 2 : 0}
         opacity={isLockedByOthers ? 0.7 : 1}
         draggable={isDraggable}
+        dragBoundFunc={isDraggable ? dragBoundFunc : undefined}
         onClick={handleClick}
         onTap={handleClick}
         onDragStart={handleKonvaDragStart}
