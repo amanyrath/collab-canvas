@@ -203,6 +203,13 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     console.log(`🎨 [${user?.displayName}] Color button clicked: ${color}`)
     setIsUpdatingState(true)
     setCurrentColor(color)
+    
+    // ✅ UPDATE CREATION PREFERENCES: Only when not editing a selected shape  
+    if (!lastSelectedShapeId) {
+      setCreationColor(color)
+      console.log(`🎨 Creation color updated to: ${color}`)
+    }
+    
     console.log(`🎨 [${user?.displayName}] My color mode updated to: ${color}`)
     
     // ✅ MULTIPLAYER-SAFE: Only change MY selected shapes
@@ -258,7 +265,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       setIsUpdatingState(false)
       console.log(`✅ [${user?.displayName}] Color creation ready for: ${color}`)
     }, 100)
-  }, [user])
+  }, [user, lastSelectedShapeId])
   
   // ✅ MULTIPLAYER-SAFE PICKER SYNC: Only sync when THIS player selects shapes
   const { shapes } = useCanvasStore()
