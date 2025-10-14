@@ -9,11 +9,12 @@ import { useShapeSync } from '../../hooks/useShapeSync'
 import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
 import { createShape, deleteShape } from '../../utils/shapeUtils'
 import { releaseLock } from '../../utils/lockUtils'
-import { Shape } from '../../utils/types'
+import { Shape, ShapeType } from '../../utils/types'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
 import SelectionLayer from './SelectionLayer'
 import SimpleCursorLayer from './SimpleCursorLayer'
+import { ShapeSelector } from './ShapeSelector'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -169,6 +170,38 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
+  // ✅ SHAPE MODE: Track current shape type to create
+  const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
+  
+  // ✅ SHAPE MODE HANDLER: Update shape type from UI
+  const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
+    setCurrentShapeType(shapeType)
+    const shapeIcon = shapeType === 'rectangle' ? '🔲' : '⭕'
+    console.log(`${shapeIcon} Shape mode: ${shapeType}`)
+  }, [])
+  
+  // ✅ KEYBOARD SHORTCUTS: Still support keyboard shortcuts (optional)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Only handle shortcuts when not typing in inputs
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+      
+      switch (e.key.toLowerCase()) {
+        case 'r':
+          handleShapeTypeChange('rectangle')
+          break
+        case 'c':
+          handleShapeTypeChange('circle')
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [handleShapeTypeChange])
+
   // ✅ SMART UX: Deselect first, then allow creation
   const lastShapeCreationRef = useRef<number>(0)
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -213,7 +246,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     lastShapeCreationRef.current = now
     
     // ✅ CREATE SHAPE: No selection, so create new shape
-    console.log(`🎯 No selection - creating new shape`)
+    console.log(`🎯 No selection - creating new ${currentShapeType}`)
     
     // ✅ INSTANT: Create shape optimistically
     const stage = stageRef.current!
@@ -226,7 +259,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     // Create shape locally first (instant feedback) with minimal object creation
     const optimisticShape: Shape = {
       id: shapeId,
-      type: 'rectangle',
+      type: currentShapeType, // ✅ USE SELECTED SHAPE TYPE
       x, y,
       width: 100,
       height: 100,
@@ -267,9 +300,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         
         if (!tempShape) return // Shape was deleted before sync
         
-        try {
-          // Create real shape in Firebase
-          const realShapeId = await createShape(tempShape.x, tempShape.y, user.uid, user.displayName)
+            try {
+              // Create real shape in Firebase
+              const realShapeId = await createShape(tempShape.x, tempShape.y, tempShape.type, user.uid, user.displayName)
           
           // Update the optimistic shape with real ID
           const { updateShapeOptimistic } = useCanvasStore.getState()
@@ -313,6 +346,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       onTouchMove={(e) => e.preventDefault()}
       style={{ touchAction: 'none' }} // Prevent mobile scroll
     >
+      {/* Shape Selector UI */}
+      <ShapeSelector 
+        currentShapeType={currentShapeType}
+        onShapeTypeChange={handleShapeTypeChange}
+      />
+      
       <Stage
         ref={stageRef}
         width={width}

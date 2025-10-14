@@ -22,6 +22,7 @@ const SHAPES_COLLECTION = 'canvas/global-canvas-v1/shapes'
 export const createShape = async (
   x: number, 
   y: number, 
+  type: 'rectangle' | 'circle',
   createdBy: string,
   displayName: string
 ): Promise<string> => {
@@ -32,7 +33,7 @@ export const createShape = async (
     const shapesRef = collection(db, SHAPES_COLLECTION)
     
     const newShape: Omit<Shape, 'id'> = {
-      type: 'rectangle',
+      type, // ✅ USE PROVIDED SHAPE TYPE
       x,
       y,
       width: 100, // Default size from PRD
