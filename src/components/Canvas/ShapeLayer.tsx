@@ -19,7 +19,7 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
   const canDrag = !isLockedByOthers && !!user
 
-  // ✅ SIMPLIFIED: Click to lock (this IS selection) - release previous locks first
+  // ✅ OPTIMIZED: Instant UI updates with background sync
   const handleClick = useCallback(async () => {
     if (!isLockedByOthers && user) {
       // ✅ Skip if already locked by current user (avoid unnecessary operations)
@@ -28,20 +28,40 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         return
       }
       
-      // ✅ First release any existing locks held by this user
+      const { updateShapeOptimistic } = useCanvasStore.getState()
       const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
-      if (userLockedShapes.length > 0) {
-        await Promise.all(
-          userLockedShapes.map(s => 
-            releaseLock(s.id, user.uid, user.displayName)
-          )
-        )
-        console.log(`🔓 Released ${userLockedShapes.length} previous locks`)
-      }
+      // ✅ INSTANT: Optimistic UI updates with Firestore protection
+      // Release previous locks locally
+      userLockedShapes.forEach(s => {
+        updateShapeOptimistic(s.id, { 
+          isLocked: false, 
+          lockedBy: null, 
+          lockedByName: null, 
+          lockedByColor: null 
+        })
+      })
       
-      // ✅ Then acquire lock on clicked shape  
-      await acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
+      // Lock current shape locally with protection
+      updateShapeOptimistic(shape.id, {
+        isLocked: true,
+        lockedBy: user.uid,
+        lockedByName: user.displayName,
+        lockedByColor: user.cursorColor
+      })
+      
+      // ✅ BACKGROUND: Sync to Firestore (doesn't block UI)
+      Promise.all([
+        ...userLockedShapes.map(s => 
+          releaseLock(s.id, user.uid, user.displayName)
+        ),
+        acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
+      ]).catch(error => {
+        console.error('Background sync failed:', error)
+        // TODO: Could implement retry logic or revert optimistic updates
+      })
+      
+      console.log(`⚡ Instant selection: ${shape.id}`)
     }
   }, [shape.id, shapes, isLockedByOthers, isLockedByMe, user])
 
