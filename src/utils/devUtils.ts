@@ -1,4 +1,4 @@
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore'
+import { collection, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore'
 import { db } from './firebase'
 
 /**
@@ -43,7 +43,8 @@ export const clearAllShapes = async () => {
     const snapshot = await getDocs(shapesRef)
     
     const deletePromises = snapshot.docs.map(async (shapeDoc) => {
-      await shapeDoc.ref.delete()
+      const shapeRef = doc(db, 'canvas/global-canvas-v1/shapes', shapeDoc.id)
+      await deleteDoc(shapeRef)
       console.log(`🗑️ Deleted shape: ${shapeDoc.id}`)
     })
     

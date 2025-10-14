@@ -189,7 +189,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     } finally {
       setIsCreatingShape(false)
     }
-  }, [isDragging, user, viewport, selectShape])
+  }, [isPanning, user, viewport, selectShape])
 
   // Update stage position when viewport changes externally
   useEffect(() => {
