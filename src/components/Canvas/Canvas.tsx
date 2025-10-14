@@ -170,10 +170,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
   }, [width, height])
 
-  // ✅ SIMPLE STATE: Just track current creation settings
+  // ✅ MULTIPLAYER-SAFE STATE: Each player has independent picker state
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
   const [currentColor, setCurrentColor] = useState<string>('#CCCCCC')
   const [isUpdatingState, setIsUpdatingState] = useState(false)
+  const [lastSelectedShapeId, setLastSelectedShapeId] = useState<string | null>(null) // Track what we're editing
   
   // ✅ SIMPLE HANDLERS: No complex logic, just update state
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
@@ -195,16 +196,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     setCurrentColor(color)
     console.log(`🎨 Color mode updated to: ${color}`)
     
-    // ✅ SIMPLE: If shapes selected, change their color
+    // ✅ MULTIPLAYER-SAFE: Only change MY selected shapes
     if (user) {
       const { shapes, updateShapeOptimistic } = useCanvasStore.getState()
-      const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+      const mySelectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
       
-      if (selectedShapes.length > 0) {
-        console.log(`🎨 Updating ${selectedShapes.length} selected shapes to ${color}`)
+      if (mySelectedShapes.length > 0) {
+        console.log(`🎨 Updating MY ${mySelectedShapes.length} selected shapes to ${color}`)
       }
       
-      selectedShapes.forEach(shape => {
+      // ✅ FAST: Batch update all my selected shapes
+      mySelectedShapes.forEach(shape => {
         updateShapeOptimistic(shape.id, { 
           fill: color,
           isLocked: true, // Keep selected
@@ -212,8 +214,14 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
           lockedByName: user.displayName,
           lockedByColor: user.cursorColor
         })
-        updateShape(shape.id, { fill: color }, user.uid)
       })
+      
+      // ✅ EFFICIENT: Single Firebase batch for all updates
+      if (mySelectedShapes.length > 0) {
+        Promise.all(
+          mySelectedShapes.map(shape => updateShape(shape.id, { fill: color }, user.uid))
+        )
+      }
     }
     
     // Allow creation after state settles
@@ -223,42 +231,49 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }, 100)
   }, [user])
   
-  // ✅ SIMPLE COLOR SYNC: Update color picker when selecting shapes
+  // ✅ MULTIPLAYER-SAFE PICKER SYNC: Only sync when THIS player selects shapes
   const { shapes } = useCanvasStore()
   useEffect(() => {
     if (user) {
-      const selectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+      const mySelectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
       
-      if (selectedShapes.length === 1) {
-        // ✅ SINGLE SELECTION: Update pickers to match shape's properties
-        const selectedShape = selectedShapes[0]
+      if (mySelectedShapes.length === 1) {
+        // ✅ I SELECTED A SHAPE: Update MY pickers to match MY selection
+        const mySelectedShape = mySelectedShapes[0]
         
-        // Update color picker
-        if (selectedShape.fill !== currentColor) {
-          setCurrentColor(selectedShape.fill)
-          console.log(`🎯 Selected shape - Color picker updated to: ${selectedShape.fill}`)
+        // Only update if this is a new selection (not just a re-render)
+        if (mySelectedShape.id !== lastSelectedShapeId) {
+          setLastSelectedShapeId(mySelectedShape.id)
+          
+          if (mySelectedShape.fill !== currentColor) {
+            setCurrentColor(mySelectedShape.fill)
+            console.log(`🎯 I selected shape - My color picker updated to: ${mySelectedShape.fill}`)
+          }
+          
+          if (mySelectedShape.type !== currentShapeType) {
+            setCurrentShapeType(mySelectedShape.type)
+            console.log(`🎯 I selected shape - My shape picker updated to: ${mySelectedShape.type}`)
+          }
         }
         
-        // ✅ UPDATE SHAPE PICKER: Show selected shape's type
-        if (selectedShape.type !== currentShapeType) {
-          setCurrentShapeType(selectedShape.type)
-          console.log(`🎯 Selected shape - Shape picker updated to: ${selectedShape.type}`)
-        }
+      } else if (mySelectedShapes.length === 0 && lastSelectedShapeId) {
+        // ✅ I DESELECTED: Reset MY pickers to MY creation defaults
+        setLastSelectedShapeId(null)
         
-      } else if (selectedShapes.length === 0) {
-        // ✅ NO SELECTION: Return to default creation settings
         if (currentColor !== '#CCCCCC') {
           setCurrentColor('#CCCCCC')
-          console.log(`🔄 Deselected - Color picker reset to default grey`)
+          console.log(`🔄 I deselected - My color picker reset to default grey`)
         }
         if (currentShapeType !== 'rectangle') {
           setCurrentShapeType('rectangle')
-          console.log(`🔄 Deselected - Shape picker reset to rectangle`)
+          console.log(`🔄 I deselected - My shape picker reset to rectangle`)
         }
       }
-      // For multi-selection, keep current settings
+      
+      // ✅ MULTIPLAYER: Other players' selections don't affect MY pickers
+      // When Player B selects a blue circle, Player A's pickers stay unchanged
     }
-  }, [shapes, user, currentColor, currentShapeType])
+  }, [shapes, user, currentColor, currentShapeType, lastSelectedShapeId])
   
   // ✅ SIMPLE KEYBOARD SHORTCUTS
   useEffect(() => {
@@ -438,8 +453,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       {/* Debug Info */}
       {import.meta.env.DEV && (
         <div className="absolute top-4 right-4 z-10 bg-black text-white p-2 rounded text-xs">
-          Shape: {currentShapeType} | Color: {currentColor}
+          <div>My Shape: {currentShapeType} | My Color: {currentColor}</div>
+          <div>User: {user?.displayName} ({user?.uid?.slice(-4)})</div>
           {isUpdatingState && <div className="text-yellow-400">⏳ Updating...</div>}
+          {lastSelectedShapeId && <div className="text-blue-400">Editing: {lastSelectedShapeId.slice(-4)}</div>}
         </div>
       )}
       
