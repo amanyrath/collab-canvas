@@ -1,4 +1,3 @@
-import React from 'react'
 import Auth from './components/Auth/Auth'
 import Canvas from './components/Canvas/Canvas'
 import Navbar from './components/Layout/Navbar'

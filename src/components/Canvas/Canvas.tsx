@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react'
-import { Stage, Layer } from 'react-konva'
+import { Stage } from 'react-konva'
 import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import GridLayer from './GridLayer'

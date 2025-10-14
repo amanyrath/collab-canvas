@@ -1,5 +1,5 @@
 import React from 'react'
-import { Layer, Rect, Text } from 'react-konva'
+import { Layer, Rect } from 'react-konva'
 import { useCanvasStore } from '../../store/canvasStore'
 
 interface SelectionLayerProps {
