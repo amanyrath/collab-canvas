@@ -176,6 +176,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   
   // ✅ SHAPE SELECTION HANDLER: Update color picker when shapes are selected
   const handleShapeSelection = useCallback((selectedShapes: Shape[]) => {
+    // ✅ PREVENT INTERFERENCE: Don't update color during rapid shape creation
+    const now = Date.now()
+    if (now - lastShapeCreationRef.current < 200) {
+      return // Skip color updates during rapid creation
+    }
+    
     if (selectedShapes.length === 1) {
       // ✅ SINGLE SELECTION: Update color picker to match shape's color
       const shapeColor = selectedShapes[0].fill
@@ -208,7 +214,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const unsubscribe = useCanvasStore.subscribe((state) => {
       if (user) {
         const selectedShapes = state.shapes.filter(shape => shape.lockedBy === user.uid)
-        handleShapeSelection(selectedShapes)
+        
+        // ✅ DEBOUNCE: Only update color picker, don't interfere with creation
+        setTimeout(() => {
+          handleShapeSelection(selectedShapes)
+        }, 50) // Small delay to avoid interfering with rapid operations
       }
     })
 
