@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
 import { auth } from '../../utils/firebase'
+import { getAuthErrorMessage, isRetryableAuthError, getAuthErrorAction } from '../../utils/authErrors'
 
 interface LoginProps {
   onSuccess?: () => void
@@ -11,7 +12,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; action?: string; retryable?: boolean } | null>(null)
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,7 +23,12 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) => {
       await signInWithEmailAndPassword(auth, email, password)
       onSuccess?.()
     } catch (err: any) {
-      setError(err.message)
+      // ✅ PHASE 9: User-friendly error messages
+      setError({
+        message: getAuthErrorMessage(err),
+        action: getAuthErrorAction(err),
+        retryable: isRetryableAuthError(err)
+      })
     } finally {
       setLoading(false)
     }
@@ -37,7 +43,12 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) => {
       await signInWithPopup(auth, provider)
       onSuccess?.()
     } catch (err: any) {
-      setError(err.message)
+      // ✅ PHASE 9: User-friendly error messages
+      setError({
+        message: getAuthErrorMessage(err),
+        action: getAuthErrorAction(err),
+        retryable: isRetryableAuthError(err)
+      })
     } finally {
       setLoading(false)
     }
@@ -50,8 +61,43 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) => {
       </h2>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="text-red-500 text-lg">⚠️</div>
+            <div className="flex-1">
+              <div className="text-red-800 font-medium text-sm mb-1">
+                Sign In Error
+              </div>
+              <div className="text-red-700 text-sm">
+                {error.message}
+              </div>
+              
+              {/* ✅ Suggested action button */}
+              {error.action && (
+                <button
+                  onClick={() => {
+                    if (error.action === 'Create Account') {
+                      onSwitchToRegister?.()
+                    }
+                    setError(null)
+                  }}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  {error.action}
+                </button>
+              )}
+              
+              {/* ✅ Retry button for network errors */}
+              {error.retryable && (
+                <button
+                  onClick={() => setError(null)}
+                  className="mt-2 ml-2 text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  Try Again
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

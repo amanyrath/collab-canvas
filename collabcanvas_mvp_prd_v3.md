@@ -690,19 +690,6 @@
 
 **Deliverable:** Smooth shape movement with transaction-based conflict prevention
 
----
-
-### Phase : Text Layer Implementation
-- Handle double-click on rectangle
-- Lock rectangle with transaction on text edit start
-- Show text input overlay
-- Capture text input with debounced updates (200ms)
-- Write text to Firestore (debounced)
-- Render text on rectangle for all users
-- Handle Enter/ESC keys
-- Release lock on edit complete
-
-**Deliverable:** Text editing syncs across users with locking
 
 ---
 
@@ -765,6 +752,7 @@
 
 **Deliverable:** Production-ready MVP
 
+
 ---
 
 ### Phase 12: Final Deployment & Warm-Up
@@ -780,6 +768,19 @@
 **Deliverable:** Publicly accessible CollabCanvas MVP with warm server
 
 ---
+
+
+### Phase : Text Layer Implementation
+- Handle double-click on rectangle
+- Lock rectangle with transaction on text edit start
+- Show text input overlay
+- Capture text input with debounced updates (200ms)
+- Write text to Firestore (debounced)
+- Render text on rectangle for all users
+- Handle Enter/ESC keys
+- Release lock on edit complete
+
+**Deliverable:** Text editing syncs across users with locking
 
 ## Testing Strategy
 

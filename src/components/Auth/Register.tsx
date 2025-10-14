@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../../utils/firebase'
+import { getAuthErrorMessage, isRetryableAuthError, getAuthErrorAction } from '../../utils/authErrors'
 
 interface RegisterProps {
   onSuccess?: () => void
@@ -12,7 +13,7 @@ const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; action?: string; retryable?: boolean } | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,13 +21,13 @@ const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
     setError(null)
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError({ message: 'Passwords do not match' })
       setLoading(false)
       return
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+      setError({ message: 'Password must be at least 6 characters' })
       setLoading(false)
       return
     }
@@ -35,7 +36,12 @@ const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
       await createUserWithEmailAndPassword(auth, email, password)
       onSuccess?.()
     } catch (err: any) {
-      setError(err.message)
+      // ✅ PHASE 9: User-friendly error messages
+      setError({
+        message: getAuthErrorMessage(err),
+        action: getAuthErrorAction(err),
+        retryable: isRetryableAuthError(err)
+      })
     } finally {
       setLoading(false)
     }
@@ -48,8 +54,43 @@ const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
       </h2>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="text-red-500 text-lg">⚠️</div>
+            <div className="flex-1">
+              <div className="text-red-800 font-medium text-sm mb-1">
+                Registration Error
+              </div>
+              <div className="text-red-700 text-sm">
+                {error.message}
+              </div>
+              
+              {/* ✅ Suggested action button */}
+              {error.action && (
+                <button
+                  onClick={() => {
+                    if (error.action === 'Sign In Instead') {
+                      onSwitchToLogin?.()
+                    }
+                    setError(null)
+                  }}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  {error.action}
+                </button>
+              )}
+              
+              {/* ✅ Retry button for network errors */}
+              {error.retryable && (
+                <button
+                  onClick={() => setError(null)}
+                  className="mt-2 ml-2 text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  Try Again
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

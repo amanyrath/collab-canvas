@@ -2,6 +2,8 @@ import Auth from './components/Auth/Auth'
 import Canvas from './components/Canvas/Canvas'
 import Navbar from './components/Layout/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
+import ErrorBoundary from './components/ErrorBoundary'
+import ConnectionBanner from './components/ConnectionBanner'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -28,20 +30,38 @@ function App() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <ProtectedRoute fallback={authFallback}>
-        {/* Authenticated user interface */}
-        <div className="h-screen flex flex-col">
-          {/* Header */}
-          <Navbar />
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50">
+        {/* ✅ PHASE 9: Connection status banner */}
+        <ConnectionBanner />
+        
+        <ProtectedRoute fallback={authFallback}>
+          {/* Authenticated user interface */}
+          <div className="h-screen flex flex-col">
+            {/* Header */}
+            <Navbar />
 
-          {/* Canvas Area */}
-          <main className="flex-1 p-4">
-            <div className="h-full flex">
-              {/* Main Canvas */}
-              <div className="flex-1 mr-4">
-                <Canvas width={800} height={600} />
-              </div>
+            {/* Canvas Area */}
+            <main className="flex-1 p-4">
+              <div className="h-full flex">
+                {/* Main Canvas - Wrapped in additional Error Boundary for canvas-specific errors */}
+                <ErrorBoundary fallback={
+                  <div className="flex-1 mr-4 bg-white rounded-lg border border-red-200 p-8 text-center">
+                    <div className="text-4xl mb-4">🎨</div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Canvas Error</h3>
+                    <p className="text-gray-600 mb-4">The canvas encountered an error. Try refreshing the page.</p>
+                    <button 
+                      onClick={() => window.location.reload()} 
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Reload Canvas
+                    </button>
+                  </div>
+                }>
+                  <div className="flex-1 mr-4">
+                    <Canvas width={800} height={600} />
+                  </div>
+                </ErrorBoundary>
               
               {/* Sidebar */}
               <div className="w-64 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -56,14 +76,15 @@ function App() {
                 </div>
                 
                 <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Phase 5 Progress:</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Progress:</h4>
                   <div className="space-y-1 text-sm text-gray-500">
-                    <div>✅ Pan & Zoom</div>
-                    <div>✅ Shape Creation</div>
-                    <div>✅ Real-time Sync</div>
+                    <div>✅ Canvas & Pan/Zoom</div>
+                    <div>✅ Shape Creation & Sync</div>
+                    <div>✅ Selection & Locking</div>
                     <div>✅ Drag & Drop</div>
-                    <div>✅ Transaction Locking</div>
-                    <div>✅ Middle-click Pan</div>
+                    <div>✅ Shape Deletion</div>
+                    <div>✅ Error Handling</div>
+                    <div>🔄 Connection Status</div>
                   </div>
                 </div>
                 
@@ -83,6 +104,7 @@ function App() {
         </div>
       </ProtectedRoute>
     </div>
+    </ErrorBoundary>
   )
 }
 
