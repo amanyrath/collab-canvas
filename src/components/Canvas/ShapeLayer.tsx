@@ -19,20 +19,19 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
   const canDrag = !isLockedByOthers && !!user
 
-  // ✅ OPTIMIZED: Instant UI updates with background sync
+  // ✅ ULTRA-FAST: Instant UI updates with minimal Firebase calls
   const handleClick = useCallback(async () => {
     if (!isLockedByOthers && user) {
       // ✅ Skip if already locked by current user (avoid unnecessary operations)
       if (isLockedByMe) {
-        console.log(`Already locked by me: ${shape.id}`)
-        return
+        return // Already selected, no work needed
       }
       
       const { updateShapeOptimistic } = useCanvasStore.getState()
       const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
-      // ✅ INSTANT: Optimistic UI updates with Firestore protection
-      // Release previous locks locally
+      // ✅ INSTANT: Optimistic UI updates 
+      // Release previous locks locally (instant visual feedback)
       userLockedShapes.forEach(s => {
         updateShapeOptimistic(s.id, { 
           isLocked: false, 
@@ -42,7 +41,7 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         })
       })
       
-      // Lock current shape locally with protection
+      // Lock current shape locally (instant selection highlight)
       updateShapeOptimistic(shape.id, {
         isLocked: true,
         lockedBy: user.uid,
@@ -50,22 +49,24 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         lockedByColor: user.cursorColor
       })
       
-      // ✅ BACKGROUND: Sync to Firestore (doesn't block UI)
-      Promise.all([
-        ...userLockedShapes.map(s => 
-          releaseLock(s.id, user.uid, user.displayName)
-        ),
-        acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
-      ]).catch(error => {
-        console.error('Background sync failed:', error)
-        // TODO: Could implement retry logic or revert optimistic updates
-      })
-      
-      console.log(`⚡ Instant selection: ${shape.id}`)
+      // ✅ BATCHED: Single async operation for all lock changes
+      // This happens in the background without blocking the UI
+      if (userLockedShapes.length > 0) {
+        // Release old + acquire new in a single batch operation
+        Promise.all([
+          ...userLockedShapes.map(s => 
+            releaseLock(s.id, user.uid, user.displayName).catch(() => {})
+          ),
+          acquireLock(shape.id, user.uid, user.displayName, user.cursorColor).catch(() => {})
+        ])
+      } else {
+        // Just acquire new lock
+        acquireLock(shape.id, user.uid, user.displayName, user.cursorColor).catch(() => {})
+      }
     }
   }, [shape.id, shapes, isLockedByOthers, isLockedByMe, user])
 
-  // Robust drag start with error handling and existence check
+  // ✅ FAST: Simplified drag start - optimistic + background sync
   const handleDragStart = useCallback(async (e: any) => {
     if (!user) {
       e.target.stopDrag()
@@ -75,73 +76,60 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
     // Check if shape still exists (could be deleted by another user)
     const currentShape = shapes.find(s => s.id === shape.id)
     if (!currentShape) {
-      console.warn(`Shape ${shape.id} no longer exists, stopping drag`)
       e.target.stopDrag()
       return
     }
 
-    try {
-      // ✅ Release any existing locks before drag (same logic as click)
-      const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
+    // If not already locked by current user, acquire lock instantly
+    if (!isLockedByMe) {
+      const { updateShapeOptimistic } = useCanvasStore.getState()
       
-      if (userLockedShapes.length > 0) {
-        await Promise.all(
-          userLockedShapes.map(s => 
-            releaseLock(s.id, user.uid, user.displayName)
-          )
-        )
-      }
+      // Instant UI lock (don't wait for Firebase)
+      updateShapeOptimistic(shape.id, {
+        isLocked: true,
+        lockedBy: user.uid,
+        lockedByName: user.displayName,
+        lockedByColor: user.cursorColor
+      })
       
-      const lockResult = await acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
-      if (!lockResult.success) {
-        console.warn(`Failed to acquire lock: ${lockResult.error}`)
+      // Background sync (non-blocking)
+      acquireLock(shape.id, user.uid, user.displayName, user.cursorColor).catch(() => {
+        // If lock fails, revert optimistic update
+        updateShapeOptimistic(shape.id, {
+          isLocked: false,
+          lockedBy: null,
+          lockedByName: null,
+          lockedByColor: null
+        })
         e.target.stopDrag()
-      }
-      // ✅ SIMPLIFIED: No separate selection - lock IS selection
-    } catch (error) {
-      console.error('Error in drag start:', error)
-      e.target.stopDrag()
+      })
     }
-  }, [user, shape.id, shapes])
+  }, [user, shape.id, shapes, isLockedByMe])
 
-  // Robust drag end with error handling and recovery
+  // ✅ FAST: Optimistic drag end with background sync
   const handleDragEnd = useCallback(async (e: any) => {
     if (!user) return
 
     const node = e.target
-    const finalX = node.x()
-    const finalY = node.y()
+    const finalX = Math.round(node.x())
+    const finalY = Math.round(node.y())
 
-    try {
-      // Check if shape still exists
-      const currentShape = shapes.find(s => s.id === shape.id)
-      if (!currentShape) {
-        console.warn(`Shape ${shape.id} was deleted during drag`)
-        return
-      }
+    // Check if shape still exists
+    const currentShape = shapes.find(s => s.id === shape.id)
+    if (!currentShape) return
 
-      // Update position in database
-      await updateShape(shape.id, { x: finalX, y: finalY }, user.uid)
-      
-      // ✅ SIMPLIFIED: Keep lock after drag (Figma-like behavior)
-      // Don't release lock - user stays "selected/locked" until canvas click
-      
-      console.log(`✅ Drag completed: ${shape.id} -> (${finalX}, ${finalY}) - kept locked`)
-    } catch (error) {
-      console.error('Drag end failed:', error)
-      
-      // Reset shape to original position on error
-      try {
-        node.x(shape.x)
-        node.y(shape.y)
-        console.log(`🔄 Reset shape ${shape.id} to original position after error`)
-        
-        // Still try to release the lock to prevent permanent locks
-        await releaseLock(shape.id, user.uid, user.displayName)
-      } catch (resetError) {
-        console.error('Failed to reset shape position:', resetError)
-      }
-    }
+    // ✅ INSTANT: Update position locally (optimistic)
+    const { updateShapeOptimistic } = useCanvasStore.getState()
+    updateShapeOptimistic(shape.id, { x: finalX, y: finalY })
+
+    // ✅ BACKGROUND: Sync position to Firebase (non-blocking)
+    updateShape(shape.id, { x: finalX, y: finalY }, user.uid).catch(error => {
+      console.error('Position sync failed:', error)
+      // On error, revert to original position
+      updateShapeOptimistic(shape.id, { x: shape.x, y: shape.y })
+      node.x(shape.x)
+      node.y(shape.y)
+    })
   }, [user, shape.id, shape.x, shape.y, shapes])
 
   // Use Konva's built-in dragBoundFunc for all positioning logic

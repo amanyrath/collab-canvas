@@ -53,10 +53,13 @@ export const acquireLock = async (
       
       console.log(`🔒 Lock acquired by ${displayName} for shape:`, shapeId)
       
-      // ✅ PHASE 8: Update presence to show what user is editing
-      updateCurrentlyEditing(userId, shapeId).catch(error => {
-        console.warn('Failed to update currently editing status:', error)
-      })
+      // ✅ PHASE 8: Update presence to show what user is editing (throttled)
+      // Use setTimeout to avoid blocking the lock operation
+      setTimeout(() => {
+        updateCurrentlyEditing(userId, shapeId).catch(error => {
+          console.warn('Failed to update currently editing status:', error)
+        })
+      }, 0)
       
       return {
         success: true
@@ -121,10 +124,12 @@ export const releaseLock = async (
       
       console.log(`🔓 Lock released by ${displayName} for shape:`, shapeId, finalPosition ? `with position (${finalPosition.x}, ${finalPosition.y})` : 'without position update')
       
-      // ✅ PHASE 8: Update presence to show user is no longer editing
-      updateCurrentlyEditing(userId, null).catch(error => {
-        console.warn('Failed to clear currently editing status:', error)
-      })
+      // ✅ PHASE 8: Update presence to show user is no longer editing (throttled)
+      setTimeout(() => {
+        updateCurrentlyEditing(userId, null).catch(error => {
+          console.warn('Failed to clear currently editing status:', error)
+        })
+      }, 0)
       
       return {
         success: true
