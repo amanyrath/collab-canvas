@@ -174,6 +174,47 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
   const [currentColor, setCurrentColor] = useState<string>('#CCCCCC') // Default to original light grey
   
+  // ✅ SHAPE SELECTION HANDLER: Update color picker when shapes are selected
+  const handleShapeSelection = useCallback((selectedShapes: Shape[]) => {
+    if (selectedShapes.length === 1) {
+      // ✅ SINGLE SELECTION: Update color picker to match shape's color
+      const shapeColor = selectedShapes[0].fill
+      if (shapeColor !== currentColor) {
+        setCurrentColor(shapeColor)
+        const colorName = shapeColor === '#CCCCCC' ? 'Grey' : 
+                         shapeColor === '#ef4444' ? 'Red' : 
+                         shapeColor === '#22c55e' ? 'Green' : 
+                         shapeColor === '#3b82f6' ? 'Blue' : 'Custom'
+        console.log(`🎯 Shape selected - Color picker updated to: ${colorName} (${shapeColor})`)
+      }
+    } else if (selectedShapes.length > 1) {
+      // ✅ MULTI-SELECTION: Check if all shapes have same color
+      const firstColor = selectedShapes[0].fill
+      const allSameColor = selectedShapes.every(shape => shape.fill === firstColor)
+      
+      if (allSameColor && firstColor !== currentColor) {
+        setCurrentColor(firstColor)
+        const colorName = firstColor === '#CCCCCC' ? 'Grey' : 
+                         firstColor === '#ef4444' ? 'Red' : 
+                         firstColor === '#22c55e' ? 'Green' : 
+                         firstColor === '#3b82f6' ? 'Blue' : 'Custom'
+        console.log(`🎯 ${selectedShapes.length} shapes selected (same color) - Color picker updated to: ${colorName} (${firstColor})`)
+      }
+    }
+  }, [currentColor])
+
+  // ✅ SUBSCRIBE TO STORE CHANGES: Update color picker when selection changes
+  useEffect(() => {
+    const unsubscribe = useCanvasStore.subscribe((state) => {
+      if (user) {
+        const selectedShapes = state.shapes.filter(shape => shape.lockedBy === user.uid)
+        handleShapeSelection(selectedShapes)
+      }
+    })
+
+    return unsubscribe
+  }, [user, handleShapeSelection])
+  
   // ✅ SHAPE MODE HANDLER: Update shape type from UI
   const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
     setCurrentShapeType(shapeType)
