@@ -1,217 +1,94 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useCallback } from 'react'
 import { Layer, Rect, Text } from 'react-konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
-import { acquireLock, releaseLock } from '../../utils/lockUtils'
-import { updateShape } from '../../utils/shapeUtils'
 
 interface ShapeLayerProps {
   listening: boolean
+  onDragStart: (shapeId: string, x: number, y: number) => Promise<boolean>
+  onDragMove: (x: number, y: number) => void
+  onDragEnd: () => void
+  isDragging: boolean
+  draggingShapeId: string | null
 }
 
 // Individual shape component with React.memo for performance
-const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
-  const { selectShape, selectedShapeId, updateShape: updateLocalShape } = useCanvasStore()
+const ShapeComponent: React.FC<{ 
+  shape: Shape
+  onDragStart: (shapeId: string, x: number, y: number) => Promise<boolean>
+  onDragMove: (x: number, y: number) => void
+  onDragEnd: () => void
+  isDragging: boolean
+  draggingShapeId: string | null
+}> = React.memo(({ shape, onDragStart, onDragMove, onDragEnd, isDragging, draggingShapeId }) => {
+  const { selectShape, selectedShapeId } = useCanvasStore()
   const { user } = useUserStore()
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
-  const [hasLock, setHasLock] = useState(false)
-  const [justFinishedDrag, setJustFinishedDrag] = useState(false)
   
   const isSelected = selectedShapeId === shape.id
   const isLocked = shape.isLocked
   const isLockedByOthers = isLocked && shape.lockedBy !== user?.uid
-  
-  // Clean up lock when component unmounts or shape is deselected
-  useEffect(() => {
-    return () => {
-      // Cleanup lock on unmount
-      if (hasLock && user) {
-        releaseLock(shape.id, user.uid, user.displayName)
-        setHasLock(false)
-      }
-    }
-  }, [])
-  
-  // Release lock when shape is deselected
-  useEffect(() => {
-    if (!isSelected && hasLock && user) {
-      releaseLock(shape.id, user.uid, user.displayName)
-      setHasLock(false)
-      console.log(`🔓 Released lock due to deselection: ${shape.id}`)
-    }
-  }, [isSelected, hasLock, user, shape.id])
-  
-  // Failsafe: Clean up stuck drag states after timeout
-  useEffect(() => {
-    if (isDragging) {
-      const timeout = setTimeout(() => {
-        console.warn(`⚠️ Drag timeout detected for ${shape.id}, forcing cleanup`)
-        setIsDragging(false)
-        if (hasLock && user) {
-          releaseLock(shape.id, user.uid, user.displayName)
-          setHasLock(false)
-          console.log(`🔓 Force released stuck lock for: ${shape.id}`)
-        }
-      }, 10000) // 10 second timeout for stuck drags
-      
-      return () => clearTimeout(timeout)
-    }
-  }, [isDragging, hasLock, user, shape.id])
-  
-  // Handle shape click (selection) with drag delay protection
+  const isBeingDragged = isDragging && draggingShapeId === shape.id
+
+  // Handle shape click (selection)
   const handleClick = useCallback((e: any) => {
-    e.cancelBubble = true // Prevent event from bubbling to stage
-    e.evt.stopPropagation() // Additional stop propagation
+    e.cancelBubble = true
+    e.evt.stopPropagation()
     
-    // Prevent immediate selection after drag to avoid conflicts
-    if (justFinishedDrag) {
-      console.log(`⏳ Ignoring click on ${shape.id} - just finished drag`)
-      return
-    }
-    
-    if (!isLockedByOthers) {
-      // Always select the shape, even if already selected (ensures consistent state)
+    if (!isLockedByOthers && !isDragging) {
       selectShape(shape.id)
-      console.log(`🎯 Selected shape: ${shape.id} (was already selected: ${isSelected})`)
+      console.log(`🎯 Selected shape: ${shape.id}`)
     }
-  }, [shape.id, selectShape, isLockedByOthers, justFinishedDrag, isSelected])
+  }, [shape.id, selectShape, isLockedByOthers, isDragging])
 
-  // Handle drag start
-  const handleDragStart = useCallback(async (e: any) => {
-    console.log(`🚀 Drag start for ${shape.id}, isLocked: ${isLocked}, lockedBy: ${shape.lockedBy}, user: ${user?.uid}`)
+  // Handle mouse down (potential drag start)
+  const handleMouseDown = useCallback((e: any) => {
+    if (!user || isLockedByOthers || isDragging) return
     
-    if (!user || isLockedByOthers) {
-      console.log(`❌ Cannot drag ${shape.id} - no user or locked by others`)
-      e.target.stopDrag()
-      return
-    }
+    e.cancelBubble = true
+    e.evt.stopPropagation()
     
-    try {
-      // Clear the just finished drag flag when starting a new drag
-      setJustFinishedDrag(false)
-      
-      // Acquire lock before dragging
-      const lockResult = await acquireLock(shape.id, user.uid, user.displayName)
-      
-      if (!lockResult.success) {
-        e.target.stopDrag()
-        console.warn('Failed to acquire lock:', lockResult.error)
-        return
-      }
-      
-      setHasLock(true)
-      setIsDragging(true)
-      setDragStartPos({ x: shape.x, y: shape.y })
-      selectShape(shape.id) // Ensure shape is selected when dragging starts
-      
-      console.log(`🎯 Started dragging shape: ${shape.id}, lock acquired`)
-    } catch (error) {
-      console.error('Error in drag start:', error)
-      e.target.stopDrag()
-    }
-  }, [shape.id, shape.x, shape.y, user, isLockedByOthers, selectShape, isLocked, shape.lockedBy])
+    // Start drag
+    onDragStart(shape.id, shape.x, shape.y)
+  }, [user, isLockedByOthers, isDragging, onDragStart, shape.id, shape.x, shape.y])
 
-  // Handle drag end with comprehensive cleanup
-  const handleDragEnd = useCallback(async (e: any) => {
-    console.log(`🎯 Drag end triggered for ${shape.id}, isDragging: ${isDragging}, hasLock: ${hasLock}`)
+  // Handle mouse move during drag
+  const handleMouseMove = useCallback((e: any) => {
+    if (!isBeingDragged) return
     
-    if (!user) {
-      console.warn('No user in drag end')
-      setIsDragging(false)
-      return
+    const stage = e.target.getStage()
+    if (!stage) return
+    
+    const pos = stage.getPointerPosition()
+    if (!pos) return
+    
+    // Convert to canvas coordinates
+    const canvasX = (pos.x - stage.x()) / stage.scaleX()
+    const canvasY = (pos.y - stage.y()) / stage.scaleY()
+    
+    onDragMove(canvasX, canvasY)
+  }, [isBeingDragged, onDragMove])
+
+  // Handle mouse up (drag end)
+  const handleMouseUp = useCallback(() => {
+    if (isBeingDragged) {
+      onDragEnd()
     }
-    
-    // Prevent multiple calls to drag end
-    if (!isDragging) {
-      console.log('Drag end called but was not dragging, ignoring')
-      return
-    }
-    
-    // IMMEDIATELY set dragging to false to prevent multiple calls
-    setIsDragging(false)
-    
-    try {
-      // Get the dragged element's final position
-      const draggedRect = e.target
-      
-      // Use the actual dragged position (Konva handles the viewport transform automatically)
-      const newPos = {
-        x: Math.max(0, Math.min(5000 - shape.width, draggedRect.x())),
-        y: Math.max(0, Math.min(5000 - shape.height, draggedRect.y()))
-      }
-      
-      console.log(`🎯 Final drag position for ${shape.id}:`, newPos)
-      
-      // Update the visual position (snap to boundaries)
-      draggedRect.x(newPos.x)
-      draggedRect.y(newPos.y)
-      
-      // IMMEDIATELY update local store for instant visual sync
-      updateLocalShape(shape.id, { x: newPos.x, y: newPos.y })
-      console.log(`🔄 Updated local store position: ${shape.id} -> (${newPos.x}, ${newPos.y})`)
-      
-      // Update Firestore directly for other users (separate from lock release)
-      try {
-        await updateShape(shape.id, { x: newPos.x, y: newPos.y }, user.uid)
-        console.log(`🔥 Updated Firestore position: ${shape.id} -> (${newPos.x}, ${newPos.y})`)
-      } catch (firestoreError) {
-        console.error('Failed to update Firestore position:', firestoreError)
-      }
-      
-      // Release lock (without position update since we did it above)
-      if (hasLock) {
-        await releaseLock(shape.id, user.uid, user.displayName) // No position parameter
-        setHasLock(false)
-        console.log(`✅ Lock released for shape: ${shape.id}`)
-      } else {
-        console.warn(`⚠️ Drag ended but no lock held for shape: ${shape.id}`)
-      }
-      
-      // Deselect the shape after successful drag completion
-      selectShape(null)
-      console.log(`🔄 Deselected shape after drag: ${shape.id}`)
-      
-      // Set flag to prevent immediate re-selection after drag
-      setJustFinishedDrag(true)
-      setTimeout(() => {
-        setJustFinishedDrag(false)
-        console.log(`⏰ Re-enabled selection for ${shape.id}`)
-      }, 300) // 300ms delay before allowing selection again
-      
-    } catch (error) {
-      console.error('Error in drag end:', error)
-      // Reset position on error
-      e.target.x(dragStartPos.x)
-      e.target.y(dragStartPos.y)
-      // Also reset local store
-      updateLocalShape(shape.id, { x: dragStartPos.x, y: dragStartPos.y })
-      
-      // Force release lock on error
-      if (hasLock) {
-        try {
-          await releaseLock(shape.id, user.uid, user.displayName)
-          setHasLock(false)
-          console.log(`🔓 Force released lock after error for: ${shape.id}`)
-        } catch (releaseError) {
-          console.error('Failed to release lock after error:', releaseError)
-        }
-      }
-    }
-  }, [shape.id, shape.width, shape.height, user, isDragging, dragStartPos, updateLocalShape, hasLock, selectShape])
+  }, [isBeingDragged, onDragEnd])
 
   // Determine cursor style
   const getCursor = () => {
     if (isLockedByOthers) return 'not-allowed'
-    if (isDragging) return 'grabbing'
-    return 'grab'
+    if (isBeingDragged) return 'grabbing'
+    if (isSelected && !isLocked) return 'grab'
+    return 'default'
   }
 
   return (
     <>
       {/* Rectangle */}
       <Rect
+        id={`shape-${shape.id}`} // Important: ID for Canvas drag system
         x={shape.x}
         y={shape.y}
         width={shape.width}
@@ -222,20 +99,19 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
         opacity={isLockedByOthers ? 0.7 : 1}
         onClick={handleClick}
         onTap={handleClick}
-        draggable={!isLockedByOthers}
-        dragBoundFunc={(pos) => ({
-          x: Math.max(0, Math.min(5000 - shape.width, pos.x)),
-          y: Math.max(0, Math.min(5000 - shape.height, pos.y))
-        })}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onMouseUp={handleDragEnd} // Fallback for when onDragEnd doesn't fire
-        onTouchEnd={handleDragEnd} // Fallback for touch devices
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onTouchStart={handleMouseDown}
+        onTouchMove={handleMouseMove}
+        onTouchEnd={handleMouseUp}
         onMouseEnter={(e) => {
           e.target.getStage()!.container().style.cursor = getCursor()
         }}
         onMouseLeave={(e) => {
-          e.target.getStage()!.container().style.cursor = 'default'
+          if (!isBeingDragged) {
+            e.target.getStage()!.container().style.cursor = 'default'
+          }
         }}
       />
       
@@ -274,13 +150,28 @@ const ShapeComponent: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
 
 ShapeComponent.displayName = 'ShapeComponent'
 
-const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
+const ShapeLayer: React.FC<ShapeLayerProps> = ({ 
+  listening, 
+  onDragStart, 
+  onDragMove, 
+  onDragEnd, 
+  isDragging, 
+  draggingShapeId 
+}) => {
   const { shapes } = useCanvasStore()
 
   return (
     <Layer listening={listening}>
       {shapes.map((shape) => (
-        <ShapeComponent key={shape.id} shape={shape} />
+        <ShapeComponent 
+          key={shape.id} 
+          shape={shape}
+          onDragStart={onDragStart}
+          onDragMove={onDragMove}
+          onDragEnd={onDragEnd}
+          isDragging={isDragging}
+          draggingShapeId={draggingShapeId}
+        />
       ))}
     </Layer>
   )
