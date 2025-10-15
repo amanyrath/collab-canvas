@@ -5,6 +5,7 @@ import { performanceMonitor, getPerformanceStats } from './performanceMonitor'
 /**
  * Development utility to clear all locks and reset canvas state
  * Use this when locks get stuck during testing
+ * Only clears shapes that are actually locked
  */
 export const clearAllLocks = async () => {
   try {
@@ -13,19 +14,35 @@ export const clearAllLocks = async () => {
     const shapesRef = collection(db, 'canvas/global-canvas-v1/shapes')
     const snapshot = await getDocs(shapesRef)
     
-    const updatePromises = snapshot.docs.map(async (shapeDoc) => {
+    // Filter to only locked shapes
+    const lockedShapes = snapshot.docs.filter(doc => {
+      const data = doc.data()
+      return data.isLocked === true
+    })
+    
+    console.log(`Found ${lockedShapes.length} locked shapes out of ${snapshot.docs.length} total shapes`)
+    
+    if (lockedShapes.length === 0) {
+      console.log('✅ No locks to clear!')
+      return { success: true, clearedCount: 0 }
+    }
+    
+    const updatePromises = lockedShapes.map(async (shapeDoc) => {
       const shapeRef = doc(db, 'canvas/global-canvas-v1/shapes', shapeDoc.id)
+      const data = shapeDoc.data()
       await updateDoc(shapeRef, {
         isLocked: false,
-        lockedBy: null
+        lockedBy: null,
+        lockedByName: null,
+        lockedByColor: null
       })
-      console.log(`🔓 Cleared lock for shape: ${shapeDoc.id}`)
+      console.log(`🔓 Cleared lock for shape: ${shapeDoc.id} (was locked by: ${data.lockedByName || 'unknown'})`)
     })
     
     await Promise.all(updatePromises)
     
-    console.log(`✅ Cleared ${snapshot.docs.length} locks successfully!`)
-    return { success: true, clearedCount: snapshot.docs.length }
+    console.log(`✅ Cleared ${lockedShapes.length} locks successfully!`)
+    return { success: true, clearedCount: lockedShapes.length }
   } catch (error) {
     console.error('❌ Error clearing locks:', error)
     return { success: false, error }
