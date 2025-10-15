@@ -394,15 +394,16 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
       return
     }
     
-    // Only start selection if clicking on empty area (Stage, Layer, or our invisible Rect)
-    // We need to check if it's our background rect or an actual shape
-    const isBackgroundClick = targetType === 'Stage' || targetType === 'Layer' || 
-      (targetType === 'Rect' && e.target.attrs.fill === 'transparent')
+    // Only start selection if clicking on empty area (Stage, Layer, or our background rect)
+    const isBackgroundRect = e.target.name && e.target.name() === 'background-rect'
+    const isBackgroundClick = targetType === 'Stage' || targetType === 'Layer' || isBackgroundRect
     
     if (!isBackgroundClick) {
-      console.log('❌ Not clicking on background, target:', targetType)
+      console.log('❌ Not clicking on background, target:', targetType, 'name:', e.target.name?.())
       return
     }
+    
+    console.log('✅ Background click detected, isBackgroundRect:', isBackgroundRect)
 
     const stage = e.target.getStage()
     const pointerPosition = stage.getPointerPosition()
@@ -578,6 +579,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     >
       {/* Invisible rectangle to capture mouse events on empty canvas areas */}
       <Rect
+        name="background-rect"
         x={0}
         y={0}
         width={5000}
