@@ -80,13 +80,15 @@ function App() {
                   <div>• <strong>Click empty space</strong> → Create rectangles</div>
                   <div>• <strong>Click & drag shapes</strong> → Move them</div>
                   <div>• <strong>Click shapes</strong> → Select/lock them</div>
+                  <div>• <strong>Shift + click</strong> → Multi-select shapes</div>
+                  <div>• <strong>⌘/Ctrl + A</strong> → Select all shapes</div>
                   <div>• <strong>Drag corner handles</strong> → Resize shapes</div>
                   <div>• <strong>Shift + resize</strong> → Lock aspect ratio</div>
                   <div>• <strong>Trackpad scroll</strong> → Pan canvas (Figma-style)</div>
                   <div>• <strong>⌘/Ctrl + scroll</strong> → Zoom (or pinch)</div>
                   <div>• <strong>Mouse wheel</strong> → Zoom</div>
                   <div>• <strong>Space + drag</strong> → Pan (power users)</div>
-                  <div>• <strong>Delete key</strong> → Delete selected shape</div>
+                  <div>• <strong>Delete key</strong> → Delete selected shapes</div>
                 </div>
                 
                 <div className="mt-6">
@@ -94,7 +96,7 @@ function App() {
                   <div className="space-y-1 text-sm text-gray-500">
                     <div>✅ Canvas & Figma-style Navigation</div>
                     <div>✅ Shape Creation & Real-time Sync</div>
-                    <div>✅ Selection & Multiplayer Locking</div>
+                    <div>✅ Multi-Select & Multiplayer Locking</div>
                     <div>✅ Drag & Drop with Constraints</div>
                     <div>✅ Shape Resizing with Aspect Ratio Lock</div>
                     <div>✅ Shape Deletion (optimistic)</div>

@@ -15,7 +15,7 @@ interface ShapeLayerProps {
 const SimpleShape: React.FC<{ 
   shape: Shape
   isSelected: boolean
-  onSelect: () => void
+  onSelect: (e: any) => void
   shapeRef: React.RefObject<Konva.Shape>
 }> = React.memo(({ shape, isSelected: _isSelected, onSelect, shapeRef }) => {
   const { shapes } = useCanvasStore()
@@ -25,52 +25,78 @@ const SimpleShape: React.FC<{
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
   const canDrag = !isLockedByOthers && !!user
 
-  // ✅ SINGLE SELECTION: Only one shape selected at a time (Figma-like UX)
-  const handleClick = useCallback(async () => {
+  // ✅ MULTI-SELECT: Support shift+click for multiple selection (Figma-like UX)
+  const handleClick = useCallback(async (e: any) => {
     if (!isLockedByOthers && user) {
-      onSelect() // Notify parent of selection
-      
-      // ✅ Skip if already locked by current user (avoid unnecessary operations)
-      if (isLockedByMe) {
-        return // Already selected, no work needed
-      }
+      const isShiftKey = e.evt?.shiftKey || false
+      onSelect(e) // Notify parent of selection with event
       
       const { updateShapeOptimistic } = useCanvasStore.getState()
       const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
-      // ✅ INSTANT: Release ALL previous selections (single-select behavior)
-      userLockedShapes.forEach(s => {
-        updateShapeOptimistic(s.id, { 
-          isLocked: false, 
-          lockedBy: null, 
-          lockedByName: null, 
-          lockedByColor: null 
+      if (isShiftKey) {
+        // ✅ MULTI-SELECT: Toggle shape lock
+        if (isLockedByMe) {
+          // Release this shape
+          updateShapeOptimistic(shape.id, { 
+            isLocked: false, 
+            lockedBy: null, 
+            lockedByName: null, 
+            lockedByColor: null 
+          })
+          releaseLock(shape.id, user.uid, user.displayName)
+        } else {
+          // Add to selection
+          updateShapeOptimistic(shape.id, {
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          })
+          acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
+        }
+      } else {
+        // ✅ SINGLE SELECT: Release others and lock this one
+        if (isLockedByMe && userLockedShapes.length === 0) {
+          return // Already the only selection, no work needed
+        }
+        
+        // Release ALL previous selections
+        userLockedShapes.forEach(s => {
+          updateShapeOptimistic(s.id, { 
+            isLocked: false, 
+            lockedBy: null, 
+            lockedByName: null, 
+            lockedByColor: null 
+          })
         })
-      })
-      
-      // ✅ INSTANT: Lock new shape (single selection)
-      updateShapeOptimistic(shape.id, {
-        isLocked: true,
-        lockedBy: user.uid,
-        lockedByName: user.displayName,
-        lockedByColor: user.cursorColor
-      })
-      
-      // ✅ BACKGROUND: Firebase operations (non-blocking)
-      if (userLockedShapes.length > 0) {
-        Promise.all(
-          userLockedShapes.map(s => releaseLock(s.id, user.uid, user.displayName))
-        )
+        
+        // Lock new shape (single selection)
+        updateShapeOptimistic(shape.id, {
+          isLocked: true,
+          lockedBy: user.uid,
+          lockedByName: user.displayName,
+          lockedByColor: user.cursorColor
+        })
+        
+        // ✅ BACKGROUND: Firebase operations (non-blocking)
+        if (userLockedShapes.length > 0) {
+          Promise.all(
+            userLockedShapes.map(s => releaseLock(s.id, user.uid, user.displayName))
+          )
+        }
+        
+        // Acquire lock for current shape
+        if (!isLockedByMe) {
+          acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
+        }
       }
-      
-      // Acquire lock for current shape
-      acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
   }, [shape.id, isLockedByMe, isLockedByOthers, user, shapes, onSelect])
 
   // ✅ DRAG START: Ensure single selection + lock for dragging
   const handleDragStart = useCallback(() => {
-    onSelect() // Ensure this shape is selected
+    onSelect({ evt: { shiftKey: false } }) // Ensure this shape is selected (single-select for drag)
     
     if (!isLockedByMe && user) {
       const { updateShapeOptimistic } = useCanvasStore.getState()
@@ -260,7 +286,7 @@ const SimpleShape: React.FC<{
 const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
-  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
+  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([])
   const [isShiftPressed, setIsShiftPressed] = useState(false)
   const transformerRef = useRef<Konva.Transformer>(null)
   const shapeRefs = useRef<{ [key: string]: Konva.Shape }>({})
@@ -303,31 +329,75 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
     const transformer = transformerRef.current
     if (!transformer) return
 
-    if (selectedShapeId && shapeRefs.current[selectedShapeId]) {
-      const selectedNode = shapeRefs.current[selectedShapeId]
-      transformer.nodes([selectedNode])
-      transformer.getLayer()?.batchDraw()
+    if (selectedShapeIds.length > 0) {
+      const selectedNodes = selectedShapeIds
+        .map(id => shapeRefs.current[id])
+        .filter(node => node !== undefined && node !== null)
+      
+      if (selectedNodes.length > 0) {
+        transformer.nodes(selectedNodes)
+        transformer.getLayer()?.batchDraw()
+      } else {
+        transformer.nodes([])
+        transformer.getLayer()?.batchDraw()
+      }
     } else {
       transformer.nodes([])
       transformer.getLayer()?.batchDraw()
     }
-  }, [selectedShapeId])
+  }, [selectedShapeIds])
 
-  // Track which shape is selected (should match locked shape)
+  // Track which shapes are selected (should match locked shapes)
   useEffect(() => {
     if (user) {
-      const myLockedShape = shapes.find(s => s.lockedBy === user.uid)
-      setSelectedShapeId(myLockedShape?.id || null)
+      const myLockedShapes = shapes.filter(s => s.lockedBy === user.uid)
+      const lockedIds = myLockedShapes.map(s => s.id)
+      
+      // Only update if the selection actually changed
+      if (JSON.stringify(lockedIds.sort()) !== JSON.stringify(selectedShapeIds.sort())) {
+        setSelectedShapeIds(lockedIds)
+      }
     }
-  }, [shapes, user])
+  }, [shapes, user, selectedShapeIds])
 
   // Handle deselection when clicking outside
   const handleStageClick = useCallback((e: any) => {
     // Check if clicked on empty area (stage)
     if (e.target === e.target.getStage()) {
-      setSelectedShapeId(null)
+      setSelectedShapeIds([])
     }
   }, [])
+
+  // Handle shape selection with shift+click for multi-select
+  const handleShapeSelect = useCallback((shapeId: string, isShiftKey: boolean) => {
+    if (isShiftKey) {
+      // Toggle shape in selection
+      setSelectedShapeIds(prev => {
+        if (prev.includes(shapeId)) {
+          return prev.filter(id => id !== shapeId)
+        } else {
+          return [...prev, shapeId]
+        }
+      })
+    } else {
+      // Single select (replace selection)
+      setSelectedShapeIds([shapeId])
+    }
+  }, [])
+
+  // Select all shapes with Cmd/Ctrl+A
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault()
+        const allShapeIds = shapes.map(s => s.id)
+        setSelectedShapeIds(allShapeIds)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [shapes])
 
   return (
     <Layer listening={listening} onClick={handleStageClick} onTap={handleStageClick}>
@@ -342,8 +412,8 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
           <SimpleShape 
             key={shape.id} 
             shape={shape}
-            isSelected={selectedShapeId === shape.id}
-            onSelect={() => setSelectedShapeId(shape.id)}
+            isSelected={selectedShapeIds.includes(shape.id)}
+            onSelect={(e: any) => handleShapeSelect(shape.id, e.evt?.shiftKey || false)}
             shapeRef={{ current: null, callback: handleRef } as any}
           />
         )
