@@ -290,6 +290,22 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
   const [isShiftPressed, setIsShiftPressed] = useState(false)
   const transformerRef = useRef<Konva.Transformer>(null)
   const shapeRefs = useRef<{ [key: string]: Konva.Shape }>({})
+  
+  // ✅ DRAG-TO-SELECT: Selection rectangle state
+  const [selectionRect, setSelectionRect] = useState<{
+    visible: boolean
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+  }>({
+    visible: false,
+    x1: 0,
+    y1: 0,
+    x2: 0,
+    y2: 0
+  })
+  const isDrawingSelection = useRef(false)
 
   // ✅ SHIFT KEY: Track shift key for aspect ratio locking
   useEffect(() => {
@@ -360,7 +376,118 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
     }
   }, [shapes, user, selectedShapeIds])
 
-  // Handle deselection when clicking outside
+  // ✅ DRAG-TO-SELECT: Handle mouse down on stage
+  const handleStageMouseDown = useCallback((e: any) => {
+    // Only start selection if clicking on empty stage (not on a shape)
+    if (e.target !== e.target.getStage()) {
+      return
+    }
+
+    const stage = e.target.getStage()
+    const pointerPosition = stage.getPointerPosition()
+    
+    if (!pointerPosition) return
+
+    isDrawingSelection.current = true
+    setSelectionRect({
+      visible: true,
+      x1: pointerPosition.x,
+      y1: pointerPosition.y,
+      x2: pointerPosition.x,
+      y2: pointerPosition.y
+    })
+  }, [])
+
+  // ✅ DRAG-TO-SELECT: Handle mouse move
+  const handleStageMouseMove = useCallback((e: any) => {
+    if (!isDrawingSelection.current) return
+
+    const stage = e.target.getStage()
+    const pointerPosition = stage.getPointerPosition()
+    
+    if (!pointerPosition) return
+
+    setSelectionRect(prev => ({
+      ...prev,
+      x2: pointerPosition.x,
+      y2: pointerPosition.y
+    }))
+  }, [])
+
+  // ✅ DRAG-TO-SELECT: Handle mouse up - finalize selection
+  const handleStageMouseUp = useCallback(() => {
+    if (!isDrawingSelection.current) return
+    
+    isDrawingSelection.current = false
+
+    // Calculate selection box bounds
+    const box = {
+      x: Math.min(selectionRect.x1, selectionRect.x2),
+      y: Math.min(selectionRect.y1, selectionRect.y2),
+      width: Math.abs(selectionRect.x2 - selectionRect.x1),
+      height: Math.abs(selectionRect.y2 - selectionRect.y1)
+    }
+
+    // Find shapes that intersect with selection box
+    const selectedIds: string[] = []
+    shapes.forEach(shape => {
+      const shapeNode = shapeRefs.current[shape.id]
+      if (!shapeNode) return
+
+      // Get shape bounding box
+      const shapeBox = shapeNode.getClientRect()
+
+      // Check if selection box intersects with shape
+      const intersects = !(
+        box.x > shapeBox.x + shapeBox.width ||
+        box.x + box.width < shapeBox.x ||
+        box.y > shapeBox.y + shapeBox.height ||
+        box.y + box.height < shapeBox.y
+      )
+
+      if (intersects) {
+        selectedIds.push(shape.id)
+      }
+    })
+
+    // Update selection and lock shapes
+    if (selectedIds.length > 0 && user) {
+      const { updateShapeOptimistic } = useCanvasStore.getState()
+      
+      // Release previous selections
+      const previouslyLocked = shapes.filter(s => s.lockedBy === user.uid && !selectedIds.includes(s.id))
+      previouslyLocked.forEach(s => {
+        updateShapeOptimistic(s.id, {
+          isLocked: false,
+          lockedBy: null,
+          lockedByName: null,
+          lockedByColor: null
+        })
+        releaseLock(s.id, user.uid, user.displayName)
+      })
+
+      // Lock newly selected shapes
+      selectedIds.forEach(id => {
+        const shape = shapes.find(s => s.id === id)
+        if (shape && !shape.isLocked) {
+          updateShapeOptimistic(id, {
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          })
+          acquireLock(id, user.uid, user.displayName, user.cursorColor)
+        }
+      })
+
+      setSelectedShapeIds(selectedIds)
+    }
+
+    // Hide selection rectangle
+    setSelectionRect(prev => ({ ...prev, visible: false }))
+  }, [selectionRect, shapes, user])
+
+  // Handle deselection when clicking outside (without drag)
   const handleStageClick = useCallback((e: any) => {
     // Check if clicked on empty area (stage)
     if (e.target === e.target.getStage()) {
@@ -399,8 +526,26 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [shapes])
 
+  // Calculate selection rectangle display coordinates
+  const selectionRectAttrs = {
+    x: Math.min(selectionRect.x1, selectionRect.x2),
+    y: Math.min(selectionRect.y1, selectionRect.y2),
+    width: Math.abs(selectionRect.x2 - selectionRect.x1),
+    height: Math.abs(selectionRect.y2 - selectionRect.y1)
+  }
+
   return (
-    <Layer listening={listening} onClick={handleStageClick} onTap={handleStageClick}>
+    <Layer 
+      listening={listening}
+      onClick={handleStageClick}
+      onTap={handleStageClick}
+      onMouseDown={handleStageMouseDown}
+      onMouseMove={handleStageMouseMove}
+      onMouseUp={handleStageMouseUp}
+      onTouchStart={handleStageMouseDown}
+      onTouchMove={handleStageMouseMove}
+      onTouchEnd={handleStageMouseUp}
+    >
       {shapes.map((shape) => {
         const handleRef = (node: Konva.Shape | null) => {
           if (node) {
@@ -418,6 +563,21 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
           />
         )
       })}
+      
+      {/* ✅ DRAG-TO-SELECT: Selection rectangle (marquee) */}
+      {selectionRect.visible && (
+        <Rect
+          x={selectionRectAttrs.x}
+          y={selectionRectAttrs.y}
+          width={selectionRectAttrs.width}
+          height={selectionRectAttrs.height}
+          fill="rgba(0, 102, 255, 0.1)"
+          stroke={user?.cursorColor || '#0066ff'}
+          strokeWidth={1}
+          dash={[4, 4]}
+          listening={false}
+        />
+      )}
       
       {/* ✅ FIGMA-LIKE TRANSFORMER: Resize handles with aspect ratio locking */}
       <Transformer

@@ -78,6 +78,7 @@ function App() {
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">Canvas Tools</h3>
                 <div className="space-y-2 text-sm text-gray-600">
                   <div>• <strong>Click empty space</strong> → Create rectangles</div>
+                  <div>• <strong>Drag on canvas</strong> → Select area (marquee)</div>
                   <div>• <strong>Click & drag shapes</strong> → Move them</div>
                   <div>• <strong>Click shapes</strong> → Select/lock them</div>
                   <div>• <strong>Shift + click</strong> → Multi-select shapes</div>
