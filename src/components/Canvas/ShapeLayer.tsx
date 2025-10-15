@@ -202,6 +202,7 @@ const SimpleShape: React.FC<{
       fill: shape.fill,
       stroke: strokeColor,
       strokeWidth,
+      strokeScaleEnabled: false, // Keep stroke width constant during transforms
       draggable: canDrag,
       dragBoundFunc: canDrag ? dragBoundFunc : undefined,
       onClick: handleClick,
