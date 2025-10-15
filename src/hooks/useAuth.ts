@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth'
 import { auth } from '../utils/firebase'
 import { useUserStore, createUserFromFirebase } from '../store/userStore'
-import { initializePresence, cleanupPresence } from '../utils/presenceUtils'
+import { initializePresence } from '../utils/presenceUtils'
 
 export const useAuth = () => {
   const { setUser, setLoading, setError, clearUser } = useUserStore()
@@ -21,11 +21,9 @@ export const useAuth = () => {
             // ✅ PHASE 8: Initialize presence on login (includes disconnect cleanup)
             await initializePresence(user)
           } else {
-            // ✅ PHASE 8: Cleanup presence on logout
-            const { user } = useUserStore.getState()
-            if (user) {
-              await cleanupPresence(user.uid)
-            }
+            // User signed out
+            // Note: Presence cleanup happens BEFORE signOut in Navbar.tsx
+            // Doing it here is too late (user already lost permissions)
             clearUser()
             console.log('🔥 User signed out')
           }

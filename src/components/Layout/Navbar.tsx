@@ -3,15 +3,28 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../../utils/firebase'
 import { useUserStore } from '../../store/userStore'
 import { clearAllShapes, clearAllLocks } from '../../utils/devUtils'
+import { createShape } from '../../utils/shapeUtils'
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated } = useUserStore()
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
+  const [numShapes, setNumShapes] = useState(10)
+  const [isCreating, setIsCreating] = useState(false)
 
   const handleLogout = async () => {
     try {
+      // ✅ CRITICAL: Cleanup presence BEFORE signing out
+      // This ensures we have permissions to delete our presence data
+      if (user) {
+        const { cleanupPresence } = await import('../../utils/presenceUtils')
+        await cleanupPresence(user.uid)
+        console.log('🔴 Presence cleaned up before logout')
+      }
+      
+      // Then sign out
       await signOut(auth)
+      console.log('🚪 User signed out successfully')
     } catch (error) {
       console.error('Error signing out:', error)
     }
@@ -51,6 +64,38 @@ const Navbar: React.FC = () => {
     setShowAdminPanel(false)
   }
 
+  const handleCreateShapes = async () => {
+    if (!user || isCreating) return
+    
+    setIsCreating(true)
+    console.log(`🎨 Creating ${numShapes} random shapes...`)
+    
+    try {
+      const shapeTypes = ['rectangle', 'circle'] as const
+      const colors = ['#4477AA', '#EE6677', '#228833', '#CCBB44', '#66CCEE', '#AA3377']
+      
+      const promises = []
+      for (let i = 0; i < numShapes; i++) {
+        const x = Math.random() * 4800 + 100 // Random position within bounds
+        const y = Math.random() * 4800 + 100
+        const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)]
+        const color = colors[Math.floor(Math.random() * colors.length)]
+        
+        promises.push(createShape(x, y, type, color, user.uid, user.displayName))
+      }
+      
+      await Promise.all(promises)
+      console.log(`✅ Created ${numShapes} shapes successfully`)
+      alert(`✅ Created ${numShapes} shapes!`)
+    } catch (error) {
+      console.error('Failed to create shapes:', error)
+      alert('❌ Failed to create shapes. Check console for details.')
+    } finally {
+      setIsCreating(false)
+      setShowAdminPanel(false)
+    }
+  }
+
   if (!isAuthenticated) return null
 
   return (
@@ -84,27 +129,52 @@ const Navbar: React.FC = () => {
           </button>
           
           {showAdminPanel && (
-            <div className="absolute right-0 top-8 bg-white border border-gray-300 rounded shadow-lg p-3 z-50 min-w-[200px]">
-              <div className="text-xs font-medium text-gray-600 mb-2">Admin Panel</div>
+            <div className="absolute right-0 top-8 bg-white border border-gray-300 rounded shadow-lg p-3 z-50 min-w-[250px]">
+              <div className="text-xs font-medium text-gray-600 mb-3">🛠️ Admin Panel</div>
               
+              {/* Create Random Shapes */}
+              <div className="mb-3 pb-3 border-b border-gray-200">
+                <div className="text-xs font-medium text-gray-700 mb-2">Create Random Shapes</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={numShapes}
+                    onChange={(e) => setNumShapes(parseInt(e.target.value) || 1)}
+                    className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    disabled={isCreating}
+                  />
+                  <button
+                    onClick={handleCreateShapes}
+                    disabled={isCreating}
+                    className="flex-1 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreating ? 'Creating...' : '🎨 Create'}
+                  </button>
+                </div>
+                <div className="text-[10px] text-gray-500">Random rects & circles</div>
+              </div>
+              
+              {/* Utilities */}
               <button
                 onClick={handleClearLocks}
-                disabled={isClearing}
-                className="w-full text-left text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-50"
+                disabled={isClearing || isCreating}
+                className="w-full text-left text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-50 mb-1"
               >
                 🔓 Clear All Locks
               </button>
               
               <button
                 onClick={handleClearAllShapes}
-                disabled={isClearing}
+                disabled={isClearing || isCreating}
                 className="w-full text-left text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
               >
                 🗑️ Delete All Shapes
               </button>
               
-              {isClearing && (
-                <div className="text-xs text-gray-500 mt-2">Working...</div>
+              {(isClearing || isCreating) && (
+                <div className="text-xs text-gray-500 mt-2 text-center">Working...</div>
               )}
             </div>
           )}

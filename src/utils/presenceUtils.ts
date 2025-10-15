@@ -138,11 +138,12 @@ export const subscribeToPresence = (
  */
 export const cleanupPresence = async (userId: string): Promise<void> => {
   return FirebaseErrorHandler.withRetry(async () => {
+    const { remove } = await import('firebase/database')
     const presenceRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}`)
     
     // ✅ REMOVE: Delete presence data entirely on manual logout
     // This immediately removes cursor and sidebar entry
-    await set(presenceRef, null)
+    await remove(presenceRef)
     
     console.log(`🔴 Presence removed for user: ${userId}`)
   }, { maxRetries: 2 })

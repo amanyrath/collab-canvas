@@ -14,16 +14,10 @@ export const FastPresenceSidebar: React.FC = () => {
     if (!user) return
 
     // ⚡ UNIFIED: Use the centralized presence system
+    // Since we now REMOVE presence data entirely on disconnect,
+    // all entries in presenceData are online users (no need to filter)
     const unsubscribe = subscribeToPresence((presenceData) => {
-      // Filter for online users only
-      const onlineUsers = Object.entries(presenceData).reduce((acc, [userId, presence]) => {
-        if (presence.isOnline) {
-          acc[userId] = presence
-        }
-        return acc
-      }, {} as Record<string, PresenceData>)
-      
-      setUsers(onlineUsers)
+      setUsers(presenceData)
     })
 
     return unsubscribe
