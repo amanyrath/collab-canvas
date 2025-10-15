@@ -208,7 +208,7 @@ const SimpleShape: React.FC<{
       onDragStart: handleDragStart,
       onDragEnd: handleDragEnd,
       onTransformEnd: handleTransformEnd,
-      ref: shapeRef as any,
+      ref: (shapeRef as any).callback || shapeRef,
     }
 
     if (shape.type === 'circle') {
@@ -308,6 +308,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
       transformer.getLayer()?.batchDraw()
     } else {
       transformer.nodes([])
+      transformer.getLayer()?.batchDraw()
     }
   }, [selectedShapeId])
 
@@ -330,9 +331,10 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
   return (
     <Layer listening={listening} onClick={handleStageClick} onTap={handleStageClick}>
       {shapes.map((shape) => {
-        // Create ref for each shape
-        if (!shapeRefs.current[shape.id]) {
-          shapeRefs.current[shape.id] = null as any
+        const handleRef = (node: Konva.Shape | null) => {
+          if (node) {
+            shapeRefs.current[shape.id] = node
+          }
         }
         
         return (
@@ -341,9 +343,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
             shape={shape}
             isSelected={selectedShapeId === shape.id}
             onSelect={() => setSelectedShapeId(shape.id)}
-            shapeRef={{ 
-              current: shapeRefs.current[shape.id] 
-            } as React.RefObject<Konva.Shape>}
+            shapeRef={{ current: null, callback: handleRef } as any}
           />
         )
       })}
@@ -372,11 +372,13 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
         ]}
         keepRatio={false} // We'll handle this with shift key
         anchorSize={8}
-        anchorStroke="#0066ff"
+        anchorStroke={user?.cursorColor || '#0066ff'}
         anchorFill="white"
         anchorStrokeWidth={2}
-        borderStroke="#0066ff"
-        borderStrokeWidth={2}
+        borderStroke={user?.cursorColor || '#0066ff'}
+        borderStrokeWidth={3}
+        borderEnabled={true}
+        ignoreStroke={true}
         rotateEnabled={false} // Disable rotation for now
       />
     </Layer>
