@@ -515,11 +515,36 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
 
   // Handle deselection when clicking outside (without drag)
   const handleStageClick = useCallback((e: any) => {
-    // Check if clicked on empty area (stage)
-    if (e.target === e.target.getStage()) {
+    // Don't deselect if we just finished a drag-to-select
+    if (isDragSelectingRef && isDragSelectingRef.current) {
+      return
+    }
+    
+    // Check if clicked on empty area (stage or background rect)
+    const isBackgroundRect = e.target.name && e.target.name() === 'background-rect'
+    const isStage = e.target === e.target.getStage()
+    
+    if (isStage || isBackgroundRect) {
+      // Deselect all and release locks
+      if (user && selectedShapeIds.length > 0) {
+        const { updateShapeOptimistic } = useCanvasStore.getState()
+        
+        selectedShapeIds.forEach(id => {
+          updateShapeOptimistic(id, {
+            isLocked: false,
+            lockedBy: null,
+            lockedByName: null,
+            lockedByColor: null
+          })
+        })
+        
+        // Batch release locks in background
+        Promise.all(selectedShapeIds.map(id => releaseLock(id, user.uid, user.displayName)))
+      }
+      
       setSelectedShapeIds([])
     }
-  }, [])
+  }, [user, selectedShapeIds, isDragSelectingRef])
 
   // Handle shape selection with shift+click for multi-select
   const handleShapeSelect = useCallback((shapeId: string, isShiftKey: boolean) => {

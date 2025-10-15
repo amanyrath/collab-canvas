@@ -190,8 +190,34 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       setCreationShapeType(shapeType)
     }
     
+    // Update selected shapes' type
+    if (user) {
+      const { shapes, updateShapeOptimistic } = useCanvasStore.getState()
+      const mySelectedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+      
+      if (mySelectedShapes.length > 0) {
+        // Batch update all selected shapes
+        mySelectedShapes.forEach(shape => {
+          updateShapeOptimistic(shape.id, { 
+            type: shapeType,
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          })
+        })
+        
+        // Batch Firebase updates
+        Promise.all(
+          mySelectedShapes.map(shape => 
+            updateShape(shape.id, { type: shapeType }, user.uid)
+          )
+        )
+      }
+    }
+    
     setTimeout(() => setIsUpdatingState(false), 100)
-  }, [lastSelectedShapeId])
+  }, [lastSelectedShapeId, user])
   
   const handleColorChange = useCallback((color: string) => {
     setIsUpdatingState(true)
