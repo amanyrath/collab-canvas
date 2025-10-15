@@ -19,9 +19,21 @@ interface UserStore {
 
 // Generate deterministic cursor color from user ID
 const generateCursorColor = (userId: string): string => {
+  // Colorblind-friendly palette (Paul Tol's bright scheme + IBM accessible colors)
+  // Distinguishable for deuteranopia, protanopia, and tritanopia
   const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', 
-    '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'
+    '#4477AA', // Blue
+    '#EE6677', // Rose/Pink
+    '#228833', // Green
+    '#CCBB44', // Yellow
+    '#66CCEE', // Cyan
+    '#AA3377', // Purple
+    '#BBBBBB', // Gray
+    '#EE99AA', // Light Pink
+    '#009988', // Teal
+    '#997700', // Brown
+    '#6699CC', // Light Blue
+    '#994455', // Wine/Burgundy
   ]
   
   let hash = 0
