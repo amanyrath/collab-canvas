@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { Layer, Rect, Circle, Text, Transformer } from 'react-konva'
 import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
@@ -364,18 +364,20 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     }
   }, [selectedShapeIds])
 
+  // Memoize locked shape IDs to avoid expensive filtering
+  const lockedShapeIds = useMemo(() => {
+    if (!user) return []
+    return shapes.filter(s => s.lockedBy === user.uid).map(s => s.id)
+  }, [shapes, user])
+  
   // Track which shapes are selected (should match locked shapes)
   useEffect(() => {
-    if (user) {
-      const myLockedShapes = shapes.filter(s => s.lockedBy === user.uid)
-      const lockedIds = myLockedShapes.map(s => s.id)
-      
-      // Only update if the selection actually changed
-      if (JSON.stringify(lockedIds.sort()) !== JSON.stringify(selectedShapeIds.sort())) {
-        setSelectedShapeIds(lockedIds)
-      }
+    // Fast array equality check (no JSON.stringify)
+    if (lockedShapeIds.length !== selectedShapeIds.length ||
+        !lockedShapeIds.every(id => selectedShapeIds.includes(id))) {
+      setSelectedShapeIds(lockedShapeIds)
     }
-  }, [shapes, user, selectedShapeIds])
+  }, [lockedShapeIds, selectedShapeIds])
 
   // ✅ DRAG-TO-SELECT: Handle mouse down on layer (requires Shift key)
   const handleLayerMouseDown = useCallback((e: any) => {
@@ -407,9 +409,17 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     })
   }, [isDragSelectingRef])
 
-  // ✅ DRAG-TO-SELECT: Handle mouse move
+  // Throttle selection rect updates for performance
+  const lastMoveTime = useRef(0)
+  
+  // ✅ DRAG-TO-SELECT: Handle mouse move (throttled for performance)
   const handleStageMouseMove = useCallback((e: any) => {
     if (!isDrawingSelection.current) return
+
+    // Throttle to ~60fps (16ms)
+    const now = performance.now()
+    if (now - lastMoveTime.current < 16) return
+    lastMoveTime.current = now
 
     const stage = e.target.getStage()
     const pointerPosition = stage.getPointerPosition()
@@ -577,13 +587,13 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [shapes])
 
-  // Calculate selection rectangle display coordinates
-  const selectionRectAttrs = {
+  // Memoize selection rectangle display coordinates  
+  const selectionRectAttrs = useMemo(() => ({
     x: Math.min(selectionRect.x1, selectionRect.x2),
     y: Math.min(selectionRect.y1, selectionRect.y2),
     width: Math.abs(selectionRect.x2 - selectionRect.x1),
     height: Math.abs(selectionRect.y2 - selectionRect.y1)
-  }
+  }), [selectionRect])
 
   return (
     <Layer 
