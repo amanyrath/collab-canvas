@@ -80,6 +80,8 @@ function App() {
                   <div>• <strong>Click empty space</strong> → Create rectangles</div>
                   <div>• <strong>Click & drag shapes</strong> → Move them</div>
                   <div>• <strong>Click shapes</strong> → Select/lock them</div>
+                  <div>• <strong>Drag corner handles</strong> → Resize shapes</div>
+                  <div>• <strong>Shift + resize</strong> → Lock aspect ratio</div>
                   <div>• <strong>Trackpad scroll</strong> → Pan canvas (Figma-style)</div>
                   <div>• <strong>⌘/Ctrl + scroll</strong> → Zoom (or pinch)</div>
                   <div>• <strong>Mouse wheel</strong> → Zoom</div>
@@ -94,9 +96,11 @@ function App() {
                     <div>✅ Shape Creation & Real-time Sync</div>
                     <div>✅ Selection & Multiplayer Locking</div>
                     <div>✅ Drag & Drop with Constraints</div>
+                    <div>✅ Shape Resizing with Aspect Ratio Lock</div>
                     <div>✅ Shape Deletion (optimistic)</div>
                     <div>✅ Error Handling & Connection Status</div>
                     <div>✅ Multiplayer Cursors & Presence</div>
+                    <div>✅ Performance Monitoring</div>
                   </div>
                 </div>
                 
