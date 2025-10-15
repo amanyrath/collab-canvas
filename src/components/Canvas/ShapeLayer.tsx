@@ -9,6 +9,7 @@ import { acquireLock, releaseLock } from '../../utils/lockUtils'
 
 interface ShapeLayerProps {
   listening: boolean
+  isDragSelectingRef?: React.MutableRefObject<boolean>
 }
 
 // ✅ SIMPLIFIED: Selection = Locking (no dual state)
@@ -62,33 +63,33 @@ const SimpleShape: React.FC<{
         }
         
         // Release ALL previous selections
-        userLockedShapes.forEach(s => {
-          updateShapeOptimistic(s.id, { 
-            isLocked: false, 
-            lockedBy: null, 
-            lockedByName: null, 
-            lockedByColor: null 
-          })
+      userLockedShapes.forEach(s => {
+        updateShapeOptimistic(s.id, { 
+          isLocked: false, 
+          lockedBy: null, 
+          lockedByName: null, 
+          lockedByColor: null 
         })
-        
+      })
+      
         // Lock new shape (single selection)
-        updateShapeOptimistic(shape.id, {
-          isLocked: true,
-          lockedBy: user.uid,
-          lockedByName: user.displayName,
-          lockedByColor: user.cursorColor
-        })
-        
-        // ✅ BACKGROUND: Firebase operations (non-blocking)
-        if (userLockedShapes.length > 0) {
-          Promise.all(
-            userLockedShapes.map(s => releaseLock(s.id, user.uid, user.displayName))
-          )
-        }
-        
-        // Acquire lock for current shape
+      updateShapeOptimistic(shape.id, {
+        isLocked: true,
+        lockedBy: user.uid,
+        lockedByName: user.displayName,
+        lockedByColor: user.cursorColor
+      })
+      
+      // ✅ BACKGROUND: Firebase operations (non-blocking)
+      if (userLockedShapes.length > 0) {
+        Promise.all(
+          userLockedShapes.map(s => releaseLock(s.id, user.uid, user.displayName))
+        )
+      }
+      
+      // Acquire lock for current shape
         if (!isLockedByMe) {
-          acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
+      acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
         }
       }
     }
@@ -283,7 +284,7 @@ const SimpleShape: React.FC<{
 })
 
 // ✅ PERFORMANCE: Memoize shape layer to prevent unnecessary re-renders
-const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
+const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([])
@@ -376,14 +377,26 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
     }
   }, [shapes, user, selectedShapeIds])
 
-  // ✅ DRAG-TO-SELECT: Handle mouse down on layer
+  // ✅ DRAG-TO-SELECT: Handle mouse down on layer (requires Shift key)
   const handleLayerMouseDown = useCallback((e: any) => {
-    console.log('🟢 Layer MouseDown triggered!', e.target.getType())
+    console.log('🎯 MOUSE DOWN ON LAYER!', {
+      shiftKey: e.evt?.shiftKey,
+      targetType: e.target.getType(),
+      listening: listening
+    })
+    
     const targetType = e.target.getType()
+    const isShiftKey = e.evt?.shiftKey || false
+    
+    // Only start drag-to-select if Shift is held and clicking on empty area
+    if (!isShiftKey) {
+      console.log('❌ No shift key pressed')
+      return
+    }
     
     // Only start selection if clicking on empty area (Stage or Layer, not a shape)
     if (targetType !== 'Stage' && targetType !== 'Layer') {
-      console.log('❌ Not Stage/Layer, is:', targetType)
+      console.log('❌ Target is not Stage/Layer:', targetType)
       return
     }
 
@@ -395,8 +408,14 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
       return
     }
 
-    console.log('✅ Starting drag-to-select at', pointerPosition)
+    console.log('✅ Shift+drag to select started at', pointerPosition)
     isDrawingSelection.current = true
+    
+    // Tell Canvas we're doing a drag-to-select (prevents shape creation)
+    if (isDragSelectingRef) {
+      isDragSelectingRef.current = true
+    }
+    
     setSelectionRect({
       visible: true,
       x1: pointerPosition.x,
@@ -404,7 +423,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
       x2: pointerPosition.x,
       y2: pointerPosition.y
     })
-  }, [])
+  }, [isDragSelectingRef, listening])
 
   // ✅ DRAG-TO-SELECT: Handle mouse move
   const handleStageMouseMove = useCallback((e: any) => {
@@ -424,8 +443,15 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
 
   // ✅ DRAG-TO-SELECT: Handle mouse up - finalize selection
   const handleStageMouseUp = useCallback(() => {
-    if (!isDrawingSelection.current) return
+    if (!isDrawingSelection.current) {
+      // Not drawing, reset the flag just in case
+      if (isDragSelectingRef) {
+        isDragSelectingRef.current = false
+      }
+      return
+    }
     
+    console.log('✅ Shift+drag selection complete')
     isDrawingSelection.current = false
 
     // Calculate selection box bounds
@@ -542,31 +568,25 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
     height: Math.abs(selectionRect.y2 - selectionRect.y1)
   }
 
-  console.log('ShapeLayer render, listening:', listening)
-  
   return (
     <Layer 
       listening={listening}
-      onClick={handleStageClick}
-      onTap={handleStageClick}
-      onMouseDown={(e) => {
-        console.log('🔴 Layer onMouseDown prop called')
-        handleLayerMouseDown(e)
-      }}
-      onMouseMove={(e) => {
-        if (isDrawingSelection.current) {
-          console.log('🔵 Layer onMouseMove (drawing)')
-        }
-        handleStageMouseMove(e)
-      }}
-      onMouseUp={(_e) => {
-        console.log('🟡 Layer onMouseUp prop called')
-        handleStageMouseUp()
-      }}
-      onTouchStart={handleLayerMouseDown}
-      onTouchMove={handleStageMouseMove}
-      onTouchEnd={handleStageMouseUp}
     >
+      {/* Invisible rectangle to capture mouse events on empty canvas areas */}
+      <Rect
+        x={0}
+        y={0}
+        width={5000}
+        height={5000}
+        fill="transparent"
+        listening={listening}
+        onClick={handleStageClick}
+        onTap={handleStageClick}
+        onMouseDown={handleLayerMouseDown}
+        onMouseMove={handleStageMouseMove}
+        onMouseUp={handleStageMouseUp}
+      />
+      
       {shapes.map((shape) => {
         const handleRef = (node: Konva.Shape | null) => {
           if (node) {

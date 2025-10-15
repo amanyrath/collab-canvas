@@ -300,7 +300,19 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
+  // Track if we're in a drag-to-select operation (to prevent shape creation on mouseup)
+  const isDragSelecting = useRef(false)
+  
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
+    console.log('🎯 Stage click, isDragSelecting:', isDragSelecting.current, 'target:', e.target.getType())
+    
+    // Don't create shapes if we just finished a drag-to-select
+    if (isDragSelecting.current) {
+      console.log('❌ Skipping shape creation - just did drag-to-select')
+      isDragSelecting.current = false
+      return
+    }
+    
     // Only create shapes if clicking directly on the Stage (not Layer or other elements)
     const targetType = e.target.getType()
     if (targetType !== 'Stage' || isSpacePressed || !user) return
@@ -478,7 +490,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         onMouseMove={handleMouseMove}
       >
         <GridLayer width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
-        <ShapeLayer listening={!isSpacePressed} />
+        <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} />
         <SelectionLayer listening={false} />
         <SimpleCursorLayer />
       </Stage>
