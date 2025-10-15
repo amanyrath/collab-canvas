@@ -376,18 +376,26 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
     }
   }, [shapes, user, selectedShapeIds])
 
-  // ✅ DRAG-TO-SELECT: Handle mouse down on stage
-  const handleStageMouseDown = useCallback((e: any) => {
-    // Only start selection if clicking on empty stage (not on a shape)
-    if (e.target !== e.target.getStage()) {
+  // ✅ DRAG-TO-SELECT: Handle mouse down on layer
+  const handleLayerMouseDown = useCallback((e: any) => {
+    console.log('🟢 Layer MouseDown triggered!', e.target.getType())
+    const targetType = e.target.getType()
+    
+    // Only start selection if clicking on empty area (Stage or Layer, not a shape)
+    if (targetType !== 'Stage' && targetType !== 'Layer') {
+      console.log('❌ Not Stage/Layer, is:', targetType)
       return
     }
 
     const stage = e.target.getStage()
     const pointerPosition = stage.getPointerPosition()
     
-    if (!pointerPosition) return
+    if (!pointerPosition) {
+      console.log('❌ No pointer position')
+      return
+    }
 
+    console.log('✅ Starting drag-to-select at', pointerPosition)
     isDrawingSelection.current = true
     setSelectionRect({
       visible: true,
@@ -534,15 +542,28 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
     height: Math.abs(selectionRect.y2 - selectionRect.y1)
   }
 
+  console.log('ShapeLayer render, listening:', listening)
+  
   return (
     <Layer 
       listening={listening}
       onClick={handleStageClick}
       onTap={handleStageClick}
-      onMouseDown={handleStageMouseDown}
-      onMouseMove={handleStageMouseMove}
-      onMouseUp={handleStageMouseUp}
-      onTouchStart={handleStageMouseDown}
+      onMouseDown={(e) => {
+        console.log('🔴 Layer onMouseDown prop called')
+        handleLayerMouseDown(e)
+      }}
+      onMouseMove={(e) => {
+        if (isDrawingSelection.current) {
+          console.log('🔵 Layer onMouseMove (drawing)')
+        }
+        handleStageMouseMove(e)
+      }}
+      onMouseUp={(_e) => {
+        console.log('🟡 Layer onMouseUp prop called')
+        handleStageMouseUp()
+      }}
+      onTouchStart={handleLayerMouseDown}
       onTouchMove={handleStageMouseMove}
       onTouchEnd={handleStageMouseUp}
     >

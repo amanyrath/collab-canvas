@@ -300,54 +300,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const shapeCreationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingShapeCreations = useRef<Set<string>>(new Set())
   
-  // ✅ DRAG DETECTION: Track mouse down position to distinguish click from drag
-  const mouseDownPos = useRef<{ x: number; y: number } | null>(null)
-  const isDragging = useRef(false)
-
-  const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (e.target !== stageRef.current) return
-    
-    const stage = stageRef.current
-    if (!stage) return
-    
-    const pos = stage.getPointerPosition()
-    if (pos) {
-      mouseDownPos.current = { x: pos.x, y: pos.y }
-      isDragging.current = false
-    }
-  }, [])
-
-  const handleStageMouseMove = useCallback((_e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!mouseDownPos.current) return
-    
-    const stage = stageRef.current
-    if (!stage) return
-    
-    const pos = stage.getPointerPosition()
-    if (pos) {
-      const dx = pos.x - mouseDownPos.current.x
-      const dy = pos.y - mouseDownPos.current.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      
-      // Consider it a drag if moved more than 5 pixels
-      if (distance > 5) {
-        isDragging.current = true
-      }
-    }
-  }, [])
-
-  const handleStageMouseUp = useCallback(() => {
-    mouseDownPos.current = null
-    isDragging.current = false
-  }, [])
-  
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (e.target !== stageRef.current || isSpacePressed || !user) return
-    
-    // ✅ PREVENT SHAPE CREATION IF USER WAS DRAGGING (for drag-to-select)
-    if (isDragging.current) {
-      return
-    }
+    // Only create shapes if clicking directly on the Stage (not Layer or other elements)
+    const targetType = e.target.getType()
+    if (targetType !== 'Stage' || isSpacePressed || !user) return
     
     // ✅ PREVENT CREATION DURING STATE UPDATES
     if (isUpdatingState) {
@@ -519,12 +475,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         onTouchMove={handleTouchMove}
         onClick={handleStageClick}
         onTap={handleStageClick}
-        onMouseDown={handleStageMouseDown}
-        onMouseMove={(e) => {
-          handleMouseMove(e)
-          handleStageMouseMove(e)
-        }}
-        onMouseUp={handleStageMouseUp}
+        onMouseMove={handleMouseMove}
       >
         <GridLayer width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
         <ShapeLayer listening={!isSpacePressed} />
