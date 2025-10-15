@@ -102,6 +102,14 @@ class PerformanceMonitor {
       'RTDB Rate': `${(this.rtdbUpdates / timeSinceLastLog).toFixed(1)}/s`
     })
 
+    // Check for rate limiting concerns
+    this.detectRateLimiting()
+    
+    // Log memory usage every 15 seconds
+    if (Math.floor(performance.now() / 15000) !== Math.floor(this.lastFirebaseLogTime / 15000)) {
+      this.logMemoryUsage()
+    }
+
     // Reset counters
     this.firestoreReads = 0
     this.firestoreWrites = 0
@@ -136,11 +144,50 @@ class PerformanceMonitor {
     return {
       currentFps: this.fps,
       averageFps: Math.round(avgFps * 10) / 10,
-      minFps: Math.min(...this.fpsHistory),
-      maxFps: Math.max(...this.fpsHistory),
+      minFps: this.fpsHistory.length > 0 ? Math.min(...this.fpsHistory) : this.fps,
+      maxFps: this.fpsHistory.length > 0 ? Math.max(...this.fpsHistory) : this.fps,
       firestoreReads: this.firestoreReads,
       firestoreWrites: this.firestoreWrites,
-      rtdbUpdates: this.rtdbUpdates
+      rtdbUpdates: this.rtdbUpdates,
+      isHealthy: avgFps > 30,
+      performanceGrade: this.getPerformanceGrade(avgFps)
+    }
+  }
+
+  private getPerformanceGrade(avgFps: number): string {
+    if (avgFps >= 50) return 'A'
+    if (avgFps >= 40) return 'B'
+    if (avgFps >= 30) return 'C'
+    if (avgFps >= 20) return 'D'
+    return 'F'
+  }
+
+  // Enhanced logging with memory usage
+  logMemoryUsage() {
+    if (!import.meta.env.DEV) return
+    
+    const memInfo = (performance as any).memory
+    if (memInfo) {
+      console.log('💾 Memory Usage:', {
+        'Used JS Heap': `${(memInfo.usedJSHeapSize / 1024 / 1024).toFixed(1)} MB`,
+        'Total JS Heap': `${(memInfo.totalJSHeapSize / 1024 / 1024).toFixed(1)} MB`,
+        'Heap Limit': `${(memInfo.jsHeapSizeLimit / 1024 / 1024).toFixed(1)} MB`,
+        'Usage %': `${((memInfo.usedJSHeapSize / memInfo.jsHeapSizeLimit) * 100).toFixed(1)}%`
+      })
+    }
+  }
+
+  // Enhanced Firebase monitoring with rate limiting detection
+  private detectRateLimiting() {
+    const writeRate = this.firestoreWrites / 5 // ops per second over 5 second window
+    const readRate = this.firestoreReads / 5
+    
+    if (writeRate > 5) {
+      console.warn(`⚠️ High Firestore write rate: ${writeRate.toFixed(1)}/s - Consider batching`)
+    }
+    
+    if (readRate > 10) {
+      console.warn(`⚠️ High Firestore read rate: ${readRate.toFixed(1)}/s - Check for polling`)
     }
   }
 

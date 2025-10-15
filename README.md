@@ -79,6 +79,7 @@ npm run preview
 - **Create Shapes**: Click empty space on canvas to create rectangles
 - **Select Shapes**: Click on any shape to select and edit it
 - **Move Shapes**: Drag selected shapes to reposition them
+- **Resize Shapes**: Drag corner or edge handles to resize (hold Shift for aspect ratio lock)
 - **Change Colors**: Use the color picker to modify shape appearance
 - **Delete Shapes**: Press `Delete` or `Backspace` to remove selected shapes
 
@@ -104,6 +105,7 @@ npm run preview
 | `4` | Grey color |
 | `Delete/Backspace` | Delete selected shape |
 | `Space + Drag` | Pan canvas |
+| `Shift + Resize` | Maintain aspect ratio while resizing |
 
 ## 🏗 Architecture
 

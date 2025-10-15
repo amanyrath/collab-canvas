@@ -1,5 +1,6 @@
 import { collection, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore'
 import { db } from './firebase'
+import { performanceMonitor, getPerformanceStats } from './performanceMonitor'
 
 /**
  * Development utility to clear all locks and reset canvas state
@@ -58,9 +59,68 @@ export const clearAllShapes = async () => {
   }
 }
 
+/**
+ * Performance testing utility
+ */
+export const startPerformanceTest = async () => {
+  console.log('🚀 Starting performance test...')
+  
+  const stats = getPerformanceStats()
+  console.log('📊 Initial stats:', stats)
+  
+  console.log('📦 Performance test simulation (check FPS impact)...')
+  const startTime = performance.now()
+  
+  // Simulate intensive operations
+  for (let i = 0; i < 1000; i++) {
+    // Simulate DOM operations
+    const div = document.createElement('div')
+    div.style.transform = `translate(${Math.random() * 1000}px, ${Math.random() * 1000}px)`
+    document.body.appendChild(div)
+    document.body.removeChild(div)
+  }
+  
+  const endTime = performance.now()
+  console.log(`⏱️ Test completed in ${(endTime - startTime).toFixed(2)}ms`)
+  
+  // Log performance after test
+  setTimeout(() => {
+    const finalStats = getPerformanceStats()
+    console.log('📊 Final stats:', finalStats)
+    console.log('📈 Performance impact:', {
+      'FPS Change': finalStats.currentFps - stats.currentFps,
+      'Avg FPS Change': finalStats.averageFps - stats.averageFps
+    })
+  }, 2000)
+}
+
+/**
+ * Memory usage logging utility
+ */
+export const logMemoryUsage = () => {
+  performanceMonitor.logMemoryUsage()
+}
+
+/**
+ * Get current performance statistics
+ */
+export const getStats = () => {
+  const stats = getPerformanceStats()
+  console.table(stats)
+  return stats
+}
 // Make these available globally in development
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).clearAllLocks = clearAllLocks;
   (window as any).clearAllShapes = clearAllShapes;
-  console.log('🛠️ Dev utils loaded! Use clearAllLocks() or clearAllShapes() in console')
+  (window as any).getPerformanceStats = getStats;
+  (window as any).startPerformanceTest = startPerformanceTest;
+  (window as any).logMemoryUsage = logMemoryUsage;
+  
+  console.log('🛠️ Dev utils loaded! Available commands:')
+  console.log('  clearAllLocks() - Clear all shape locks')
+  console.log('  clearAllShapes() - Delete all shapes') 
+  console.log('  getPerformanceStats() - Get current performance metrics')
+  console.log('  startPerformanceTest() - Run performance test')
+  console.log('  logMemoryUsage() - Log current memory usage')
 }

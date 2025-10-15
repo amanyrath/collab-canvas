@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import ConnectionBanner from './components/ConnectionBanner'
 import FastPresenceSidebar from './components/Canvas/FastPresenceSidebar'
+import PerformanceDisplay from './components/Debug/PerformanceDisplay'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -35,6 +36,9 @@ function App() {
       <div className="min-h-screen bg-gray-50">
         {/* ✅ PHASE 9: Connection status banner */}
         <ConnectionBanner />
+        
+        {/* ✅ DEV: Performance monitoring display */}
+        <PerformanceDisplay />
         
         <ProtectedRoute fallback={authFallback}>
           {/* Authenticated user interface */}

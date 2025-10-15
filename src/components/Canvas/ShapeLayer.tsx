@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react'
-import { Layer, Rect, Circle, Text } from 'react-konva'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Layer, Rect, Circle, Text, Transformer } from 'react-konva'
+import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
@@ -11,7 +12,12 @@ interface ShapeLayerProps {
 }
 
 // ✅ SIMPLIFIED: Selection = Locking (no dual state)
-const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
+const SimpleShape: React.FC<{ 
+  shape: Shape
+  isSelected: boolean
+  onSelect: () => void
+  shapeRef: React.RefObject<Konva.Shape>
+}> = React.memo(({ shape, isSelected: _isSelected, onSelect, shapeRef }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   
@@ -22,20 +28,18 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
   // ✅ SINGLE SELECTION: Only one shape selected at a time (Figma-like UX)
   const handleClick = useCallback(async () => {
     if (!isLockedByOthers && user) {
+      onSelect() // Notify parent of selection
+      
       // ✅ Skip if already locked by current user (avoid unnecessary operations)
       if (isLockedByMe) {
-        console.log(`🔒 [${user.displayName}] Shape ${shape.id.slice(-4)} already selected - no action needed`)
         return // Already selected, no work needed
       }
       
       const { updateShapeOptimistic } = useCanvasStore.getState()
       const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
-      console.log(`🎯 [${user.displayName}] Selecting shape ${shape.id.slice(-4)}, releasing ${userLockedShapes.length} previous selections`)
-      
       // ✅ INSTANT: Release ALL previous selections (single-select behavior)
       userLockedShapes.forEach(s => {
-        console.log(`🔓 [${user.displayName}] Releasing shape ${s.id.slice(-4)}`)
         updateShapeOptimistic(s.id, { 
           isLocked: false, 
           lockedBy: null, 
@@ -45,7 +49,6 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       })
       
       // ✅ INSTANT: Lock new shape (single selection)
-      console.log(`🔒 [${user.displayName}] Locking shape ${shape.id.slice(-4)}`)
       updateShapeOptimistic(shape.id, {
         isLocked: true,
         lockedBy: user.uid,
@@ -54,7 +57,6 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       })
       
       // ✅ BACKGROUND: Firebase operations (non-blocking)
-      // Release previous locks in Firebase
       if (userLockedShapes.length > 0) {
         Promise.all(
           userLockedShapes.map(s => releaseLock(s.id, user.uid, user.displayName))
@@ -64,19 +66,18 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       // Acquire lock for current shape
       acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
-  }, [shape.id, isLockedByMe, isLockedByOthers, user, shapes])
+  }, [shape.id, isLockedByMe, isLockedByOthers, user, shapes, onSelect])
 
   // ✅ DRAG START: Ensure single selection + lock for dragging
   const handleDragStart = useCallback(() => {
+    onSelect() // Ensure this shape is selected
+    
     if (!isLockedByMe && user) {
       const { updateShapeOptimistic } = useCanvasStore.getState()
       const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
-      console.log(`🖱️ [${user.displayName}] Drag start on ${shape.id.slice(-4)}, releasing ${userLockedShapes.length} other selections`)
-      
       // ✅ SINGLE SELECTION: Release other shapes when starting drag
       userLockedShapes.forEach(s => {
-        console.log(`🔓 [${user.displayName}] Drag-releasing shape ${s.id.slice(-4)}`)
         updateShapeOptimistic(s.id, { 
           isLocked: false, 
           lockedBy: null, 
@@ -97,7 +98,7 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       // Background Firebase lock acquisition
       acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
-  }, [shape.id, isLockedByMe, user, shapes])
+  }, [shape.id, isLockedByMe, user, shapes, onSelect])
 
   // ✅ OPTIMISTIC DRAG END: Instant position updates with proper circle handling
   const handleDragEnd = useCallback((e: any) => {
@@ -120,6 +121,50 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       updateShape(shape.id, { x: newX, y: newY }, user.uid)
     }
   }, [shape.id, shape.type, shape.width, shape.height, user])
+
+  // ✅ RESIZE HANDLER: Update shape dimensions after transform
+  const handleTransformEnd = useCallback((_e: any) => {
+    const node = shapeRef.current
+    if (!node || !user) return
+
+    const scaleX = node.scaleX()
+    const scaleY = node.scaleY()
+    
+    // Calculate new dimensions
+    let newWidth = Math.max(20, Math.round(node.width() * scaleX))
+    let newHeight = Math.max(20, Math.round(node.height() * scaleY))
+    let newX = Math.round(node.x())
+    let newY = Math.round(node.y())
+    
+    // Reset scale to 1 (bake the scale into width/height)
+    node.scaleX(1)
+    node.scaleY(1)
+    
+    // For circles, maintain circular shape or update based on scale
+    if (shape.type === 'circle') {
+      // Adjust position for circle center
+      newX = newX - newWidth / 2
+      newY = newY - newHeight / 2
+    }
+    
+    const { updateShapeOptimistic } = useCanvasStore.getState()
+    
+    // ✅ INSTANT: Update dimensions locally first
+    updateShapeOptimistic(shape.id, { 
+      x: newX,
+      y: newY,
+      width: newWidth, 
+      height: newHeight 
+    })
+    
+    // ✅ BACKGROUND: Sync to Firebase (non-blocking)
+    updateShape(shape.id, { 
+      x: newX,
+      y: newY,
+      width: newWidth, 
+      height: newHeight 
+    }, user.uid)
+  }, [shape.id, shape.type, user, shapeRef])
 
   // ✅ PERFORMANCE: Drag boundary constraints with circle support
   const dragBoundFunc = useCallback((pos: any) => {
@@ -162,6 +207,8 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
       onClick: handleClick,
       onDragStart: handleDragStart,
       onDragEnd: handleDragEnd,
+      onTransformEnd: handleTransformEnd,
+      ref: shapeRef as any,
     }
 
     if (shape.type === 'circle') {
@@ -211,12 +258,127 @@ const SimpleShape: React.FC<{ shape: Shape }> = React.memo(({ shape }) => {
 // ✅ PERFORMANCE: Memoize shape layer to prevent unnecessary re-renders
 const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening }) => {
   const { shapes } = useCanvasStore()
+  const { user } = useUserStore()
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
+  const [isShiftPressed, setIsShiftPressed] = useState(false)
+  const transformerRef = useRef<Konva.Transformer>(null)
+  const shapeRefs = useRef<{ [key: string]: Konva.Shape }>({})
+
+  // ✅ SHIFT KEY: Track shift key for aspect ratio locking
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.shiftKey && !isShiftPressed) {
+        setIsShiftPressed(true)
+      }
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.shiftKey && isShiftPressed) {
+        setIsShiftPressed(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', () => setIsShiftPressed(false))
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', () => setIsShiftPressed(false))
+    }
+  }, [isShiftPressed])
+
+  // Update transformer aspect ratio based on shift key
+  useEffect(() => {
+    const transformer = transformerRef.current
+    if (transformer) {
+      transformer.keepRatio(isShiftPressed)
+    }
+  }, [isShiftPressed])
+
+  // Update transformer when selection changes
+  useEffect(() => {
+    const transformer = transformerRef.current
+    if (!transformer) return
+
+    if (selectedShapeId && shapeRefs.current[selectedShapeId]) {
+      const selectedNode = shapeRefs.current[selectedShapeId]
+      transformer.nodes([selectedNode])
+      transformer.getLayer()?.batchDraw()
+    } else {
+      transformer.nodes([])
+    }
+  }, [selectedShapeId])
+
+  // Track which shape is selected (should match locked shape)
+  useEffect(() => {
+    if (user) {
+      const myLockedShape = shapes.find(s => s.lockedBy === user.uid)
+      setSelectedShapeId(myLockedShape?.id || null)
+    }
+  }, [shapes, user])
+
+  // Handle deselection when clicking outside
+  const handleStageClick = useCallback((e: any) => {
+    // Check if clicked on empty area (stage)
+    if (e.target === e.target.getStage()) {
+      setSelectedShapeId(null)
+    }
+  }, [])
 
   return (
-    <Layer listening={listening}>
-      {shapes.map((shape) => (
-        <SimpleShape key={shape.id} shape={shape} />
-      ))}
+    <Layer listening={listening} onClick={handleStageClick} onTap={handleStageClick}>
+      {shapes.map((shape) => {
+        // Create ref for each shape
+        if (!shapeRefs.current[shape.id]) {
+          shapeRefs.current[shape.id] = null as any
+        }
+        
+        return (
+          <SimpleShape 
+            key={shape.id} 
+            shape={shape}
+            isSelected={selectedShapeId === shape.id}
+            onSelect={() => setSelectedShapeId(shape.id)}
+            shapeRef={{ 
+              current: shapeRefs.current[shape.id] 
+            } as React.RefObject<Konva.Shape>}
+          />
+        )
+      })}
+      
+      {/* ✅ FIGMA-LIKE TRANSFORMER: Resize handles with aspect ratio locking */}
+      <Transformer
+        ref={transformerRef}
+        flipEnabled={false}
+        boundBoxFunc={(oldBox, newBox) => {
+          // Limit resize to minimum size
+          if (Math.abs(newBox.width) < 20 || Math.abs(newBox.height) < 20) {
+            return oldBox
+          }
+          return newBox
+        }}
+        // ✅ SHIFT-KEY ASPECT RATIO: Enable when shift is pressed
+        enabledAnchors={[
+          'top-left',
+          'top-right',
+          'bottom-left',
+          'bottom-right',
+          'top-center',
+          'middle-right',
+          'bottom-center',
+          'middle-left'
+        ]}
+        keepRatio={false} // We'll handle this with shift key
+        anchorSize={8}
+        anchorStroke="#0066ff"
+        anchorFill="white"
+        anchorStrokeWidth={2}
+        borderStroke="#0066ff"
+        borderStrokeWidth={2}
+        rotateEnabled={false} // Disable rotation for now
+      />
     </Layer>
   )
 }
