@@ -304,11 +304,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const isDragSelecting = useRef(false)
   
   const handleStageClick = useCallback(async (e: Konva.KonvaEventObject<MouseEvent>) => {
-    console.log('🎯 Stage click, isDragSelecting:', isDragSelecting.current, 'target:', e.target.getType())
-    
     // Don't create shapes if we just finished a drag-to-select
     if (isDragSelecting.current) {
-      console.log('❌ Skipping shape creation - just did drag-to-select')
       isDragSelecting.current = false
       return
     }
@@ -317,11 +314,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const targetType = e.target.getType()
     if (targetType !== 'Stage' || isSpacePressed || !user) return
     
-    // ✅ PREVENT CREATION DURING STATE UPDATES
-    if (isUpdatingState) {
-      console.log(`⏳ Waiting for state to settle before creating shape...`)
-      return
-    }
+    // Prevent creation during state updates
+    if (isUpdatingState) return
     
     const { shapes, addShape, updateShapeOptimistic } = useCanvasStore.getState()
     const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
@@ -352,14 +346,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     // ✅ CREATE SHAPE: No selection, so create new shape
     const now = Date.now()
     
-    // ✅ THROTTLE CREATION: Prevent spam (10 shapes/sec)
+    // Throttle creation: Prevent spam (10 shapes/sec)
     if (now - lastShapeCreationRef.current < 100) {
       return
     }
     lastShapeCreationRef.current = now
-    
-    // ✅ SIMPLE: Create shape with creation preferences
-    console.log(`🎯 Creating ${creationShapeType} with color ${creationColor}`)
     
     const stage = stageRef.current!
     const canvasPos = stage.getRelativePointerPosition()!

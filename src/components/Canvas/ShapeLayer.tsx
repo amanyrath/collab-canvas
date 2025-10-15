@@ -379,44 +379,21 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
 
   // ✅ DRAG-TO-SELECT: Handle mouse down on layer (requires Shift key)
   const handleLayerMouseDown = useCallback((e: any) => {
-    console.log('🎯 MOUSE DOWN ON LAYER!', {
-      shiftKey: e.evt?.shiftKey,
-      targetType: e.target.getType(),
-      listening: listening
-    })
-    
-    const targetType = e.target.getType()
     const isShiftKey = e.evt?.shiftKey || false
+    if (!isShiftKey) return
     
-    // Only start drag-to-select if Shift is held and clicking on empty area
-    if (!isShiftKey) {
-      console.log('❌ No shift key pressed')
-      return
-    }
-    
-    // Only start selection if clicking on empty area (Stage, Layer, or our background rect)
+    // Only start selection if clicking on background (not a shape)
     const isBackgroundRect = e.target.name && e.target.name() === 'background-rect'
+    const targetType = e.target.getType()
     const isBackgroundClick = targetType === 'Stage' || targetType === 'Layer' || isBackgroundRect
-    
-    if (!isBackgroundClick) {
-      console.log('❌ Not clicking on background, target:', targetType, 'name:', e.target.name?.())
-      return
-    }
-    
-    console.log('✅ Background click detected, isBackgroundRect:', isBackgroundRect)
+    if (!isBackgroundClick) return
 
     const stage = e.target.getStage()
     const pointerPosition = stage.getPointerPosition()
-    
-    if (!pointerPosition) {
-      console.log('❌ No pointer position')
-      return
-    }
+    if (!pointerPosition) return
 
-    console.log('✅ Shift+drag to select started at', pointerPosition)
     isDrawingSelection.current = true
     
-    // Tell Canvas we're doing a drag-to-select (prevents shape creation)
     if (isDragSelectingRef) {
       isDragSelectingRef.current = true
     }
@@ -428,7 +405,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
       x2: pointerPosition.x,
       y2: pointerPosition.y
     })
-  }, [isDragSelectingRef, listening])
+  }, [isDragSelectingRef])
 
   // ✅ DRAG-TO-SELECT: Handle mouse move
   const handleStageMouseMove = useCallback((e: any) => {
@@ -449,14 +426,12 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
   // ✅ DRAG-TO-SELECT: Handle mouse up - finalize selection
   const handleStageMouseUp = useCallback(() => {
     if (!isDrawingSelection.current) {
-      // Not drawing, reset the flag just in case
       if (isDragSelectingRef) {
         isDragSelectingRef.current = false
       }
       return
     }
     
-    console.log('✅ Shift+drag selection complete')
     isDrawingSelection.current = false
 
     // Calculate selection box bounds
@@ -493,7 +468,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     if (selectedIds.length > 0 && user) {
       const { updateShapeOptimistic } = useCanvasStore.getState()
       
-      // Release previous selections
+      // Release previous selections (optimistic + batch Firebase)
       const previouslyLocked = shapes.filter(s => s.lockedBy === user.uid && !selectedIds.includes(s.id))
       previouslyLocked.forEach(s => {
         updateShapeOptimistic(s.id, {
@@ -502,22 +477,34 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
           lockedByName: null,
           lockedByColor: null
         })
-        releaseLock(s.id, user.uid, user.displayName)
       })
+      
+      // Batch release locks in background
+      if (previouslyLocked.length > 0) {
+        Promise.all(previouslyLocked.map(s => releaseLock(s.id, user.uid, user.displayName)))
+      }
 
-      // Lock newly selected shapes
-      selectedIds.forEach(id => {
+      // Lock newly selected shapes (optimistic + batch Firebase)
+      const shapesToLock = selectedIds.filter(id => {
         const shape = shapes.find(s => s.id === id)
-        if (shape && !shape.isLocked) {
-          updateShapeOptimistic(id, {
-            isLocked: true,
-            lockedBy: user.uid,
-            lockedByName: user.displayName,
-            lockedByColor: user.cursorColor
-          })
-          acquireLock(id, user.uid, user.displayName, user.cursorColor)
-        }
+        return shape && !shape.isLocked
       })
+      
+      shapesToLock.forEach(id => {
+        updateShapeOptimistic(id, {
+          isLocked: true,
+          lockedBy: user.uid,
+          lockedByName: user.displayName,
+          lockedByColor: user.cursorColor
+        })
+      })
+      
+      // Batch acquire locks in background
+      if (shapesToLock.length > 0) {
+        Promise.all(shapesToLock.map(id => 
+          acquireLock(id, user.uid, user.displayName, user.cursorColor)
+        ))
+      }
 
       setSelectedShapeIds(selectedIds)
     }
