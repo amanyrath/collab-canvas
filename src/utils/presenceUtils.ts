@@ -47,15 +47,12 @@ export const initializePresence = async (user: User): Promise<void> => {
     // ✅ BUILT-IN: Set presence data
     await set(presenceRef, presenceData)
     
-    // ✅ BUILT-IN: Auto-cleanup on disconnect
+    // ✅ CRITICAL: Remove presence data entirely on disconnect
+    // This ensures cursors and sidebar entries disappear immediately
     const disconnectRef = onDisconnect(presenceRef)
-    await disconnectRef.update({
-      isOnline: false,
-      lastSeen: serverTimestamp(),
-      currentlyEditing: null
-    })
+    await disconnectRef.remove()
     
-    console.log(`✅ Presence initialized for ${user.displayName}`)
+    console.log(`✅ Presence initialized for ${user.displayName} with auto-cleanup`)
   }, { maxRetries: 3 })
 }
 
@@ -143,13 +140,10 @@ export const cleanupPresence = async (userId: string): Promise<void> => {
   return FirebaseErrorHandler.withRetry(async () => {
     const presenceRef = ref(rtdb, `/sessions/global-canvas-v1/${userId}`)
     
-    // ✅ Set offline status instead of removing (for graceful cleanup)
-    await update(presenceRef, {
-      isOnline: false,
-      lastSeen: serverTimestamp(),
-      currentlyEditing: null
-    })
+    // ✅ REMOVE: Delete presence data entirely on manual logout
+    // This immediately removes cursor and sidebar entry
+    await set(presenceRef, null)
     
-    console.log(`🔴 Presence cleaned up for user: ${userId}`)
+    console.log(`🔴 Presence removed for user: ${userId}`)
   }, { maxRetries: 2 })
 }

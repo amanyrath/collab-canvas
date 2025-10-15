@@ -3,33 +3,31 @@ import { useEffect } from 'react'
 import { ref, onValue } from 'firebase/database'
 import { rtdb } from '../utils/firebase'
 import { releaseAllUserLocks } from '../utils/lockUtils'
-import type { PresenceData } from '../utils/presenceUtils'
 
 export const usePresenceMonitor = () => {
   useEffect(() => {
     console.log('🔄 Starting presence monitoring for lock cleanup')
     const presenceRef = ref(rtdb, '/sessions/global-canvas-v1')
     
+    // Track users across snapshots to detect disconnections
+    let previousUserIds = new Set<string>()
+    
     const handlePresenceChange = (snapshot: any) => {
-      if (!snapshot.exists()) return
+      const presenceData = snapshot.val() || {}
+      const currentUserIds = new Set(Object.keys(presenceData))
       
-      const presenceData = snapshot.val()
-      
-      // Check for users who went offline and clean up their locks
-      Object.entries(presenceData).forEach(([userId, data]: [string, any]) => {
-        const user = data as PresenceData
-        
-        // ✅ Use correct isOnline field and lastSeen timestamp
-        if (!user.isOnline && user.lastSeen && typeof user.lastSeen === 'number') {
-          const timeSinceLastSeen = Date.now() - user.lastSeen
-          if (timeSinceLastSeen > 5000) { // 5 second grace period
-            console.log(`👻 Detected offline user: ${user.displayName}, cleaning up locks`)
-            releaseAllUserLocks(userId).catch(error => {
-              console.error('Failed to cleanup locks for offline user:', error)
-            })
-          }
+      // Find users who disappeared (disconnected) - their data was removed
+      previousUserIds.forEach(userId => {
+        if (!currentUserIds.has(userId)) {
+          console.log(`👻 User disconnected: ${userId}, cleaning up locks`)
+          releaseAllUserLocks(userId).catch(error => {
+            console.error('Failed to cleanup locks for disconnected user:', error)
+          })
         }
       })
+      
+      // Update tracking for next snapshot
+      previousUserIds = currentUserIds
     }
     
     // Listen for presence changes

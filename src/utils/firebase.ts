@@ -55,7 +55,7 @@ if (useEmulator) {
   
   // Only connect to emulators if not already connected
   try {
-    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
     console.log('✅ Auth Emulator connected')
   } catch (error) {
     console.log('Auth emulator already connected', error)
@@ -63,7 +63,7 @@ if (useEmulator) {
 
   console.log('🔍 [BUILD DEBUG] About to connect to Firestore emulator...')
   try {
-    connectFirestoreEmulator(db, 'localhost', 8080)
+    connectFirestoreEmulator(db, '127.0.0.1', 8080)
     console.log('✅ Firestore Emulator connected (FREE)')
   } catch (error) {
     console.log('Firestore emulator already connected', error)
@@ -71,7 +71,7 @@ if (useEmulator) {
 
   console.log('🔍 [BUILD DEBUG] About to connect to Database emulator...')
   try {
-    connectDatabaseEmulator(rtdb, 'localhost', 9000)
+    connectDatabaseEmulator(rtdb, '127.0.0.1', 9000)
     console.log('✅ Realtime Database Emulator connected (FREE)')
   } catch (error) {
     console.log('Realtime Database emulator already connected', error)
