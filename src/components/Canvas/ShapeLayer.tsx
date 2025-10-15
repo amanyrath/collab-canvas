@@ -394,9 +394,13 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
       return
     }
     
-    // Only start selection if clicking on empty area (Stage or Layer, not a shape)
-    if (targetType !== 'Stage' && targetType !== 'Layer') {
-      console.log('❌ Target is not Stage/Layer:', targetType)
+    // Only start selection if clicking on empty area (Stage, Layer, or our invisible Rect)
+    // We need to check if it's our background rect or an actual shape
+    const isBackgroundClick = targetType === 'Stage' || targetType === 'Layer' || 
+      (targetType === 'Rect' && e.target.attrs.fill === 'transparent')
+    
+    if (!isBackgroundClick) {
+      console.log('❌ Not clicking on background, target:', targetType)
       return
     }
 
