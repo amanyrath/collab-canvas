@@ -70,53 +70,21 @@ function App() {
               
               {/* Sidebar */}
               <div className="w-64 space-y-4">
-                {/* ⚡ FAST: Minimal presence sidebar */}
+                {/* ⚡ Presence sidebar */}
                 <FastPresenceSidebar />
                 
-                {/* Canvas tools */}
+                {/* Shortcuts */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Canvas Tools</h3>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div>• <strong>Click empty space</strong> → Create rectangles</div>
-                  <div>• <strong>Shift + drag</strong> → Select area (marquee)</div>
-                  <div>• <strong>Click & drag shapes</strong> → Move them</div>
-                  <div>• <strong>Click shapes</strong> → Select/lock them</div>
-                  <div>• <strong>Shift + click</strong> → Multi-select shapes</div>
-                  <div>• <strong>⌘/Ctrl + A</strong> → Select all shapes</div>
-                  <div>• <strong>Drag corner handles</strong> → Resize shapes</div>
-                  <div>• <strong>Shift + resize</strong> → Lock aspect ratio</div>
-                  <div>• <strong>Trackpad scroll</strong> → Pan canvas (Figma-style)</div>
-                  <div>• <strong>⌘/Ctrl + scroll</strong> → Zoom (or pinch)</div>
-                  <div>• <strong>Mouse wheel</strong> → Zoom</div>
-                  <div>• <strong>Space + drag</strong> → Pan (power users)</div>
-                  <div>• <strong>Delete key</strong> → Delete selected shapes</div>
-                </div>
-                
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Progress:</h4>
-                  <div className="space-y-1 text-sm text-gray-500">
-                    <div>✅ Canvas & Figma-style Navigation</div>
-                    <div>✅ Shape Creation & Real-time Sync</div>
-                    <div>✅ Multi-Select & Multiplayer Locking</div>
-                    <div>✅ Drag & Drop with Constraints</div>
-                    <div>✅ Shape Resizing with Aspect Ratio Lock</div>
-                    <div>✅ Shape Deletion (optimistic)</div>
-                    <div>✅ Error Handling & Connection Status</div>
-                    <div>✅ Multiplayer Cursors & Presence</div>
-                    <div>✅ Performance Monitoring</div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Shortcuts</h3>
+                  <div className="space-y-1.5 text-xs text-gray-600">
+                    <div><strong>Click</strong> → Create shape</div>
+                    <div><strong>Shift+Drag</strong> → Marquee select</div>
+                    <div><strong>Shift+Click</strong> → Multi-select</div>
+                    <div><strong>⌘/Ctrl+A</strong> → Select all</div>
+                    <div><strong>Delete</strong> → Delete selected</div>
+                    <div><strong>Space+Drag</strong> → Pan canvas</div>
+                    <div><strong>Scroll</strong> → Zoom/Pan</div>
                   </div>
-                </div>
-                
-                {import.meta.env.DEV && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    <h4 className="text-sm font-semibold text-yellow-800 mb-2">🛠️ Dev Tools:</h4>
-                    <div className="space-y-1 text-xs text-yellow-700">
-                      <div>Open console and run:</div>
-                      <code className="block bg-yellow-100 p-1 rounded mt-1">clearAllLocks()</code>
-                      <div className="text-xs">Clear stuck locks</div>
-                    </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

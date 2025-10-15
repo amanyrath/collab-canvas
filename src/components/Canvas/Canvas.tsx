@@ -40,36 +40,42 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   useShapeSync()
   usePresenceMonitor()
 
-  // ✅ PHASE 7: Delete currently locked shape with OPTIMISTIC updates
+  // ✅ MULTI-SELECT DELETE: Delete all locked shapes with OPTIMISTIC updates
   const handleDeleteShape = useCallback(async () => {
     if (!user) return
 
     const { shapes, deleteShape: deleteShapeLocal } = useCanvasStore.getState()
-    const userLockedShape = shapes.find(shape => shape.lockedBy === user.uid)
+    const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
     
-    if (!userLockedShape) {
-      console.log('No shape selected for deletion')
+    if (userLockedShapes.length === 0) {
+      console.log('No shapes selected for deletion')
       return
     }
 
-    // ✅ INSTANT: Optimistic deletion (remove from UI immediately)
-    deleteShapeLocal(userLockedShape.id)
-    console.log(`⚡ Instantly deleted: ${userLockedShape.id}`)
+    console.log(`🗑️ Deleting ${userLockedShapes.length} selected shapes`)
 
-    // ✅ BACKGROUND: Sync to Firestore (doesn't block UI)
-    try {
-      await deleteShape(userLockedShape.id)
-      console.log(`🗑️ Deletion synced to Firestore: ${userLockedShape.id}`)
-    } catch (error) {
-      console.error('Deletion sync failed:', error)
-      
-      // ✅ ROLLBACK: Restore shape on error (rare but important)
-      const { addShape } = useCanvasStore.getState()
-      addShape(userLockedShape)
-      console.log(`🔄 Restored shape after sync failure: ${userLockedShape.id}`)
-      
-      // TODO: Show error toast to user
-    }
+    // ✅ INSTANT: Optimistic deletion (remove all from UI immediately)
+    userLockedShapes.forEach(shape => {
+      deleteShapeLocal(shape.id)
+      console.log(`⚡ Instantly deleted: ${shape.id}`)
+    })
+
+    // ✅ BACKGROUND: Sync all deletions to Firestore (doesn't block UI)
+    const deletionPromises = userLockedShapes.map(async (shape) => {
+      try {
+        await deleteShape(shape.id)
+        console.log(`🗑️ Deletion synced to Firestore: ${shape.id}`)
+      } catch (error) {
+        console.error(`Deletion sync failed for ${shape.id}:`, error)
+        
+        // ✅ ROLLBACK: Restore shape on error (rare but important)
+        const { addShape } = useCanvasStore.getState()
+        addShape(shape)
+        console.log(`🔄 Restored shape after sync failure: ${shape.id}`)
+      }
+    })
+
+    await Promise.all(deletionPromises)
   }, [user])
 
   // ✅ COMBINED: Space key + Delete key handling
@@ -310,10 +316,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       switch (e.key.toLowerCase()) {
         case 'r': handleShapeTypeChange('rectangle'); break
         case 'c': handleShapeTypeChange('circle'); break
-        case '1': handleColorChange('#ef4444'); break
-        case '2': handleColorChange('#22c55e'); break  
-        case '3': handleColorChange('#3b82f6'); break
-        case '4': handleColorChange('#CCCCCC'); break
+        case '1': handleColorChange('#CCCCCC'); break // Grey
+        case '2': handleColorChange('#ef4444'); break // Red
+        case '3': handleColorChange('#22c55e'); break // Green
+        case '4': handleColorChange('#3b82f6'); break // Blue
       }
     }
 
@@ -336,9 +342,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       return
     }
     
-    // Only create shapes if clicking directly on the Stage (not Layer or other elements)
+    // Only create shapes if clicking on empty canvas (Stage or background rectangle)
     const targetType = e.target.getType()
-    if (targetType !== 'Stage' || isSpacePressed || !user) return
+    const targetName = e.target.name ? e.target.name() : ''
+    const isEmptyArea = targetType === 'Stage' || targetName === 'background-rect'
+    
+    if (!isEmptyArea || isSpacePressed || !user) return
     
     // Prevent creation during state updates
     if (isUpdatingState) return
