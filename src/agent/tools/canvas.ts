@@ -98,16 +98,7 @@ export class CreateShapeTool extends Tool {
   name = 'create_shape';
   description = `Create a new shape on the canvas. 
     Input should be a JSON string with:
-    {
-      "type": "rectangle" or "circle",
-      "x": number (0-5000),
-      "y": number (0-5000),
-      "width": number (20-1000, optional, default 100),
-      "height": number (20-1000, optional, default 100),
-      "fill": color (hex or name, optional, default grey),
-      "userId": string (required),
-      "displayName": string (required)
-    }
+    type (rectangle or circle), x (0-5000), y (0-5000), width (20-1000, optional, default 100), height (20-1000, optional, default 100), fill (color hex or name, optional, default grey), userId (required), displayName (required).
     Returns the ID of the created shape.`;
 
   async _call(input: string): Promise<string> {
@@ -156,13 +147,7 @@ export class CreateShapeTool extends Tool {
 export class MoveShapeTool extends Tool {
   name = 'move_shape';
   description = `Move a shape to a new position.
-    Input should be a JSON string with:
-    {
-      "shapeId": string,
-      "x": number (0-5000),
-      "y": number (0-5000),
-      "userId": string (required)
-    }
+    Input should be a JSON string with: shapeId (string), x (0-5000), y (0-5000), userId (required).
     Returns success status.`;
 
   async _call(input: string): Promise<string> {
@@ -206,13 +191,7 @@ export class MoveShapeTool extends Tool {
 export class ResizeShapeTool extends Tool {
   name = 'resize_shape';
   description = `Resize a shape.
-    Input should be a JSON string with:
-    {
-      "shapeId": string,
-      "width": number (20-1000),
-      "height": number (20-1000),
-      "userId": string (required)
-    }
+    Input should be a JSON string with: shapeId (string), width (20-1000), height (20-1000), userId (required).
     Returns success status.`;
 
   async _call(input: string): Promise<string> {
@@ -260,10 +239,7 @@ export class ResizeShapeTool extends Tool {
 export class DeleteShapeTool extends Tool {
   name = 'delete_shape';
   description = `Delete a shape from the canvas.
-    Input should be a JSON string with:
-    {
-      "shapeId": string
-    }
+    Input should be a JSON string with: shapeId (string).
     Returns success status.`;
 
   async _call(input: string): Promise<string> {
@@ -295,15 +271,7 @@ export class DeleteShapeTool extends Tool {
 export class ArrangeShapesTool extends Tool {
   name = 'arrange_shapes';
   description = `Arrange multiple shapes in a layout pattern.
-    Input should be a JSON string with:
-    {
-      "shapeIds": string[], (shapes to arrange)
-      "layout": "horizontal" | "vertical" | "grid",
-      "startX": number (optional, default 100),
-      "startY": number (optional, default 100),
-      "spacing": number (optional, default 120),
-      "userId": string (required)
-    }
+    Input should be a JSON string with: shapeIds (array of strings), layout (horizontal, vertical, or grid), startX (optional, default 100), startY (optional, default 100), spacing (optional, default 120), userId (required).
     Returns success status with new positions.`;
 
   async _call(input: string): Promise<string> {
@@ -379,7 +347,7 @@ export class ArrangeShapesTool extends Tool {
 export class GetCanvasStateTool extends Tool {
   name = 'get_canvas_state';
   description = `Get the current state of the canvas including all shapes and their properties.
-    Input: empty string or {}
+    Input: empty string
     Returns: Canvas state with all shapes`;
 
   async _call(_input: string): Promise<string> {
