@@ -112,24 +112,35 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         // Execute with streaming
         setIsStreaming(true);
         
-        agentResponse = await executeCommandWithStreaming(
-          command,
-          userContext,
-          (token) => {
-            // Update streaming text as tokens arrive
-            setStreamingText(prev => prev + token);
-          },
-          recentMessages
-        );
+        // Add timeout protection
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000);
+        });
+
+        agentResponse = await Promise.race([
+          executeCommandWithStreaming(
+            command,
+            userContext,
+            (token) => {
+              // Update streaming text as tokens arrive
+              setStreamingText(prev => prev + token);
+            },
+            recentMessages
+          ),
+          timeoutPromise
+        ]);
 
         setIsStreaming(false);
       } else {
-        // Execute without streaming
-        agentResponse = await executeCommand(
-          command,
-          userContext,
-          recentMessages
-        );
+        // Execute without streaming (with timeout)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000);
+        });
+
+        agentResponse = await Promise.race([
+          executeCommand(command, userContext, recentMessages),
+          timeoutPromise
+        ]);
       }
 
       console.log('✅ Agent response:', agentResponse);

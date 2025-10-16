@@ -63,11 +63,18 @@ export async function executeCommand(
     return parseAgentOutput(content);
   } catch (error) {
     console.error('Agent execution error:', error);
-    throw new Error(
-      error instanceof Error 
-        ? `Agent failed: ${error.message}` 
-        : 'Unknown agent error'
-    );
+    
+    // Provide helpful error messages for common issues
+    if (error instanceof Error) {
+      if (error.message.includes('ERR_NAME_NOT_RESOLVED')) {
+        throw new Error('Cannot reach OpenAI API. Check your internet connection or network firewall.');
+      }
+      if (error.message.includes('fetch')) {
+        throw new Error('Network error connecting to OpenAI. Please check your connection.');
+      }
+      throw new Error(`Agent failed: ${error.message}`);
+    }
+    throw new Error('Unknown agent error');
   }
 }
 
@@ -158,11 +165,18 @@ export async function executeCommandWithStreaming(
     return parseAgentOutput(fullResponse);
   } catch (error) {
     console.error('Streaming execution error:', error);
-    throw new Error(
-      error instanceof Error 
-        ? `Streaming execution failed: ${error.message}` 
-        : 'Unknown streaming error'
-    );
+    
+    // Provide helpful error messages
+    if (error instanceof Error) {
+      if (error.message.includes('ERR_NAME_NOT_RESOLVED')) {
+        throw new Error('Cannot reach OpenAI API. Check your internet connection or network firewall.');
+      }
+      if (error.message.includes('fetch')) {
+        throw new Error('Network error connecting to OpenAI. Please check your connection.');
+      }
+      throw new Error(`Streaming execution failed: ${error.message}`);
+    }
+    throw new Error('Unknown streaming error');
   }
 }
 
