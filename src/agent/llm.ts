@@ -10,12 +10,13 @@ import type { AgentConfig } from './types';
 
 /**
  * Default configuration for the LLM
+ * Optimized for speed while maintaining quality
  */
 const DEFAULT_CONFIG = {
-  model: 'gpt-4o-mini',
-  temperature: 0.3, // Low temperature for deterministic outputs
-  streaming: true,  // Enable streaming for better UX
-  maxTokens: 1000,  // Reasonable limit for canvas commands
+  model: 'gpt-4o-mini',     // Fastest GPT-4 variant
+  temperature: 0.1,          // Very low for fast, deterministic outputs
+  streaming: true,           // Enable streaming for better UX
+  maxTokens: 500,            // Reduced for faster responses (JSON is concise)
 };
 
 /**
