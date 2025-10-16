@@ -33,14 +33,19 @@ You MUST respond with valid JSON in this exact format:
   "reasoning": "Brief explanation of your approach",
   "actions": [
     {{
-      "type": "CREATE" | "MOVE" | "RESIZE" | "DELETE" | "ARRANGE",
-      "parameters": {{
-        // Tool-specific parameters
-      }}
+      "type": "CREATE",
+      "shape": "rectangle" or "circle",
+      "x": number,
+      "y": number,
+      "width": number (optional),
+      "height": number (optional),
+      "fill": "#hexcolor" (optional)
     }}
   ],
   "summary": "User-friendly description of what was done"
 }}
+
+Action properties should be directly on the action object, not nested under "parameters".
 
 IMPORTANT RULES:
 1. Always validate positions and sizes are within canvas bounds
@@ -58,14 +63,12 @@ Response: {{
   "reasoning": "Simple shape creation request",
   "actions": [{{
     "type": "CREATE",
-    "parameters": {{
-      "type": "circle",
-      "x": 200,
-      "y": 300,
-      "fill": "#ef4444",
-      "width": 100,
-      "height": 100
-    }}
+    "shape": "circle",
+    "x": 200,
+    "y": 300,
+    "fill": "#ef4444",
+    "width": 100,
+    "height": 100
   }}],
   "summary": "Created a red circle at position (200, 300)"
 }}
@@ -76,15 +79,30 @@ Response: {{
   "actions": [
     {{
       "type": "CREATE",
-      "parameters": {{ "type": "rectangle", "x": 200, "y": 100, "fill": "#CCCCCC", "width": 300, "height": 40 }}
+      "shape": "rectangle",
+      "x": 200,
+      "y": 100,
+      "fill": "#CCCCCC",
+      "width": 300,
+      "height": 40
     }},
     {{
       "type": "CREATE",
-      "parameters": {{ "type": "rectangle", "x": 200, "y": 160, "fill": "#CCCCCC", "width": 300, "height": 40 }}
+      "shape": "rectangle",
+      "x": 200,
+      "y": 160,
+      "fill": "#CCCCCC",
+      "width": 300,
+      "height": 40
     }},
     {{
       "type": "CREATE",
-      "parameters": {{ "type": "rectangle", "x": 200, "y": 220, "fill": "#3b82f6", "width": 300, "height": 40 }}
+      "shape": "rectangle",
+      "x": 200,
+      "y": 220,
+      "fill": "#3b82f6",
+      "width": 300,
+      "height": 40
     }}
   ],
   "summary": "Created a login form with username field, password field, and submit button"
