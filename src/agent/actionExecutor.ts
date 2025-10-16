@@ -161,6 +161,15 @@ async function executeCreate(
   }
 
   try {
+    console.log(`📝 Calling createShape with:`, {
+      x: action.x,
+      y: action.y,
+      type: action.shape,
+      fill,
+      userId: userContext.userId,
+      displayName: userContext.displayName
+    });
+
     const shapeId = await createShape(
       action.x,
       action.y,
@@ -170,14 +179,20 @@ async function executeCreate(
       userContext.displayName
     );
 
+    console.log(`✅ createShape returned shapeId: ${shapeId}`);
+
     // If custom size was specified, update it
     if (action.width !== undefined || action.height !== undefined) {
+      console.log(`📝 Updating size to ${width}×${height}`);
       await updateShape(shapeId, { width, height }, userContext.userId);
+      console.log(`✅ Size updated`);
     }
 
     // If text was specified, add it
     if (action.text) {
+      console.log(`📝 Adding text: ${action.text}`);
       await updateShape(shapeId, { text: action.text }, userContext.userId);
+      console.log(`✅ Text added`);
     }
 
     console.log(`✅ Created ${action.shape}: ${shapeId}`);
@@ -189,6 +204,7 @@ async function executeCreate(
       message: `Created ${action.shape} at (${action.x}, ${action.y})`,
     };
   } catch (error) {
+    console.error(`❌ CREATE failed with error:`, error);
     return {
       success: false,
       action,
