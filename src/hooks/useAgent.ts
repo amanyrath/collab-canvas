@@ -75,12 +75,14 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       abortControllerRef.current = null;
     }
     
-    // Reset all processing states
+    // Force reset all processing states immediately
     setIsProcessing(false);
     setIsStreaming(false);
     setStreamingText('');
+    setError(null);
     
     console.log('✅ Command canceled and state reset');
+    console.log('   isProcessing should now be: false');
   }, []);
 
   /**

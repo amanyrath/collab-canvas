@@ -67,12 +67,17 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
     }
   }, [isProcessing]);
 
-  // Focus input when opened
+  // Focus input and reset state when opened
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
+      // Safety: ensure we're not stuck in processing state when reopening
+      if (isProcessing) {
+        console.log('⚠️ Chat reopened while processing - canceling any stuck state');
+        cancelCurrentCommand();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isProcessing, cancelCurrentCommand]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,8 +122,11 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full" />
+          <div className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
           <h3 className="font-semibold text-gray-800">AI Canvas Agent</h3>
+          {import.meta.env.DEV && isProcessing && (
+            <span className="text-xs text-yellow-600">(Processing)</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
