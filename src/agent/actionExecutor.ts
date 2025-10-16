@@ -183,16 +183,25 @@ async function executeCreate(
 
     // If custom size was specified, update it
     if (action.width !== undefined || action.height !== undefined) {
-      console.log(`📝 Updating size to ${width}×${height}`);
-      await updateShape(shapeId, { width, height }, userContext.userId);
-      console.log(`✅ Size updated`);
+      try {
+        console.log(`📝 Updating size to ${width}×${height}`);
+        await updateShape(shapeId, { width, height }, userContext.userId);
+        console.log(`✅ Size updated`);
+      } catch (updateError) {
+        // Ignore update errors - shape was created successfully with default size
+        console.warn(`⚠️ Size update failed (shape created with default size):`, updateError);
+      }
     }
 
     // If text was specified, add it
     if (action.text) {
-      console.log(`📝 Adding text: ${action.text}`);
-      await updateShape(shapeId, { text: action.text }, userContext.userId);
-      console.log(`✅ Text added`);
+      try {
+        console.log(`📝 Adding text: ${action.text}`);
+        await updateShape(shapeId, { text: action.text }, userContext.userId);
+        console.log(`✅ Text added`);
+      } catch (updateError) {
+        console.warn(`⚠️ Text update failed:`, updateError);
+      }
     }
 
     console.log(`✅ Created ${action.shape}: ${shapeId}`);

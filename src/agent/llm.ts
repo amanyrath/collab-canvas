@@ -34,6 +34,12 @@ const DEFAULT_CONFIG = {
 export function initializeLLM(config: Partial<AgentConfig> = {}): ChatOpenAI {
   const apiKey = config.openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY;
 
+  console.log('🔑 Environment check:', {
+    hasConfigKey: !!config.openaiApiKey,
+    hasEnvKey: !!import.meta.env.VITE_OPENAI_API_KEY,
+    envKeyPrefix: import.meta.env.VITE_OPENAI_API_KEY?.substring(0, 7),
+  });
+
   if (!apiKey) {
     throw new Error(
       'OpenAI API key not found. Please set VITE_OPENAI_API_KEY in your .env file. ' +
@@ -43,7 +49,9 @@ export function initializeLLM(config: Partial<AgentConfig> = {}): ChatOpenAI {
 
   // Validate API key format (should start with sk-)
   if (!apiKey.startsWith('sk-')) {
-    console.warn('OpenAI API key format looks incorrect. Expected to start with "sk-"');
+    console.error('❌ OpenAI API key format looks incorrect. Expected to start with "sk-"');
+    console.error('Key starts with:', apiKey.substring(0, 10));
+    throw new Error('Invalid OpenAI API key format. Key should start with "sk-"');
   }
 
   const llmConfig = {
@@ -51,14 +59,18 @@ export function initializeLLM(config: Partial<AgentConfig> = {}): ChatOpenAI {
     temperature: config.temperature ?? DEFAULT_CONFIG.temperature,
     streaming: config.streaming ?? DEFAULT_CONFIG.streaming,
     maxTokens: DEFAULT_CONFIG.maxTokens,
-    apiKey: apiKey, // Correct parameter name for ChatOpenAI
+    apiKey: apiKey,
+    configuration: {
+      baseURL: 'https://api.openai.com/v1',
+    },
   };
 
   console.log('🤖 Initializing LLM:', {
     model: llmConfig.modelName,
     temperature: llmConfig.temperature,
     streaming: llmConfig.streaming,
-    apiKey: apiKey ? '✓ Set' : '✗ Missing',
+    apiKey: '✓ Set (' + apiKey.substring(0, 10) + '...)',
+    keyLength: apiKey.length,
   });
 
   return new ChatOpenAI(llmConfig);
