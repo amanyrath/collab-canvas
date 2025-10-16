@@ -11,6 +11,7 @@ interface CanvasStore {
   addShape: (shape: Shape) => void
   updateShape: (shapeId: string, updates: Partial<Shape>) => void
   updateShapeOptimistic: (shapeId: string, updates: Partial<Shape>) => void
+  batchUpdateShapesOptimistic: (updates: Array<{ shapeId: string; updates: Partial<Shape> }>) => void
   deleteShape: (shapeId: string) => void
   setShapes: (shapes: Shape[]) => void
 }
@@ -51,6 +52,37 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
       shapes: state.shapes.map(shape => 
         shape.id === shapeId ? { ...shape, ...updates } : shape
       ),
+      optimisticUpdates: newOptimisticUpdates
+    }
+  }),
+
+  // ✅ PERFORMANCE: Batch update multiple shapes in a single state update
+  batchUpdateShapesOptimistic: (updates) => set((state) => {
+    const newOptimisticUpdates = new Map(state.optimisticUpdates)
+    const now = Date.now()
+    
+    // Create a map of shape ID to updates for O(1) lookup
+    const updateMap = new Map<string, Partial<Shape>>()
+    updates.forEach(({ shapeId, updates: shapeUpdates }) => {
+      updateMap.set(shapeId, shapeUpdates)
+      newOptimisticUpdates.set(shapeId, { timestamp: now, updates: shapeUpdates })
+    })
+    
+    // Clean up old optimistic updates
+    for (const [id, data] of newOptimisticUpdates.entries()) {
+      if (now - data.timestamp > OPTIMISTIC_TIMEOUT) {
+        newOptimisticUpdates.delete(id)
+      }
+    }
+    
+    // Single pass through shapes array - much faster than multiple updates
+    const newShapes = state.shapes.map(shape => {
+      const shapeUpdate = updateMap.get(shape.id)
+      return shapeUpdate ? { ...shape, ...shapeUpdate } : shape
+    })
+    
+    return {
+      shapes: newShapes,
       optimisticUpdates: newOptimisticUpdates
     }
   }),

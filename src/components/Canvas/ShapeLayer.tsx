@@ -5,11 +5,39 @@ import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
 import { updateShape } from '../../utils/shapeUtils'
-import { acquireLock, releaseLock } from '../../utils/lockUtils'
+import { acquireLock, releaseLock, acquireLockBatch, releaseLockBatch } from '../../utils/lockUtils'
 
 interface ShapeLayerProps {
   listening: boolean
   isDragSelectingRef?: React.MutableRefObject<boolean>
+}
+
+// ✅ PERFORMANCE: Custom comparison for React.memo to prevent unnecessary re-renders
+const areShapePropsEqual = (
+  prevProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; shapeRef: React.RefObject<Konva.Shape> },
+  nextProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; shapeRef: React.RefObject<Konva.Shape> }
+) => {
+  // Only re-render if shape properties that affect rendering changed
+  const prev = prevProps.shape
+  const next = nextProps.shape
+  
+  return (
+    prev.id === next.id &&
+    prev.x === next.x &&
+    prev.y === next.y &&
+    prev.width === next.width &&
+    prev.height === next.height &&
+    prev.fill === next.fill &&
+    prev.type === next.type &&
+    prev.text === next.text &&
+    prev.textColor === next.textColor &&
+    prev.fontSize === next.fontSize &&
+    prev.isLocked === next.isLocked &&
+    prev.lockedBy === next.lockedBy &&
+    prev.lockedByColor === next.lockedByColor &&
+    prevProps.isSelected === nextProps.isSelected
+    // Note: We don't compare onSelect or shapeRef as they are stable
+  )
 }
 
 // ✅ SIMPLIFIED: Selection = Locking (no dual state)
@@ -470,7 +498,9 @@ const SimpleShape: React.FC<{
       )}
     </>
   )
-})
+}, areShapePropsEqual)
+
+SimpleShape.displayName = 'SimpleShape'
 
 // ✅ PERFORMANCE: Memoize shape layer to prevent unnecessary re-renders
 const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }) => {
@@ -530,26 +560,52 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     }
   }, [isShiftPressed])
 
-  // Update transformer when selection changes OR when shapes change type
+  // ✅ PERFORMANCE: Only update transformer when selection changes, not on every shape change
+  // Use a separate ref to track if we need to update due to shape type changes
+  const lastSelectedShapeTypesRef = useRef<Map<string, string>>(new Map())
+  
   useEffect(() => {
     const transformer = transformerRef.current
     if (!transformer) return
 
     if (selectedShapeIds.length > 0) {
-      // ✅ GET FRESH NODES: Use findOne to get current nodes (handles shape type changes)
-      const layer = transformer.getLayer()
-      const selectedNodes = selectedShapeIds
-        .map(id => layer?.findOne(`#${id}`) as Konva.Shape)
-        .filter(node => node !== undefined && node !== null)
+      // Check if any selected shape changed type (rare but needs transformer refresh)
+      const currentShapeTypes = new Map<string, string>()
+      selectedShapeIds.forEach(id => {
+        const shape = shapes.find(s => s.id === id)
+        if (shape) currentShapeTypes.set(id, shape.type)
+      })
       
-      if (selectedNodes.length > 0) {
-        transformer.nodes(selectedNodes)
-        transformer.getLayer()?.batchDraw()
-      } else {
-        transformer.nodes([])
-        transformer.getLayer()?.batchDraw()
+      // Only update if selection changed or a shape type changed
+      let needsUpdate = selectedShapeIds.length !== lastSelectedShapeTypesRef.current.size
+      if (!needsUpdate) {
+        for (const [id, type] of currentShapeTypes.entries()) {
+          if (lastSelectedShapeTypesRef.current.get(id) !== type) {
+            needsUpdate = true
+            break
+          }
+        }
+      }
+      
+      if (needsUpdate) {
+        lastSelectedShapeTypesRef.current = currentShapeTypes
+        
+        // ✅ GET FRESH NODES: Use findOne to get current nodes (handles shape type changes)
+        const layer = transformer.getLayer()
+        const selectedNodes = selectedShapeIds
+          .map(id => layer?.findOne(`#${id}`) as Konva.Shape)
+          .filter(node => node !== undefined && node !== null)
+        
+        if (selectedNodes.length > 0) {
+          transformer.nodes(selectedNodes)
+          transformer.getLayer()?.batchDraw()
+        } else {
+          transformer.nodes([])
+          transformer.getLayer()?.batchDraw()
+        }
       }
     } else {
+      lastSelectedShapeTypesRef.current.clear()
       transformer.nodes([])
       transformer.getLayer()?.batchDraw()
     }
@@ -669,46 +725,59 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
       }
     })
 
-    // Update selection and lock shapes
+    // ✅ PERFORMANCE: Update selection and lock shapes with batch operations
     if (selectedIds.length > 0 && user) {
-      const { updateShapeOptimistic } = useCanvasStore.getState()
+      const { batchUpdateShapesOptimistic } = useCanvasStore.getState()
       
       // Release previous selections (optimistic + batch Firebase)
       const previouslyLocked = shapes.filter(s => s.lockedBy === user.uid && !selectedIds.includes(s.id))
-      previouslyLocked.forEach(s => {
-        updateShapeOptimistic(s.id, {
-          isLocked: false,
-          lockedBy: null,
-          lockedByName: null,
-          lockedByColor: null
-        })
-      })
       
-      // Batch release locks in background
-      if (previouslyLocked.length > 0) {
-        Promise.all(previouslyLocked.map(s => releaseLock(s.id, user.uid, user.displayName)))
-      }
-
-      // Lock newly selected shapes (optimistic + batch Firebase)
+      // Lock newly selected shapes
       const shapesToLock = selectedIds.filter(id => {
         const shape = shapes.find(s => s.id === id)
-        return shape && !shape.isLocked
+        return shape && (!shape.isLocked || shape.lockedBy === user.uid)
       })
       
-      shapesToLock.forEach(id => {
-        updateShapeOptimistic(id, {
-          isLocked: true,
-          lockedBy: user.uid,
-          lockedByName: user.displayName,
-          lockedByColor: user.cursorColor
+      // ✅ BATCH: Single state update for all changes
+      const allUpdates = [
+        // Unlock previously selected shapes
+        ...previouslyLocked.map(s => ({
+          shapeId: s.id,
+          updates: {
+            isLocked: false,
+            lockedBy: null,
+            lockedByName: null,
+            lockedByColor: null
+          }
+        })),
+        // Lock newly selected shapes
+        ...shapesToLock.map(id => ({
+          shapeId: id,
+          updates: {
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          }
+        }))
+      ]
+      
+      if (allUpdates.length > 0) {
+        batchUpdateShapesOptimistic(allUpdates)
+      }
+      
+      // ✅ BATCH: Firebase operations in background
+      if (previouslyLocked.length > 0) {
+        const releaseIds = previouslyLocked.map(s => s.id)
+        releaseLockBatch(releaseIds, user.uid).catch(error => {
+          console.error('Batch release failed:', error)
         })
-      })
+      }
       
-      // Batch acquire locks in background
       if (shapesToLock.length > 0) {
-        Promise.all(shapesToLock.map(id => 
-          acquireLock(id, user.uid, user.displayName, user.cursorColor)
-        ))
+        acquireLockBatch(shapesToLock, user.uid, user.displayName, user.cursorColor).catch(error => {
+          console.error('Batch lock failed:', error)
+        })
       }
 
       setSelectedShapeIds(selectedIds)
@@ -730,21 +799,27 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     const isStage = e.target === e.target.getStage()
     
     if (isStage || isBackgroundRect) {
-      // Deselect all and release locks
+      // ✅ PERFORMANCE: Deselect all and release locks with batch operations
       if (user && selectedShapeIds.length > 0) {
-        const { updateShapeOptimistic } = useCanvasStore.getState()
+        const { batchUpdateShapesOptimistic } = useCanvasStore.getState()
         
-        selectedShapeIds.forEach(id => {
-          updateShapeOptimistic(id, {
+        // ✅ BATCH: Single state update for all deselections
+        const updates = selectedShapeIds.map(id => ({
+          shapeId: id,
+          updates: {
             isLocked: false,
             lockedBy: null,
             lockedByName: null,
             lockedByColor: null
-          })
-        })
+          }
+        }))
         
-        // Batch release locks in background
-        Promise.all(selectedShapeIds.map(id => releaseLock(id, user.uid, user.displayName)))
+        batchUpdateShapesOptimistic(updates)
+        
+        // ✅ BATCH: Release locks in background
+        releaseLockBatch(selectedShapeIds, user.uid).catch(error => {
+          console.error('Batch release failed:', error)
+        })
         
         // ✅ CRITICAL: Stop event propagation to prevent shape creation in Canvas
         e.cancelBubble = true
@@ -774,35 +849,42 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     }
   }, [])
 
-  // Select all shapes with Cmd/Ctrl+A
+  // ✅ PERFORMANCE: Select all shapes with Cmd/Ctrl+A (optimized for 500+ shapes)
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
         e.preventDefault()
         
         if (!user) return
         
-        // ✅ Lock all shapes for this user (select all)
-        const { updateShapeOptimistic } = useCanvasStore.getState()
+        // ✅ PERFORMANCE: Batch update all shapes in a SINGLE state update
+        const { batchUpdateShapesOptimistic } = useCanvasStore.getState()
         
-        shapes.forEach(shape => {
-          // Only lock shapes not locked by others
-          if (!shape.isLocked || shape.lockedBy === user.uid) {
-            updateShapeOptimistic(shape.id, {
-              isLocked: true,
-              lockedBy: user.uid,
-              lockedByName: user.displayName,
-              lockedByColor: user.cursorColor
-            })
+        // Filter shapes that can be locked
+        const lockableShapes = shapes.filter(shape => !shape.isLocked || shape.lockedBy === user.uid)
+        
+        if (lockableShapes.length === 0) return
+        
+        console.log(`⚡ Select All: Batching ${lockableShapes.length} shape updates`)
+        
+        // ✅ INSTANT: Single optimistic update for all shapes (1 re-render instead of 500!)
+        const batchUpdates = lockableShapes.map(shape => ({
+          shapeId: shape.id,
+          updates: {
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
           }
+        }))
+        
+        batchUpdateShapesOptimistic(batchUpdates)
+        
+        // ✅ BACKGROUND: Batch Firebase sync (5-10x faster than individual locks)
+        const shapeIds = lockableShapes.map(s => s.id)
+        acquireLockBatch(shapeIds, user.uid, user.displayName, user.cursorColor).catch(error => {
+          console.error('Batch lock acquisition failed:', error)
         })
-        
-        // ✅ Background Firebase sync (batch all lock acquisitions)
-        const lockPromises = shapes
-          .filter(shape => !shape.isLocked || shape.lockedBy === user.uid)
-          .map(shape => acquireLock(shape.id, user.uid, user.displayName, user.cursorColor))
-        
-        Promise.all(lockPromises)
       }
     }
 
