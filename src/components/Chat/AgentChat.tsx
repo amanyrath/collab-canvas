@@ -22,6 +22,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestions = useSuggestedCommands();
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showThinking, setShowThinking] = useState(true);
 
   // Create user context from auth
   const userContext: UserContext | null = user ? {
@@ -112,6 +113,17 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowThinking(!showThinking)}
+            className={`px-2 py-1 text-xs rounded transition-colors ${
+              showThinking 
+                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+            title={showThinking ? "Hide thinking" : "Show thinking"}
+          >
+            💭
+          </button>
+          <button
             onClick={clearHistory}
             className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
             title="Clear chat history"
@@ -173,7 +185,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
         ))}
 
         {/* Streaming response */}
-        {isStreaming && streamingText && (
+        {isStreaming && streamingText && showThinking && (
           <div className="max-w-[80%]">
             <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
               <span className="font-medium">AI Agent</span>
@@ -191,9 +203,26 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
             </div>
           </div>
         )}
+        
+        {/* Show processing indicator when thinking is hidden */}
+        {isProcessing && !showThinking && (
+          <div className="max-w-[80%]">
+            <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
+              <span className="font-medium">AI Agent</span>
+              <span className="flex gap-1">
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+              </span>
+            </div>
+            <div className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 italic">
+              <p className="text-sm">Processing...</p>
+            </div>
+          </div>
+        )}
 
-        {/* Processing indicator */}
-        {isProcessing && !isStreaming && (
+        {/* Processing indicator (shown when not streaming, respects toggle) */}
+        {isProcessing && !isStreaming && showThinking && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <div className="flex gap-1">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
