@@ -67,6 +67,11 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
     }
   }, [isProcessing]);
 
+  // Debug: Log when isProcessing changes
+  useEffect(() => {
+    console.log('🔄 Component state changed - isProcessing:', isProcessing);
+  }, [isProcessing]);
+
   // Focus input and reset state when opened
   useEffect(() => {
     if (isOpen) {
@@ -82,7 +87,14 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('📝 Form submit - Current state:', { 
+      isProcessing, 
+      inputValue: inputValue.trim(),
+      hasUserContext: !!userContext 
+    });
+    
     if (!inputValue.trim() || !userContext) {
+      console.log('⚠️ Submit blocked:', !inputValue.trim() ? 'empty input' : 'no user context');
       return;
     }
 
@@ -126,6 +138,21 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           <h3 className="font-semibold text-gray-800">AI Canvas Agent</h3>
           {import.meta.env.DEV && isProcessing && (
             <span className="text-xs text-yellow-600">(Processing)</span>
+          )}
+          {import.meta.env.DEV && (
+            <button
+              onClick={() => {
+                console.log('🐛 DEBUG STATE:', { isProcessing, isStreaming, streamingText, error, messagesCount: messages.length });
+                if (isProcessing) {
+                  console.log('   Forcing cancel...');
+                  cancelCurrentCommand();
+                }
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600"
+              title="Debug: Check state"
+            >
+              🐛
+            </button>
           )}
         </div>
         <div className="flex items-center gap-2">
