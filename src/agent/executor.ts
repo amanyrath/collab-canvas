@@ -34,7 +34,9 @@ export async function executeCommand(
   userContext: UserContext,
   recentMessages: AgentMessage[] = []
 ): Promise<AgentResponse> {
+  const startTime = Date.now();
   try {
+    console.log('⏱️ Starting LLM request...');
     // Get LLM instance
     const llm = getLLM();
 
@@ -60,6 +62,8 @@ export async function executeCommand(
 
     // Parse and return result
     const content = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
+    const duration = Date.now() - startTime;
+    console.log(`✅ LLM responded in ${duration}ms`);
     return parseAgentOutput(content);
   } catch (error) {
     console.error('Agent execution error:', error);

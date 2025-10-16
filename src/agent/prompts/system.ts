@@ -120,21 +120,8 @@ export function createSystemPrompt(
   const contextAddition = `
 
 CURRENT CONTEXT:
-User: ${userContext.displayName} (ID: ${userContext.userId})
-Canvas State: ${canvasState.shapes.length} shapes on canvas
-${canvasState.shapes.length > 0 ? `
-Existing Shapes:
-${canvasState.shapes.slice(0, 10).map(s => 
-  `- ${s.type} at (${s.x}, ${s.y}), size: ${s.width}×${s.height}, color: ${s.fill}`
-).join('\n')}
-${canvasState.shapes.length > 10 ? `... and ${canvasState.shapes.length - 10} more shapes` : ''}
-` : 'Canvas is currently empty'}
-
-When creating or modifying shapes, you must include these parameters:
-- userId: "${userContext.userId}"
-- displayName: "${userContext.displayName}"
-
-IMPORTANT: All tool calls must include userId and displayName parameters.`;
+User: ${userContext.displayName}
+Canvas: ${canvasState.shapes.length} shapes`;
 
   return basePrompt + contextAddition;
 }

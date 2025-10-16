@@ -40,38 +40,17 @@ export function buildAgentContext(
  */
 export function formatCanvasState(state: CanvasState): string {
   if (state.shapes.length === 0) {
-    return 'Canvas is empty. Ready to create new shapes.';
+    return 'Canvas is empty.';
   }
 
-  const shapesSummary = state.shapes.length <= 5
+  // Limit to just 3 shapes for brevity
+  const shapesSummary = state.shapes.length <= 3
     ? state.shapes.map(s => 
-        `- ${s.type} "${s.id.slice(-8)}" at (${s.x}, ${s.y}), ${s.width}×${s.height}, ${s.fill}`
-      ).join('\n')
-    : `${state.shapes.length} shapes on canvas:\n` +
-      state.shapes.slice(0, 5).map(s => 
-        `- ${s.type} at (${s.x}, ${s.y}), ${s.width}×${s.height}, ${s.fill}`
-      ).join('\n') +
-      `\n... and ${state.shapes.length - 5} more shapes`;
+        `${s.type} at (${s.x}, ${s.y})`
+      ).join(', ')
+    : `${state.shapes.length} shapes on canvas`;
 
-  // Calculate canvas utilization
-  const occupiedArea = state.shapes.reduce((sum, s) => sum + (s.width * s.height), 0);
-  const totalArea = state.canvasWidth * state.canvasHeight;
-  const utilization = ((occupiedArea / totalArea) * 100).toFixed(1);
-
-  // Find bounding box of all shapes
-  const minX = Math.min(...state.shapes.map(s => s.x));
-  const maxX = Math.max(...state.shapes.map(s => s.x + s.width));
-  const minY = Math.min(...state.shapes.map(s => s.y));
-  const maxY = Math.max(...state.shapes.map(s => s.y + s.height));
-  
-  const contentBounds = `Content bounds: (${minX}, ${minY}) to (${maxX}, ${maxY})`;
-
-  return `Canvas State:
-${shapesSummary}
-
-Canvas utilization: ${utilization}%
-${contentBounds}
-Available space: Consider placing new shapes near (${maxX + 150}, ${minY}) or similar areas`;
+  return `Canvas: ${shapesSummary}`;
 }
 
 /**
@@ -243,42 +222,10 @@ export function getDesignRecommendations(state: CanvasState): DesignRecommendati
  * Create a comprehensive context summary for the agent
  */
 export function createContextSummary(context: AgentContext): string {
-  const { canvasState, userContext, recentMessages } = context;
+  const { canvasState, userContext } = context;
   
-  const parts = [
-    `User: ${userContext.displayName} (ID: ${userContext.userId})`,
-    '',
-    formatCanvasState(canvasState),
-    '',
-  ];
-
-  // Add spatial suggestions if useful
-  const spatialSuggestions = analyzeSpatialOpportunities(canvasState);
-  if (spatialSuggestions.length > 0) {
-    parts.push('Spatial Suggestions:');
-    spatialSuggestions.forEach(s => {
-      parts.push(`- ${s.description}${s.coordinates ? ` at (${s.coordinates.x}, ${s.coordinates.y})` : ''}`);
-    });
-    parts.push('');
-  }
-
-  // Add design recommendations if applicable
-  const recommendations = getDesignRecommendations(canvasState);
-  if (recommendations.length > 0) {
-    parts.push('Design Recommendations:');
-    recommendations.forEach(r => {
-      parts.push(`- [${r.priority}] ${r.suggestion}`);
-    });
-    parts.push('');
-  }
-
-  // Add conversation history if exists
-  if (recentMessages.length > 0) {
-    parts.push('Recent Conversation:');
-    parts.push(formatConversationHistory(recentMessages));
-    parts.push('');
-  }
-
-  return parts.join('\n');
+  // Keep it minimal for faster LLM responses
+  return `User: ${userContext.displayName}
+${formatCanvasState(canvasState)}`;
 }
 
