@@ -1,14 +1,12 @@
 /**
  * Agent Executor for AI Canvas Agent
  * 
- * This module implements the LangChain ReAct agent that combines
- * the LLM, tools, and prompts into a reasoning agent.
+ * This module implements direct LLM calls to generate structured JSON
+ * responses for canvas manipulation.
  */
 
-import { AgentExecutor, createReactAgent } from 'langchain/agents';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { getLLM } from './llm';
-import { allTools } from './tools';
 import { createSystemPrompt, buildAgentContext } from './prompts';
 import type { UserContext, AgentMessage, AgentResponse } from './types';
 
@@ -16,69 +14,15 @@ import type { UserContext, AgentMessage, AgentResponse } from './types';
  * Agent executor configuration
  */
 export interface AgentConfig {
-  maxIterations?: number;
   verbose?: boolean;
-  handleParsingErrors?: boolean;
 }
 
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
-  maxIterations: 5,
   verbose: true,
-  handleParsingErrors: true,
 };
 
 /**
- * Create the agent executor
- * 
- * This is the main entry point for creating a configured agent
- * that can process user commands and execute canvas actions.
- */
-export async function createAgent(
-  userContext: UserContext,
-  recentMessages: AgentMessage[] = [],
-  config: AgentConfig = {}
-): Promise<AgentExecutor> {
-  // Merge configs
-  const finalConfig = { ...DEFAULT_AGENT_CONFIG, ...config };
-
-  // Get LLM instance
-  const llm = getLLM();
-
-  // Build context
-  const context = buildAgentContext(userContext, recentMessages);
-  
-  // Create system prompt with context
-  const systemPrompt = createSystemPrompt(context.canvasState, userContext);
-
-  // Create prompt template with required ReAct variables
-  const prompt = ChatPromptTemplate.fromMessages([
-    ['system', systemPrompt + '\n\nYou have access to the following tools:\n{tools}\n\nTool names: {tool_names}'],
-    ['human', '{input}'],
-    ['assistant', '{agent_scratchpad}'],
-  ]);
-
-  // Create ReAct agent
-  const agent = await createReactAgent({
-    llm,
-    tools: allTools,
-    prompt,
-  });
-
-  // Create agent executor
-  const executor = new AgentExecutor({
-    agent,
-    tools: allTools,
-    maxIterations: finalConfig.maxIterations,
-    verbose: finalConfig.verbose,
-    handleParsingErrors: finalConfig.handleParsingErrors,
-    returnIntermediateSteps: true, // For debugging and transparency
-  });
-
-  return executor;
-}
-
-/**
- * Execute a user command through the agent
+ * Execute a user command through the LLM
  * 
  * @param userInput - The natural language command from the user
  * @param userContext - User information (ID, name, color)
@@ -91,16 +35,32 @@ export async function executeCommand(
   recentMessages: AgentMessage[] = []
 ): Promise<AgentResponse> {
   try {
-    // Create agent
-    const agent = await createAgent(userContext, recentMessages);
+    // Get LLM instance
+    const llm = getLLM();
+
+    // Build context
+    const context = buildAgentContext(userContext, recentMessages);
+    
+    // Create system prompt with context
+    const systemPrompt = createSystemPrompt(context.canvasState, userContext);
+
+    // Create prompt template
+    const prompt = ChatPromptTemplate.fromMessages([
+      ['system', systemPrompt],
+      ['human', '{input}'],
+    ]);
+
+    // Create chain
+    const chain = prompt.pipe(llm);
 
     // Execute
-    const result = await agent.invoke({
+    const result = await chain.invoke({
       input: userInput,
     });
 
     // Parse and return result
-    return parseAgentOutput(result);
+    const content = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
+    return parseAgentOutput(content);
   } catch (error) {
     console.error('Agent execution error:', error);
     throw new Error(
@@ -112,12 +72,9 @@ export async function executeCommand(
 }
 
 /**
- * Parse agent output into structured response
+ * Parse LLM output into structured response
  */
-function parseAgentOutput(result: any): AgentResponse {
-  // Try to parse JSON from output
-  const output = result.output || result.text || '';
-  
+function parseAgentOutput(output: string): AgentResponse {
   try {
     // Look for JSON in the response
     const jsonMatch = output.match(/\{[\s\S]*\}/);
@@ -131,7 +88,7 @@ function parseAgentOutput(result: any): AgentResponse {
       };
     }
   } catch (error) {
-    console.warn('Failed to parse JSON from agent output:', error);
+    console.warn('Failed to parse JSON from LLM output:', error);
   }
 
   // Fallback: return output as summary
@@ -161,58 +118,44 @@ export async function executeCommandWithStreaming(
   try {
     console.log('🌊 Starting streaming execution...');
 
-    // Create agent with streaming enabled
-    const agent = await createAgent(userContext, recentMessages, {
-      verbose: false, // Disable verbose logging for cleaner streaming
-    });
+    // Get LLM instance
+    const llm = getLLM();
 
-    // Build context for system prompt
+    // Build context
     const context = buildAgentContext(userContext, recentMessages);
     
+    // Create system prompt with context
+    const systemPrompt = createSystemPrompt(context.canvasState, userContext);
+
+    // Create prompt template
+    const prompt = ChatPromptTemplate.fromMessages([
+      ['system', systemPrompt],
+      ['human', '{input}'],
+    ]);
+
+    // Create chain
+    const chain = prompt.pipe(llm);
+    
     let fullResponse = '';
-    let actions: any[] = [];
-    let reasoning = '';
 
     // Stream the response
-    const result = await agent.stream({
+    const stream = await chain.stream({
       input: userInput,
     });
 
     // Process each chunk
-    for await (const chunk of result) {
-      // Handle different chunk types from LangChain
-      if (chunk.agent) {
-        // Agent reasoning/output chunk
-        const output = chunk.agent.messages?.[0]?.content || '';
-        if (typeof output === 'string' && output) {
-          fullResponse += output;
-          onToken(output);
-        }
-      } else if (chunk.output) {
-        // Final output
-        fullResponse = chunk.output;
+    for await (const chunk of stream) {
+      const content = chunk.content;
+      if (typeof content === 'string' && content) {
+        fullResponse += content;
+        onToken(content);
       }
     }
 
     console.log('✅ Streaming complete');
 
     // Parse the full response
-    try {
-      const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        actions = parsed.actions || [];
-        reasoning = parsed.reasoning;
-      }
-    } catch (error) {
-      console.warn('Failed to parse streamed JSON:', error);
-    }
-
-    return {
-      actions,
-      summary: fullResponse,
-      reasoning,
-    };
+    return parseAgentOutput(fullResponse);
   } catch (error) {
     console.error('Streaming execution error:', error);
     throw new Error(
