@@ -8,13 +8,33 @@ service cloud.firestore {
         && request.auth.uid == request.resource.data.createdBy
         && validateShapeData();
       allow update: if request.auth != null 
-        && (resource.data.isLocked == false || resource.data.lockedBy == request.auth.uid)
+        && (resource.data.isLocked == false || resource.data.lockedBy == request.auth.uid || isUnlockingOnly())
         && validateShapeUpdate();
       allow delete: if request.auth != null 
         && (resource.data.isLocked == false || resource.data.lockedBy == request.auth.uid);
     }
     
     // Validation functions
+    function isUnlockingOnly() {
+      // Allow anyone to unlock a shape if they're ONLY changing lock-related fields
+      // This enables "Clear All Locks" functionality
+      let existing = resource.data;
+      let updated = request.resource.data;
+      return updated.isLocked == false && 
+             updated.lockedBy == null &&
+             // All other fields must remain unchanged
+             updated.type == existing.type &&
+             updated.x == existing.x &&
+             updated.y == existing.y &&
+             updated.width == existing.width &&
+             updated.height == existing.height &&
+             updated.fill == existing.fill &&
+             updated.createdBy == existing.createdBy &&
+             updated.createdAt == existing.createdAt &&
+             updated.lastModifiedBy == existing.lastModifiedBy &&
+             updated.lastModifiedAt == existing.lastModifiedAt;
+    }
+    
     function validateShapeData() {
       let data = request.resource.data;
       return data.keys().hasAll(['type', 'x', 'y', 'width', 'height', 'fill', 'createdBy', 'createdAt', 'lastModifiedBy', 'lastModifiedAt', 'isLocked']) &&
