@@ -85,6 +85,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Handle Delete/Backspace for shape deletion
       if ((e.key === 'Delete' || e.key === 'Backspace') && !e.repeat) {
+        // ✅ FIX: Don't intercept if user is typing in an input/textarea
+        const target = e.target as HTMLElement
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return // Let the input handle the backspace
+        }
         e.preventDefault()
         handleDeleteShape()
         return
@@ -92,6 +97,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       
       // Handle Space for panning
       if (e.code === 'Space' && !e.repeat && !isSpacePressed) {
+        // ✅ FIX: Don't intercept if user is typing in an input/textarea
+        const target = e.target as HTMLElement
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return // Let the input handle the space
+        }
         e.preventDefault()
         e.stopPropagation()
         setIsSpacePressed(true)
