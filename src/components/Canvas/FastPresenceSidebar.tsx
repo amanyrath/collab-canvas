@@ -23,12 +23,15 @@ export const FastPresenceSidebar: React.FC = () => {
     return unsubscribe
   }, [user])
 
-  const userList = Object.entries(users)
+  // Filter out current user and entries without valid display names
+  const userList = Object.entries(users).filter(([userId, userPresence]) => 
+    userId !== user?.uid && userPresence.displayName && userPresence.displayName.trim() !== ''
+  )
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-        👥 Online Users
+        👥 Other Users
         <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
           {userList.length}
         </span>
@@ -37,7 +40,7 @@ export const FastPresenceSidebar: React.FC = () => {
       <div className="space-y-2">
         {userList.length === 0 ? (
           <div className="text-xs text-gray-500 italic">
-            {user ? `Waiting for presence data... (Current user: ${user.displayName})` : 'No users online'}
+            No other users online
           </div>
         ) : (
           userList.map(([userId, userPresence]) => (
@@ -51,9 +54,6 @@ export const FastPresenceSidebar: React.FC = () => {
               {/* User name */}
               <span className="text-sm font-medium text-gray-900 truncate">
                 {userPresence.displayName}
-                {userId === user?.uid && (
-                  <span className="text-xs text-blue-600 font-medium ml-1">(you)</span>
-                )}
               </span>
               
               {/* Editing status indicator */}
