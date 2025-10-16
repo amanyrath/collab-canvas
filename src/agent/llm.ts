@@ -51,13 +51,14 @@ export function initializeLLM(config: Partial<AgentConfig> = {}): ChatOpenAI {
     temperature: config.temperature ?? DEFAULT_CONFIG.temperature,
     streaming: config.streaming ?? DEFAULT_CONFIG.streaming,
     maxTokens: DEFAULT_CONFIG.maxTokens,
-    openAIApiKey: apiKey,
+    apiKey: apiKey, // Correct parameter name for ChatOpenAI
   };
 
   console.log('🤖 Initializing LLM:', {
     model: llmConfig.modelName,
     temperature: llmConfig.temperature,
     streaming: llmConfig.streaming,
+    apiKey: apiKey ? '✓ Set' : '✗ Missing',
   });
 
   return new ChatOpenAI(llmConfig);
