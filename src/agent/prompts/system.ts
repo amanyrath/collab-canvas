@@ -46,16 +46,16 @@ export function createSystemPrompt(
 ): string {
   const basePrompt = SYSTEM_PROMPT;
   
-  // Minimal context - just what's needed for ARRANGE
+  // Minimal context - FULL IDs needed for ARRANGE
   let canvasInfo = '';
   if (canvasState.shapes.length === 0) {
     canvasInfo = 'empty';
   } else if (canvasState.shapes.length <= 8) {
-    // Only include IDs and types for small canvases
-    canvasInfo = canvasState.shapes.map(s => `${s.type[0]} "${s.id.slice(-8)}"`).join(', ');
+    // Only include IDs (full, for ARRANGE to work)
+    canvasInfo = canvasState.shapes.map(s => `"${s.id}"`).join(', ');
   } else {
-    // For many shapes, just list first 8 IDs
-    canvasInfo = canvasState.shapes.slice(0, 8).map(s => `"${s.id.slice(-8)}"`).join(', ') + ` +${canvasState.shapes.length - 8}more`;
+    // For many shapes, just list first 8 full IDs
+    canvasInfo = canvasState.shapes.slice(0, 8).map(s => `"${s.id}"`).join(', ') + ` +${canvasState.shapes.length - 8}more`;
   }
   
   return basePrompt + `\n\nCONTEXT: ${canvasInfo}`;

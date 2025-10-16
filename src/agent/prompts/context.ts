@@ -37,24 +37,19 @@ export function buildAgentContext(
 
 /**
  * Format canvas state for prompt context
+ * Kept minimal - just IDs needed for ARRANGE
  */
 export function formatCanvasState(state: CanvasState): string {
   if (state.shapes.length === 0) {
-    return 'Canvas is empty.';
+    return 'empty';
   }
 
-  // Always include IDs for arrangement operations
+  // Just list full IDs (needed for ARRANGE operations)
   if (state.shapes.length <= 10) {
-    // For 10 or fewer shapes, show detailed info
-    const shapesSummary = state.shapes
-      .map(s => `${s.type} "${s.id}" at (${s.x}, ${s.y})`)
-      .join(', ');
-    return `Canvas: ${shapesSummary}`;
+    return state.shapes.map(s => `"${s.id}"`).join(', ');
   } else {
-    // For many shapes, just list IDs
-    const ids = state.shapes.map(s => `"${s.id}"`).slice(0, 20).join(', ');
-    const more = state.shapes.length > 20 ? ` and ${state.shapes.length - 20} more` : '';
-    return `Canvas has ${state.shapes.length} shapes with IDs: ${ids}${more}`;
+    const ids = state.shapes.slice(0, 10).map(s => `"${s.id}"`).join(', ');
+    return `${ids} +${state.shapes.length - 10}more`;
   }
 }
 
