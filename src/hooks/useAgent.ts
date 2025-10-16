@@ -31,6 +31,7 @@ export interface UseAgentReturn {
   sendCommand: (command: string) => Promise<void>;
   clearHistory: () => void;
   retryLastCommand: () => Promise<void>;
+  cancelCurrentCommand: () => void;
   
   // Info
   lastResponse: AgentResponse | null;
@@ -60,6 +61,27 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
 
   // Refs
   const lastCommandRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  /**
+   * Cancel the current command execution
+   */
+  const cancelCurrentCommand = useCallback(() => {
+    console.log('🛑 Canceling current command...');
+    
+    // Abort any ongoing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    // Reset all processing states
+    setIsProcessing(false);
+    setIsStreaming(false);
+    setStreamingText('');
+    
+    console.log('✅ Command canceled and state reset');
+  }, []);
 
   /**
    * Add a message to the conversation history
@@ -91,6 +113,9 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
 
     // Store for retry
     lastCommandRef.current = command;
+
+    // Create abort controller for this command
+    abortControllerRef.current = new AbortController();
 
     // Clear previous error and streaming state
     setError(null);
@@ -173,6 +198,12 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       }
 
     } catch (err) {
+      // Check if this was an abort - if so, don't show error
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('⏹️ Command was canceled by user');
+        return;
+      }
+      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       console.error('❌ Agent error:', err);
       
@@ -185,6 +216,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       }
     } finally {
       console.log('🏁 Cleaning up: setting isProcessing to false');
+      abortControllerRef.current = null;
       setIsProcessing(false);
       setIsStreaming(false);
       setStreamingText('');
@@ -224,6 +256,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     sendCommand,
     clearHistory,
     retryLastCommand,
+    cancelCurrentCommand,
     
     // Info
     lastResponse,

@@ -39,6 +39,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
     error,
     sendCommand,
     clearHistory,
+    cancelCurrentCommand,
     lastExecutionResult,
   } = useAgent({
     userContext: userContext!,
@@ -82,6 +83,13 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
     inputRef.current?.focus();
   };
 
+  const handleClose = () => {
+    // Cancel any ongoing command and reset state
+    cancelCurrentCommand();
+    // Close the window
+    onClose();
+  };
+
   if (!isOpen) {
     return null;
   }
@@ -111,7 +119,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
             Clear
           </button>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700"
             aria-label="Close chat"
           >
