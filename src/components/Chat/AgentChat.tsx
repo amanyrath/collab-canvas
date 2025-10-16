@@ -184,7 +184,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           />
         ))}
 
-        {/* Streaming response */}
+        {/* Streaming response with full details (when toggle is ON) */}
         {isStreaming && streamingText && showThinking && (
           <div className="max-w-[80%]">
             <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
@@ -204,20 +204,8 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           </div>
         )}
         
-        {/* Show simple indicator when thinking details are hidden */}
-        {isProcessing && !showThinking && (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-            <span>Thinking...</span>
-          </div>
-        )}
-
-        {/* Processing indicator (shown when not streaming, respects toggle) */}
-        {isProcessing && !isStreaming && showThinking && (
+        {/* Simple "Thinking..." indicator (when toggle is OFF OR before streaming starts) */}
+        {isProcessing && (!showThinking || (!isStreaming && !streamingText)) && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <div className="flex gap-1">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
