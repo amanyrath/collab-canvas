@@ -119,7 +119,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
                 ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
-            title={showThinking ? "Hide thinking" : "Show thinking"}
+            title={showThinking ? "Hide reasoning details (show simple 'Thinking...')" : "Show reasoning details (streaming logic)"}
           >
             💭
           </button>
@@ -204,20 +204,15 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           </div>
         )}
         
-        {/* Show processing indicator when thinking is hidden */}
+        {/* Show simple indicator when thinking details are hidden */}
         {isProcessing && !showThinking && (
-          <div className="max-w-[80%]">
-            <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
-              <span className="font-medium">AI Agent</span>
-              <span className="flex gap-1">
-                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
-                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-              </span>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
-            <div className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 italic">
-              <p className="text-sm">Processing...</p>
-            </div>
+            <span>Thinking...</span>
           </div>
         )}
 
