@@ -171,6 +171,9 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       console.log('✅ Agent response received:', agentResponse);
       setLastResponse(agentResponse);
 
+      // Clear streaming text now that we have the response
+      setStreamingText('');
+
       // Execute the actions
       console.log('🔨 Executing actions...');
       const executionStartTime = Date.now();
@@ -183,8 +186,9 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       setLastExecutionResult(executionResult);
 
       // Add assistant message
-      console.log('💬 Adding assistant message...');
+      console.log('💬 Adding assistant message:', agentResponse.summary);
       addMessage('assistant', agentResponse.summary);
+      console.log('✅ Message added to history');
 
       // Call success callback
       if (onSuccess) {
@@ -217,10 +221,14 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     } finally {
       console.log('🏁 Cleaning up: setting isProcessing to false');
       abortControllerRef.current = null;
+      
+      // Force state updates
       setIsProcessing(false);
       setIsStreaming(false);
       setStreamingText('');
-      console.log('✅ Agent command flow complete');
+      setError(null); // Clear any previous errors
+      
+      console.log('✅ Agent command flow complete - UI should be ready for next command');
     }
   }, [messages, userContext, addMessage, onSuccess, onError, enableStreaming]);
 

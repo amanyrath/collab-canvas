@@ -53,10 +53,19 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
     },
   });
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom when messages change or streaming updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingText]);
+  
+  // Also scroll when processing completes
+  useEffect(() => {
+    if (!isProcessing) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [isProcessing]);
 
   // Focus input when opened
   useEffect(() => {
