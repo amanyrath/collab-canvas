@@ -5,7 +5,34 @@
         ".read": "auth != null",
         "$uid": {
           ".write": "auth != null && auth.uid == $uid",
-          ".validate": "newData.hasChildren(['userId', 'displayName', 'cursorX', 'cursorY', 'isOnline']) && newData.child('userId').val() == $uid"
+          ".validate": "newData.hasChildren(['userId', 'displayName', 'cursorX', 'cursorY', 'isOnline']) && newData.child('userId').val() == $uid",
+          "cursorX": {
+            ".validate": "newData.isNumber()"
+          },
+          "cursorY": {
+            ".validate": "newData.isNumber()"
+          },
+          "lastSeen": {
+            ".validate": "newData.isNumber() || newData.val() == null"
+          },
+          "isOnline": {
+            ".validate": "newData.isBoolean()"
+          },
+          "currentlyEditing": {
+            ".validate": "newData.isString() || newData.val() == null"
+          },
+          "userId": {
+            ".validate": "newData.isString() && newData.val() == $uid"
+          },
+          "displayName": {
+            ".validate": "newData.isString()"
+          },
+          "email": {
+            ".validate": "newData.isString() || newData.val() == null"
+          },
+          "cursorColor": {
+            ".validate": "newData.isString()"
+          }
         }
       }
     }
