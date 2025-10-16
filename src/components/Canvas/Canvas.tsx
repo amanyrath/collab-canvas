@@ -15,6 +15,7 @@ import ShapeLayer from './ShapeLayer'
 import SelectionLayer from './SelectionLayer'
 import SimpleCursorLayer from './SimpleCursorLayer'
 import { ShapeSelector } from './ShapeSelector'
+import AgentChat from '../Chat/AgentChat'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -28,6 +29,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const stageRef = useRef<Konva.Stage>(null)
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
+  const [isAgentChatOpen, setIsAgentChatOpen] = useState(false)
   
   const { user } = useUserStore()
   
@@ -528,8 +530,25 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       {isSpacePressed && (
         <div className="absolute bottom-2 left-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded shadow">
           Space + Drag to Pan
-          </div>
-        )}
+        </div>
+      )}
+
+      {/* AI Agent Chat Toggle Button */}
+      {!isAgentChatOpen && (
+        <button
+          onClick={() => setIsAgentChatOpen(true)}
+          className="fixed bottom-4 right-4 w-14 h-14 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+          title="Open AI Agent Chat"
+          aria-label="Open AI Agent Chat"
+        >
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        </button>
+      )}
+
+      {/* AI Agent Chat */}
+      <AgentChat isOpen={isAgentChatOpen} onClose={() => setIsAgentChatOpen(false)} />
     </div>
   )
 }
