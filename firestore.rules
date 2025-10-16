@@ -40,11 +40,11 @@ service cloud.firestore {
     function validateShapeUpdate() {
       let existing = resource.data;
       let updated = request.resource.data;
+      // Protect immutable fields from being changed
       return updated.type == existing.type &&
              updated.createdBy == existing.createdBy &&
-             updated.createdAt == existing.createdAt &&
-             // Allow updating most fields, but protect immutable ones
-             updated.keys().hasAll(existing.keys().difference(['lastModifiedBy', 'lastModifiedAt']));
+             updated.createdAt == existing.createdAt;
+      // Allow all other fields to be updated (x, y, width, height, fill, text, isLocked, etc.)
     }
   }
 }
