@@ -43,14 +43,19 @@ export function formatCanvasState(state: CanvasState): string {
     return 'Canvas is empty.';
   }
 
-  // Limit to just 3 shapes for brevity
-  const shapesSummary = state.shapes.length <= 3
-    ? state.shapes.map(s => 
-        `${s.type} at (${s.x}, ${s.y})`
-      ).join(', ')
-    : `${state.shapes.length} shapes on canvas`;
-
-  return `Canvas: ${shapesSummary}`;
+  // Always include IDs for arrangement operations
+  if (state.shapes.length <= 10) {
+    // For 10 or fewer shapes, show detailed info
+    const shapesSummary = state.shapes
+      .map(s => `${s.type} "${s.id}" at (${s.x}, ${s.y})`)
+      .join(', ');
+    return `Canvas: ${shapesSummary}`;
+  } else {
+    // For many shapes, just list IDs
+    const ids = state.shapes.map(s => `"${s.id}"`).slice(0, 20).join(', ');
+    const more = state.shapes.length > 20 ? ` and ${state.shapes.length - 20} more` : '';
+    return `Canvas has ${state.shapes.length} shapes with IDs: ${ids}${more}`;
+  }
 }
 
 /**

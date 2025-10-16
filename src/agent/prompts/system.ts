@@ -106,7 +106,22 @@ Response: {{
     }}
   ],
   "summary": "Created a login form with username field, password field, and submit button"
-}}`;
+}}
+
+User: "Arrange all shapes horizontally"
+Context: Canvas has shapes: rectangle "abc123" at (300, 200), circle "def456" at (400, 250), rectangle "ghi789" at (150, 400)
+Response: {{
+  "reasoning": "User wants to arrange the 3 existing shapes horizontally. I'll use their actual IDs from the canvas state.",
+  "actions": [{{
+    "type": "ARRANGE",
+    "shapeIds": ["abc123", "def456", "ghi789"],
+    "layout": "horizontal",
+    "spacing": 120
+  }}],
+  "summary": "Arranged 3 shapes horizontally with 120px spacing"
+}}
+
+CRITICAL: When using ARRANGE actions, you MUST use the actual shape IDs from the canvas state provided in the context. Never use placeholder IDs like "shape1" or "shape2".`;
 
 /**
  * Create a contextualized system prompt with current canvas state
@@ -117,11 +132,29 @@ export function createSystemPrompt(
 ): string {
   const basePrompt = SYSTEM_PROMPT;
   
+  // Format canvas state with actual shape IDs for ARRANGE operations
+  let canvasInfo = '';
+  if (canvasState.shapes.length === 0) {
+    canvasInfo = 'Canvas is empty';
+  } else if (canvasState.shapes.length <= 10) {
+    const shapesList = canvasState.shapes
+      .map(s => `${s.type} "${s.id}" at (${s.x}, ${s.y})`)
+      .join(', ');
+    canvasInfo = `Canvas has ${canvasState.shapes.length} shapes: ${shapesList}`;
+  } else {
+    const shapesList = canvasState.shapes
+      .slice(0, 20)
+      .map(s => `"${s.id}"`)
+      .join(', ');
+    const more = canvasState.shapes.length > 20 ? ` and ${canvasState.shapes.length - 20} more` : '';
+    canvasInfo = `Canvas has ${canvasState.shapes.length} shapes with IDs: ${shapesList}${more}`;
+  }
+  
   const contextAddition = `
 
 CURRENT CONTEXT:
 User: ${userContext.displayName}
-Canvas: ${canvasState.shapes.length} shapes`;
+${canvasInfo}`;
 
   return basePrompt + contextAddition;
 }
