@@ -142,7 +142,16 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           {import.meta.env.DEV && (
             <button
               onClick={() => {
-                console.log('🐛 DEBUG STATE:', { isProcessing, isStreaming, streamingText, error, messagesCount: messages.length });
+                console.log('🐛 DEBUG STATE:', { 
+                  isProcessing, 
+                  isStreaming, 
+                  streamingText, 
+                  error, 
+                  messagesCount: messages.length,
+                  inputValue: inputValue,
+                  inputEmpty: !inputValue.trim(),
+                  buttonShouldBeDisabled: !inputValue.trim() || isProcessing
+                });
                 if (isProcessing) {
                   console.log('   Forcing cancel...');
                   cancelCurrentCommand();
