@@ -32,6 +32,23 @@ export interface ExecutionResult {
 }
 
 /**
+ * Timeout wrapper for action execution to prevent hanging on Firebase issues
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  actionType: string
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Action ${actionType} timed out after ${timeoutMs}ms - possible Firebase connection issue`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]);
+}
+
+/**
  * Execute all actions from an agent response
  * 
  * @param agentResponse - The validated response from the agent
@@ -50,7 +67,12 @@ export async function executeAgentActions(
 
   for (const action of agentResponse.actions) {
     try {
-      const result = await executeAction(action, userContext);
+      // Add 10 second timeout to prevent hanging on Firebase connection issues
+      const result = await withTimeout(
+        executeAction(action, userContext),
+        10000,
+        action.type
+      );
       results.push(result);
 
       if (result.success) {
