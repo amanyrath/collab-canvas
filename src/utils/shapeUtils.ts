@@ -8,13 +8,13 @@ import {
   serverTimestamp,
   query,
   orderBy,
-  setDoc
+  setDoc,
+  writeBatch
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { Shape } from './types'
 import { v4 as uuidv4 } from 'uuid'
 import { logFirestoreRead, logFirestoreWrite } from './performanceMonitor'
-import { firebaseBatcher } from './batchUtils'
 import { FirebaseErrorHandler } from './errorHandling'
 
 // Firestore collection path for shapes
@@ -74,6 +74,7 @@ export const createShapeBatch = async (
   return FirebaseErrorHandler.withRetry(async () => {
     logFirestoreWrite('createShapeBatch', shapes.length)
     
+    const batch = writeBatch(db)
     const shapeIds: string[] = []
     
     for (const shapeData of shapes) {
@@ -98,17 +99,12 @@ export const createShapeBatch = async (
         lockedBy: null
       }
       
-      // Add to batch queue
-      firebaseBatcher.addOperation({
-        type: 'create',
-        collection: SHAPES_COLLECTION,
-        docId: shapeId,
-        data: newShape
-      })
+      const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
+      batch.set(shapeRef, newShape)
     }
     
-    // Flush batch immediately for shape creation
-    await firebaseBatcher.flushImmediate()
+    // Commit all creates in one batch (native Firebase, more reliable)
+    await batch.commit()
     
     console.log(`🎯 Batch created ${shapes.length} shapes`)
     return shapeIds
@@ -190,6 +186,8 @@ export const updateShapeBatch = async (
   return FirebaseErrorHandler.withRetry(async () => {
     logFirestoreWrite('updateShapeBatch', updates.length)
     
+    const batch = writeBatch(db)
+    
     for (const update of updates) {
       const updateData = {
         ...update.updates,
@@ -197,15 +195,14 @@ export const updateShapeBatch = async (
         lastModifiedAt: serverTimestamp()
       }
       
-      firebaseBatcher.addOperation({
-        type: 'update',
-        collection: SHAPES_COLLECTION,
-        docId: update.shapeId,
-        data: updateData
-      })
+      const shapeRef = doc(db, SHAPES_COLLECTION, update.shapeId)
+      batch.update(shapeRef, updateData)
     }
     
-    console.log(`📝 Batch updating ${updates.length} shapes`)
+    // Commit all updates in one batch (native Firebase, more reliable)
+    await batch.commit()
+    
+    console.log(`📝 Batch updated ${updates.length} shapes`)
   }, { maxRetries: 2 })
 }
 
@@ -226,14 +223,16 @@ export const deleteShapeBatch = async (shapeIds: string[]) => {
   return FirebaseErrorHandler.withRetry(async () => {
     logFirestoreWrite('deleteShapeBatch', shapeIds.length)
     
+    const batch = writeBatch(db)
+    
     for (const shapeId of shapeIds) {
-      firebaseBatcher.addOperation({
-        type: 'delete',
-        collection: SHAPES_COLLECTION,
-        docId: shapeId
-      })
+      const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)
+      batch.delete(shapeRef)
     }
     
-    console.log(`🗑️ Batch deleting ${shapeIds.length} shapes`)
+    // Commit all deletes in one batch (native Firebase, more reliable)
+    await batch.commit()
+    
+    console.log(`🗑️ Batch deleted ${shapeIds.length} shapes`)
   }, { maxRetries: 2 })
 }
