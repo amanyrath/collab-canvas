@@ -11,7 +11,7 @@ service cloud.firestore {
         && (resource.data.isLocked == false || resource.data.lockedBy == request.auth.uid)
         && validateShapeUpdate();
       allow delete: if request.auth != null 
-        && resource.data.isLocked == false;
+        && (resource.data.isLocked == false || resource.data.lockedBy == request.auth.uid);
     }
     
     // Validation functions
