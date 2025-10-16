@@ -50,9 +50,9 @@ export async function createAgent(
   // Create system prompt with context
   const systemPrompt = createSystemPrompt(context.canvasState, userContext);
 
-  // Create prompt template
+  // Create prompt template with required ReAct variables
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', systemPrompt],
+    ['system', systemPrompt + '\n\nYou have access to the following tools:\n{tools}\n\nTool names: {tool_names}'],
     ['human', '{input}'],
     ['assistant', '{agent_scratchpad}'],
   ]);
