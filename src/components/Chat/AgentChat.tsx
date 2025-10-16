@@ -34,12 +34,15 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
   const {
     messages,
     isProcessing,
+    isStreaming,
+    streamingText,
     error,
     sendCommand,
     clearHistory,
     lastExecutionResult,
   } = useAgent({
     userContext: userContext!,
+    enableStreaming: true,
     onSuccess: (response, result) => {
       console.log('✅ Command executed successfully:', result);
     },
@@ -161,8 +164,28 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           />
         ))}
 
+        {/* Streaming response */}
+        {isStreaming && streamingText && (
+          <div className="max-w-[80%]">
+            <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
+              <span className="font-medium">AI Agent</span>
+              <span className="flex gap-1">
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+              </span>
+            </div>
+            <div className="px-4 py-2 rounded-lg bg-gray-100 text-gray-800">
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {streamingText}
+                <span className="inline-block w-2 h-4 ml-1 bg-blue-500 animate-pulse" />
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Processing indicator */}
-        {isProcessing && (
+        {isProcessing && !isStreaming && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <div className="flex gap-1">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

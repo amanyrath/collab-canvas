@@ -144,6 +144,8 @@ function parseAgentOutput(result: any): AgentResponse {
 /**
  * Streaming version of command execution
  * 
+ * Uses LangChain's streaming capabilities to provide real-time token updates
+ * 
  * @param userInput - The natural language command
  * @param userContext - User information
  * @param onToken - Callback for each token
@@ -157,21 +159,62 @@ export async function executeCommandWithStreaming(
   recentMessages: AgentMessage[] = []
 ): Promise<AgentResponse> {
   try {
-    // For now, use non-streaming and call onToken with chunks
-    // Full streaming implementation in Task 6
-    const response = await executeCommand(userInput, userContext, recentMessages);
+    console.log('🌊 Starting streaming execution...');
+
+    // Create agent with streaming enabled
+    const agent = await createAgent(userContext, recentMessages, {
+      verbose: false, // Disable verbose logging for cleaner streaming
+    });
+
+    // Build context for system prompt
+    const context = buildAgentContext(userContext, recentMessages);
     
-    // Simulate streaming by sending summary in chunks
-    const summary = response.summary;
-    const chunkSize = 10;
-    for (let i = 0; i < summary.length; i += chunkSize) {
-      const chunk = summary.slice(i, i + chunkSize);
-      onToken(chunk);
-      await new Promise(resolve => setTimeout(resolve, 50)); // Simulate delay
+    let fullResponse = '';
+    let actions: any[] = [];
+    let reasoning = '';
+
+    // Stream the response
+    const result = await agent.stream({
+      input: userInput,
+    });
+
+    // Process each chunk
+    for await (const chunk of result) {
+      // Handle different chunk types from LangChain
+      if (chunk.agent) {
+        // Agent reasoning/output chunk
+        const output = chunk.agent.messages?.[0]?.content || '';
+        if (typeof output === 'string' && output) {
+          fullResponse += output;
+          onToken(output);
+        }
+      } else if (chunk.output) {
+        // Final output
+        fullResponse = chunk.output;
+      }
     }
-    
-    return response;
+
+    console.log('✅ Streaming complete');
+
+    // Parse the full response
+    try {
+      const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        actions = parsed.actions || [];
+        reasoning = parsed.reasoning;
+      }
+    } catch (error) {
+      console.warn('Failed to parse streamed JSON:', error);
+    }
+
+    return {
+      actions,
+      summary: fullResponse,
+      reasoning,
+    };
   } catch (error) {
+    console.error('Streaming execution error:', error);
     throw new Error(
       error instanceof Error 
         ? `Streaming execution failed: ${error.message}` 

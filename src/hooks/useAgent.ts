@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { executeCommand } from '../agent/executor';
+import { executeCommand, executeCommandWithStreaming } from '../agent/executor';
 import { executeAgentActions } from '../agent/actionExecutor';
 import type { AgentMessage, UserContext, AgentResponse } from '../agent/types';
 import type { ExecutionResult } from '../agent/actionExecutor';
@@ -16,12 +16,15 @@ export interface UseAgentOptions {
   onSuccess?: (response: AgentResponse, result: ExecutionResult) => void;
   onError?: (error: Error) => void;
   maxHistoryLength?: number;
+  enableStreaming?: boolean;
 }
 
 export interface UseAgentReturn {
   // State
   messages: AgentMessage[];
   isProcessing: boolean;
+  isStreaming: boolean;
+  streamingText: string;
   error: string | null;
   
   // Actions
@@ -43,11 +46,14 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     onSuccess,
     onError,
     maxHistoryLength = 50,
+    enableStreaming = true,
   } = options;
 
   // State
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [lastResponse, setLastResponse] = useState<AgentResponse | null>(null);
   const [lastExecutionResult, setLastExecutionResult] = useState<ExecutionResult | null>(null);
@@ -86,8 +92,9 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     // Store for retry
     lastCommandRef.current = command;
 
-    // Clear previous error
+    // Clear previous error and streaming state
     setError(null);
+    setStreamingText('');
     setIsProcessing(true);
 
     // Add user message
@@ -99,12 +106,31 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
 
       console.log('🤖 Sending command to agent:', command);
 
-      // Execute command through agent
-      const agentResponse = await executeCommand(
-        command,
-        userContext,
-        recentMessages
-      );
+      let agentResponse: AgentResponse;
+
+      if (enableStreaming) {
+        // Execute with streaming
+        setIsStreaming(true);
+        
+        agentResponse = await executeCommandWithStreaming(
+          command,
+          userContext,
+          (token) => {
+            // Update streaming text as tokens arrive
+            setStreamingText(prev => prev + token);
+          },
+          recentMessages
+        );
+
+        setIsStreaming(false);
+      } else {
+        // Execute without streaming
+        agentResponse = await executeCommand(
+          command,
+          userContext,
+          recentMessages
+        );
+      }
 
       console.log('✅ Agent response:', agentResponse);
       setLastResponse(agentResponse);
@@ -146,8 +172,10 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       }
     } finally {
       setIsProcessing(false);
+      setIsStreaming(false);
+      setStreamingText('');
     }
-  }, [messages, userContext, addMessage, onSuccess, onError]);
+  }, [messages, userContext, addMessage, onSuccess, onError, enableStreaming]);
 
   /**
    * Retry the last command
@@ -173,6 +201,8 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     // State
     messages,
     isProcessing,
+    isStreaming,
+    streamingText,
     error,
     
     // Actions
