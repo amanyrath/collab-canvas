@@ -55,8 +55,10 @@ export async function executeAgentActions(
 
       if (result.success) {
         successCount++;
+        console.log(`✅ Action ${action.type} succeeded:`, result.message);
       } else {
         failureCount++;
+        console.error(`❌ Action ${action.type} failed:`, result.error);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -91,7 +93,7 @@ async function executeAction(
   action: CanvasAction,
   userContext: UserContext
 ): Promise<ActionResult> {
-  console.log(`🔨 Executing ${action.type} action`);
+  console.log(`🔨 Executing ${action.type} action:`, JSON.stringify(action, null, 2));
 
   switch (action.type) {
     case 'CREATE':
