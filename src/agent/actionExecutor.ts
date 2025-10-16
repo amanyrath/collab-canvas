@@ -181,6 +181,19 @@ async function executeCreate(
 
     console.log(`✅ createShape returned shapeId: ${shapeId}`);
 
+    // Lock the shape so user can immediately delete it if needed
+    try {
+      await updateShape(shapeId, {
+        isLocked: true,
+        lockedBy: userContext.userId,
+        lockedByName: userContext.displayName,
+        lockedByColor: userContext.cursorColor,
+      }, userContext.userId);
+      console.log(`✅ Shape locked for user`);
+    } catch (lockError) {
+      console.warn(`⚠️ Could not lock shape:`, lockError);
+    }
+
     // If custom size was specified, update it
     if (action.width !== undefined || action.height !== undefined) {
       try {
