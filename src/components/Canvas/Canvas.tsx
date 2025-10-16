@@ -503,13 +503,13 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         onColorChange={handleColorChange}
       />
       
-      {/* Debug Info */}
+      {/* Debug Info - Moved to left to avoid covering AI chat button */}
       {import.meta.env.DEV && (
-        <div className="absolute top-4 right-4 z-10 bg-black text-white p-2 rounded text-xs">
-          <div>My Shape: {currentShapeType} | My Color: {currentColor}</div>
-          <div>User: {user?.displayName} ({user?.uid?.slice(-4)})</div>
+        <div className="absolute bottom-4 left-4 z-10 bg-black/80 text-white p-2 rounded text-xs max-w-xs">
+          <div>Shape: {currentShapeType} | Color: {currentColor}</div>
+          <div>User: {user?.displayName?.slice(0, 10)} ({user?.uid?.slice(-4)})</div>
           {isUpdatingState && <div className="text-yellow-400">⏳ Updating...</div>}
-          {lastSelectedShapeId && <div className="text-blue-400">Editing: {lastSelectedShapeId.slice(-4)}</div>}
+          {lastSelectedShapeId && <div className="text-blue-400">✏️ Editing: {lastSelectedShapeId.slice(-4)}</div>}
         </div>
       )}
       
