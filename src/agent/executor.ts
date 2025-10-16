@@ -126,17 +126,21 @@ export async function executeCommandWithStreaming(
   onToken: (token: string) => void,
   recentMessages: AgentMessage[] = []
 ): Promise<AgentResponse> {
+  const startTime = Date.now();
   try {
     console.log('🌊 Starting streaming execution...');
 
     // Get LLM instance
     const llm = getLLM();
+    console.log(`⏱️ [${Date.now() - startTime}ms] LLM initialized`);
 
     // Build context
     const context = buildAgentContext(userContext, recentMessages);
+    console.log(`⏱️ [${Date.now() - startTime}ms] Context built with ${context.canvasState.shapes.length} shapes`);
     
     // Create system prompt with context
     const systemPrompt = createSystemPrompt(context.canvasState, userContext);
+    console.log(`⏱️ [${Date.now() - startTime}ms] System prompt created`);
 
     // Create prompt template
     const prompt = ChatPromptTemplate.fromMessages([
@@ -146,6 +150,7 @@ export async function executeCommandWithStreaming(
 
     // Create chain
     const chain = prompt.pipe(llm);
+    console.log(`⏱️ [${Date.now() - startTime}ms] Chain created, starting stream...`);
     
     let fullResponse = '';
 
@@ -153,6 +158,8 @@ export async function executeCommandWithStreaming(
     const stream = await chain.stream({
       input: userInput,
     });
+
+    console.log(`⏱️ [${Date.now() - startTime}ms] Stream started, processing chunks...`);
 
     // Process each chunk
     for await (const chunk of stream) {
@@ -163,10 +170,14 @@ export async function executeCommandWithStreaming(
       }
     }
 
+    console.log(`⏱️ [${Date.now() - startTime}ms] Streaming complete, parsing response...`);
     console.log('✅ Streaming complete');
+    console.log('📝 Full response length:', fullResponse.length);
 
     // Parse the full response
-    return parseAgentOutput(fullResponse);
+    const parsed = parseAgentOutput(fullResponse);
+    console.log(`⏱️ [${Date.now() - startTime}ms] Response parsed, returning`);
+    return parsed;
   } catch (error) {
     console.error('Streaming execution error:', error);
     

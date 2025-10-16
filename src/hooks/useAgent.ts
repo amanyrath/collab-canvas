@@ -143,20 +143,22 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         ]);
       }
 
-      console.log('✅ Agent response:', agentResponse);
+      console.log('✅ Agent response received:', agentResponse);
       setLastResponse(agentResponse);
 
       // Execute the actions
       console.log('🔨 Executing actions...');
+      const executionStartTime = Date.now();
       const executionResult = await executeAgentActions(
         agentResponse,
         userContext
       );
-
+      console.log(`✅ Execution completed in ${Date.now() - executionStartTime}ms`);
       console.log('✅ Execution result:', executionResult);
       setLastExecutionResult(executionResult);
 
       // Add assistant message
+      console.log('💬 Adding assistant message...');
       addMessage('assistant', agentResponse.summary);
 
       // Call success callback
@@ -182,9 +184,11 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         onError(err);
       }
     } finally {
+      console.log('🏁 Cleaning up: setting isProcessing to false');
       setIsProcessing(false);
       setIsStreaming(false);
       setStreamingText('');
+      console.log('✅ Agent command flow complete');
     }
   }, [messages, userContext, addMessage, onSuccess, onError, enableStreaming]);
 
