@@ -22,7 +22,6 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestions = useSuggestedCommands();
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [showThinking, setShowThinking] = useState(true);
 
   // Create user context from auth
   const userContext: UserContext | null = user ? {
@@ -165,36 +164,6 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {import.meta.env.DEV && (
-            <button
-              onClick={() => {
-                console.log('🔄 Force reset button clicked');
-                cancelCurrentCommand();
-              }}
-              className="px-2 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded"
-              title="Force reset if stuck"
-            >
-              Reset
-            </button>
-          )}
-          <button
-            onClick={() => setShowThinking(!showThinking)}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
-              showThinking 
-                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-            title={showThinking ? "Hide reasoning details (show simple 'Thinking...')" : "Show reasoning details (streaming logic)"}
-          >
-            💭
-          </button>
-          <button
-            onClick={clearHistory}
-            className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
-            title="Clear chat history"
-          >
-            Clear
-          </button>
           <button
             onClick={handleClose}
             className="text-gray-500 hover:text-gray-700"
@@ -249,8 +218,8 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           />
         ))}
 
-        {/* Streaming response with full details (when toggle is ON) */}
-        {isStreaming && streamingText && showThinking && (
+        {/* Streaming response with full details */}
+        {isStreaming && streamingText && (
           <div className="max-w-[80%]">
             <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
               <span className="font-medium">AI Agent</span>
@@ -269,8 +238,8 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           </div>
         )}
         
-        {/* Simple "Thinking..." indicator (when toggle is OFF OR before streaming starts) */}
-        {isProcessing && (!showThinking || (!isStreaming && !streamingText)) && (
+        {/* Simple "Thinking..." indicator before streaming starts */}
+        {isProcessing && !isStreaming && !streamingText && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <div className="flex gap-1">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
