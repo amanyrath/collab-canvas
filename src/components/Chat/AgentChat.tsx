@@ -156,6 +156,18 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {import.meta.env.DEV && (
+            <button
+              onClick={() => {
+                console.log('🔄 Force reset button clicked');
+                cancelCurrentCommand();
+              }}
+              className="px-2 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded"
+              title="Force reset if stuck"
+            >
+              Reset
+            </button>
+          )}
           <button
             onClick={() => setShowThinking(!showThinking)}
             className={`px-2 py-1 text-xs rounded transition-colors ${
