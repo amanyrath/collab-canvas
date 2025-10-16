@@ -1,0 +1,12 @@
+openai
+langchain
+langchain_core
+langchain_openai
+langchain_community
+langchainhub
+langchain_experimental
+langgraph
+langsmith
+pandas
+matplotlib
+python-dotenv

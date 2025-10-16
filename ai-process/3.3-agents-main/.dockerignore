@@ -1,0 +1,10 @@
+.git
+.gitignore
+
+.env
+.venv
+env/
+venv/
+myenv/
+
+.ipynb_checkpoints
