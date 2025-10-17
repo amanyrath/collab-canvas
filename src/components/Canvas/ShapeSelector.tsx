@@ -28,6 +28,10 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   const colorInputRef = useRef<HTMLInputElement>(null)
   
   const handleCustomColorClick = () => {
+    // ✅ Apply the current custom color immediately (like other color buttons)
+    onColorChange(customColor)
+    
+    // Then open the picker in case user wants to change it
     colorInputRef.current?.click()
   }
   
