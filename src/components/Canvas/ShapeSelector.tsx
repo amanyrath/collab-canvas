@@ -117,17 +117,17 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
             style={{ backgroundColor: customColor }}
             title="Custom Color (5)"
           >
-            {/* Color picker icon overlay */}
-            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20">
-              <svg className="w-4 h-4 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            {/* Small paint brush icon in corner - no overlay */}
+            <div className="absolute bottom-0 right-0 p-0.5">
+              <svg className="w-3 h-3 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
               </svg>
             </div>
             
-            {/* Checkmark for selected color */}
+            {/* Checkmark for selected color - no dark overlay */}
             {currentColor === customColor && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-10">
-                <svg className="w-4 h-4 text-white drop-shadow-md" fill="currentColor" viewBox="0 0 20 20">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               </div>
