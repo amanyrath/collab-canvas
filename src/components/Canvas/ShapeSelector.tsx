@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
-import 'react-colorful/dist/index.css'
 import { ShapeType } from '../../utils/types'
 
 interface ShapeSelectorProps {
