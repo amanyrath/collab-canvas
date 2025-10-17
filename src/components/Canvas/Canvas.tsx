@@ -285,6 +285,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }, 100)
   }, [user, lastSelectedShapeId])
   
+  // Preset color values for comparison
+  const presetColors = ['#ef4444', '#22c55e', '#3b82f6', '#CCCCCC']
+  
   // Picker sync: Update picker state when shapes are selected/deselected
   const { shapes } = useCanvasStore()
   useEffect(() => {
@@ -300,6 +303,11 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
           
           if (mySelectedShape.fill !== currentColor) {
             setCurrentColor(mySelectedShape.fill)
+            
+            // ✅ UPDATE CUSTOM COLOR: If shape has non-preset color, update custom color square
+            if (!presetColors.includes(mySelectedShape.fill.toLowerCase())) {
+              setCustomColor(mySelectedShape.fill)
+            }
           }
           
           if (mySelectedShape.type !== currentShapeType) {
