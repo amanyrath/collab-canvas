@@ -33,18 +33,25 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   
   const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newColor = e.target.value
+    console.log('Custom color selected:', newColor)
+    
+    // Update custom color state first
     onCustomColorChange(newColor)
+    
+    // Then apply to canvas/shapes
     onColorChange(newColor)
     
     // Blur the input to help close the picker dialog
     setTimeout(() => {
       colorInputRef.current?.blur()
+      document.body.focus() // Return focus to body
     }, 100)
   }
   
   // Also handle live updates as user drags in picker
   const handleCustomColorInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newColor = e.target.value
+    // Update both states in real-time
     onCustomColorChange(newColor)
     onColorChange(newColor)
   }

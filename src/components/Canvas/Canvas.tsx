@@ -239,13 +239,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   }, [lastSelectedShapeId, user])
   
   const handleColorChange = useCallback((color: string) => {
+    console.log('handleColorChange called with:', color, 'lastSelectedShapeId:', lastSelectedShapeId)
     setIsUpdatingState(true)
     setCurrentColor(color)
-    
-    // ✅ UPDATE CREATION PREFERENCES: Only when not editing a selected shape  
-    if (!lastSelectedShapeId) {
-      setCreationColor(color)
-    }
     
     // ✅ MULTIPLAYER-SAFE: Only change MY selected shapes
     if (user) {
@@ -255,10 +251,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         return shape.lockedBy === user.uid
       })
       
+      console.log('My selected shapes:', mySelectedShapes.length)
+      
       if (mySelectedShapes.length > 0) {
         // ✅ FAST: Batch update all my selected shapes
         mySelectedShapes.forEach(shape => {
-          
+          console.log('Updating shape', shape.id, 'to color', color)
           updateShapeOptimistic(shape.id, { 
             fill: color,
             isLocked: true, // Keep selected
@@ -274,7 +272,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
             return updateShape(shape.id, { fill: color }, user.uid)
           })
         )
-        // ✅ UPDATE CREATION PREFERENCES: When not editing any selected shapes
+        // ✅ UPDATE CREATION PREFERENCES: When shapes are being edited
+        setCreationColor(color)
+      } else {
+        // ✅ UPDATE CREATION PREFERENCES: When no shapes selected
         setCreationColor(color)
       }
     }
