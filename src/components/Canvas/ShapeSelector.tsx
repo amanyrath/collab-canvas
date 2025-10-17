@@ -35,6 +35,18 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
     const newColor = e.target.value
     onCustomColorChange(newColor)
     onColorChange(newColor)
+    
+    // Blur the input to help close the picker dialog
+    setTimeout(() => {
+      colorInputRef.current?.blur()
+    }, 100)
+  }
+  
+  // Also handle live updates as user drags in picker
+  const handleCustomColorInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newColor = e.target.value
+    onCustomColorChange(newColor)
+    onColorChange(newColor)
   }
   
   return (
@@ -131,6 +143,7 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
             type="color"
             value={customColor}
             onChange={handleCustomColorChange}
+            onInput={handleCustomColorInput}
             className="hidden"
           />
         </div>
