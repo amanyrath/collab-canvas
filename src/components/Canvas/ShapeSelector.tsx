@@ -30,7 +30,10 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   const [tempColor, setTempColor] = useState(customColor)
   const pickerRef = useRef<HTMLDivElement>(null)
   
-  const handleCustomColorClick = () => {
+  const handleCustomColorClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
     // Apply the current custom color immediately (like other color buttons)
     onColorChange(customColor)
     
@@ -44,7 +47,9 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
     setTempColor(color)
   }
   
-  const handleAcceptColor = () => {
+  const handleAcceptColor = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     console.log('Custom color accepted:', tempColor)
     // Update the custom color slot
     onCustomColorChange(tempColor)
@@ -54,7 +59,9 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
     setIsPickerOpen(false)
   }
   
-  const handleCancelPicker = () => {
+  const handleCancelPicker = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     setIsPickerOpen(false)
   }
   
@@ -166,6 +173,7 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
               <div 
                 ref={pickerRef}
                 className="absolute left-0 top-10 z-50 bg-white rounded-lg shadow-xl border border-gray-300 p-3"
+                onClick={(e) => e.stopPropagation()}
               >
                 <HexColorPicker color={tempColor} onChange={handleColorPickerChange} />
                 
