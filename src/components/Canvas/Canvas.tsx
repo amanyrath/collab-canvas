@@ -191,6 +191,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   // ✅ Picker state and creation preferences
   const [currentShapeType, setCurrentShapeType] = useState<ShapeType>('rectangle')
   const [currentColor, setCurrentColor] = useState<string>('#CCCCCC')
+  const [customColor, setCustomColor] = useState<string>('#9333ea') // Default purple
   const [isUpdatingState, setIsUpdatingState] = useState(false)
   const [lastSelectedShapeId, setLastSelectedShapeId] = useState<string | null>(null)
   
@@ -328,16 +329,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       switch (e.key.toLowerCase()) {
         case 'r': handleShapeTypeChange('rectangle'); break
         case 'c': handleShapeTypeChange('circle'); break
-        case '1': handleColorChange('#CCCCCC'); break // Grey
-        case '2': handleColorChange('#ef4444'); break // Red
-        case '3': handleColorChange('#22c55e'); break // Green
-        case '4': handleColorChange('#3b82f6'); break // Blue
+        case '1': handleColorChange('#ef4444'); break // Red
+        case '2': handleColorChange('#22c55e'); break // Green
+        case '3': handleColorChange('#3b82f6'); break // Blue
+        case '4': handleColorChange('#CCCCCC'); break // Grey
+        case '5': handleColorChange(customColor); break // Custom color
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [handleColorChange, handleShapeTypeChange])
+  }, [handleColorChange, handleShapeTypeChange, customColor])
 
   // Shape creation and deselection
   const lastShapeCreationRef = useRef<number>(0)
@@ -501,6 +503,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         onShapeTypeChange={handleShapeTypeChange}
         currentColor={currentColor}
         onColorChange={handleColorChange}
+        customColor={customColor}
+        onCustomColorChange={setCustomColor}
       />
       
       {/* Debug Info - Moved to left to avoid covering AI chat button */}

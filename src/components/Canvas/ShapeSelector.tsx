@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { ShapeType } from '../../utils/types'
 
 interface ShapeSelectorProps {
@@ -6,21 +6,37 @@ interface ShapeSelectorProps {
   onShapeTypeChange: (shapeType: ShapeType) => void
   currentColor: string
   onColorChange: (color: string) => void
+  customColor: string
+  onCustomColorChange: (color: string) => void
 }
 
 const colorOptions = [
-  { name: 'Grey', value: '#CCCCCC', shortcut: '4' },
   { name: 'Red', value: '#ef4444', shortcut: '1' },
   { name: 'Green', value: '#22c55e', shortcut: '2' }, 
-  { name: 'Blue', value: '#3b82f6', shortcut: '3' }
+  { name: 'Blue', value: '#3b82f6', shortcut: '3' },
+  { name: 'Grey', value: '#CCCCCC', shortcut: '4' }
 ]
 
 export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   currentShapeType,
   onShapeTypeChange,
   currentColor,
-  onColorChange
+  onColorChange,
+  customColor,
+  onCustomColorChange
 }) => {
+  const colorInputRef = useRef<HTMLInputElement>(null)
+  
+  const handleCustomColorClick = () => {
+    colorInputRef.current?.click()
+  }
+  
+  const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newColor = e.target.value
+    onCustomColorChange(newColor)
+    onColorChange(newColor)
+  }
+  
   return (
     <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg border border-gray-200 p-3">
       {/* Shape Type Selector */}
@@ -87,6 +103,45 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
               )}
             </button>
           ))}
+          
+          {/* Custom Color Picker */}
+          <button
+            onClick={handleCustomColorClick}
+            className={`
+              w-8 h-8 rounded-lg border-2 transition-all duration-200 relative overflow-hidden
+              ${currentColor === customColor 
+                ? 'border-gray-800 scale-110' 
+                : 'border-gray-300 hover:border-gray-400'
+              }
+            `}
+            style={{ backgroundColor: customColor }}
+            title="Custom Color (5)"
+          >
+            {/* Color picker icon overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20">
+              <svg className="w-4 h-4 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              </svg>
+            </div>
+            
+            {/* Checkmark for selected color */}
+            {currentColor === customColor && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-10">
+                <svg className="w-4 h-4 text-white drop-shadow-md" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            )}
+          </button>
+          
+          {/* Hidden color input */}
+          <input
+            ref={colorInputRef}
+            type="color"
+            value={customColor}
+            onChange={handleCustomColorChange}
+            className="hidden"
+          />
         </div>
       </div>
     </div>

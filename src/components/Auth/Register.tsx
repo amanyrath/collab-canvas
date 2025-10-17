@@ -20,6 +20,14 @@ const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
     setLoading(true)
     setError(null)
 
+    // ✅ Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError({ message: 'Please enter a valid email address' })
+      setLoading(false)
+      return
+    }
+
     if (password !== confirmPassword) {
       setError({ message: 'Passwords do not match' })
       setLoading(false)

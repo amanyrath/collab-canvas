@@ -19,6 +19,14 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) => {
     setLoading(true)
     setError(null)
 
+    // ✅ Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError({ message: 'Please enter a valid email address' })
+      setLoading(false)
+      return
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, password)
       onSuccess?.()
