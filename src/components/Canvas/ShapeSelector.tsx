@@ -28,11 +28,15 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
 }) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [tempColor, setTempColor] = useState(customColor)
+  const [colorBeforePickerOpen, setColorBeforePickerOpen] = useState(customColor)
   const pickerRef = useRef<HTMLDivElement>(null)
   
   const handleCustomColorClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    
+    // Store the current color in case user cancels
+    setColorBeforePickerOpen(currentColor)
     
     // Apply the current custom color immediately (like other color buttons)
     onColorChange(customColor)
@@ -45,6 +49,8 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   const handleColorPickerChange = (color: string) => {
     // Update temporary color as user drags
     setTempColor(color)
+    // ✅ LIVE PREVIEW: Update shape color in real-time
+    onColorChange(color)
   }
   
   const handleAcceptColor = (e: React.MouseEvent) => {
@@ -62,6 +68,8 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   const handleCancelPicker = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    // ✅ REVERT: Restore color to what it was before picker opened
+    onColorChange(colorBeforePickerOpen)
     setIsPickerOpen(false)
   }
   
