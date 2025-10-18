@@ -106,11 +106,11 @@ export default async function handler(
       apiKey: apiKey,
     });
 
-    // Prepare canvas context string (outside of template to avoid conflicts)
+    // Prepare canvas context string
     const shapesInfo = JSON.stringify(canvasContext?.shapes || []);
     
-    // Create a simplified prompt for canvas actions
-    const systemPrompt = `You are an AI assistant that helps users create shapes on a canvas.
+    // Build the full prompt with message directly (avoid LangChain template issues)
+    const fullPrompt = `You are an AI assistant that helps users create shapes on a canvas.
 You can execute canvas actions by responding with JSON.
 
 Available actions:
@@ -123,35 +123,26 @@ Available actions:
 Canvas context:
 - Canvas size: 1200x800
 - Available shapes: rectangle, circle, triangle
-- Shapes on canvas: ` + shapesInfo + `
+- Shapes on canvas: ${shapesInfo}
 
 Respond with a JSON object in this format:
 {
   "action": {
     "type": "create_shape",
-    "properties": { ... }
+    "properties": { x: 100, y: 100, width: 50, height: 50, fill: "#ff0000" }
   },
   "message": "Description of what you did"
 }
 
-If you can't perform an action, respond with:
+If you cannot perform an action, respond with:
 {
-  "message": "Explanation of why you can't do it"
-}`;
+  "message": "Explanation of why you cannot do it"
+}
 
-    // Create prompt template
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', systemPrompt],
-      ['human', '{input}'],
-    ]);
-
-    // Format the prompt with user input
-    const formattedPrompt = await prompt.format({
-      input: message,
-    });
+User request: ${message}`;
 
     // Get LLM response
-    const response = await llm.invoke(formattedPrompt);
+    const response = await llm.invoke(fullPrompt);
     const content = response.content.toString();
 
     console.log('LLM response:', content.substring(0, 200));
