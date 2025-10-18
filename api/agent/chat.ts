@@ -113,31 +113,41 @@ export default async function handler(
     const fullPrompt = `You are an AI assistant that helps users create shapes on a canvas.
 You can execute canvas actions by responding with JSON.
 
-Available actions:
-1. create_shape - Create a new shape
-2. move_shape - Move an existing shape
-3. update_shape - Update shape properties
-4. delete_shape - Delete a shape
-5. arrange_shapes - Arrange multiple shapes
+Available action types (uppercase):
+- CREATE - Create a new shape
+- MOVE - Move an existing shape  
+- UPDATE - Update shape properties
+- DELETE - Delete a shape
+- ARRANGE - Arrange multiple shapes
 
 Canvas context:
 - Canvas size: 1200x800
-- Available shapes: rectangle, circle, triangle
+- Available shapes: rectangle, circle
 - Shapes on canvas: ${shapesInfo}
 
-Respond with a JSON object in this format:
+For CREATE actions, respond with:
 {
   "action": {
-    "type": "create_shape",
-    "properties": { x: 100, y: 100, width: 50, height: 50, fill: "#ff0000" }
+    "type": "CREATE",
+    "properties": {
+      "shape": "rectangle",
+      "x": 100,
+      "y": 100,
+      "width": 100,
+      "height": 100,
+      "fill": "#ef4444"
+    }
   },
   "message": "Description of what you did"
 }
 
-If you cannot perform an action, respond with:
-{
-  "message": "Explanation of why you cannot do it"
-}
+For circles, use shape: "circle" with width and height (they will be converted to radius).
+
+Always use these exact color codes:
+- Red: #ef4444
+- Blue: #3b82f6
+- Green: #22c55e
+- Grey: #CCCCCC
 
 User request: ${message}`;
 
