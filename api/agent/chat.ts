@@ -106,6 +106,9 @@ export default async function handler(
       apiKey: apiKey,
     });
 
+    // Prepare canvas context string (outside of template to avoid conflicts)
+    const shapesInfo = JSON.stringify(canvasContext?.shapes || []);
+    
     // Create a simplified prompt for canvas actions
     const systemPrompt = `You are an AI assistant that helps users create shapes on a canvas.
 You can execute canvas actions by responding with JSON.
@@ -120,7 +123,7 @@ Available actions:
 Canvas context:
 - Canvas size: 1200x800
 - Available shapes: rectangle, circle, triangle
-- Shapes on canvas: ${JSON.stringify(canvasContext?.shapes || [])}
+- Shapes on canvas: ` + shapesInfo + `
 
 Respond with a JSON object in this format:
 {
