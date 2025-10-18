@@ -101,52 +101,59 @@ export default async function handler(
     // Initialize LLM
     const llm = new ChatOpenAI({
       modelName: 'gpt-4o-mini',
-      temperature: 0.1,
+      temperature: 0.3,
       streaming: false,
-      maxTokens: 500,
+      maxTokens: 2000, // Increased for complex multi-shape designs
       apiKey: apiKey,
     });
 
-    // Prepare canvas context string
-    const shapesInfo = JSON.stringify(canvasContext?.shapes || []);
+    // Prepare canvas context
+    const canvasState = {
+      shapes: canvasContext?.shapes || [],
+      selectedShapeIds: canvasContext?.selectedShapes || [],
+    };
     
-    // Use the same prompt as local dev for consistency
-    const systemPrompt = `You are a CollabCanvas AI that creates and arranges shapes via JSON commands.
+    // Use the new artistic system prompt (matches frontend exactly)
+    const systemPrompt = `You are a creative artist & designer AI for CollabCanvas. Create beautiful art, abstract designs, and functional layouts.
 
-CANVAS INFO:
-- Size: 5000×5000px | Types: rectangle, circle | Colors: red, green, blue, yellow, purple, pink, teal, grey
-- Defaults: position (300, 300), size 100×100px, color grey, spacing 120px
+CANVAS: 5000×5000px | SHAPES: rectangle, circle
 
-JSON OUTPUT (required):
-{
-  "reasoning": "brief",
-  "actions": [{ "type": "CREATE|MOVE|RESIZE|DELETE|ARRANGE|UPDATE", "shape": "rectangle|circle", "x": num, "y": num, "width": num, "height": num, "fill": "#hex", "shapeId": "id", "shapeIds": ["id1","id2"], "layout": "horizontal|vertical|grid", "spacing": num }],
-  "summary": "what you did"
-}
+COLORS: Use any hex color! Create gradients by layering similar hues. Explore color theory.
+Examples: #ef4444 #f97316 #f59e0b #eab308 #84cc16 #22c55e #14b8a6 #06b6d4 #0ea5e9 #3b82f6 #6366f1 #8b5cf6 #a855f7 #d946ef #ec4899 #f43f5e
 
-RULES:
-- Use actual shape IDs from context (never "shape1", "shape2")
-- Keep positions 0-5000, sizes 20-1000
-- Default to x:300, y:300 if no position specified
-- For ARRANGE: use real shape IDs
+**OUTPUT FORMAT (CRITICAL): Return ONLY valid JSON, no markdown, no code blocks, no extra text**
+{{"actions":[...],"summary":"text"}}
+
+ACTIONS:
+CREATE: {{type:"CREATE",shape:"rectangle|circle",x,y,width?,height?,fill?,text?}}
+MOVE: {{type:"MOVE",shapeId,x,y}}
+RESIZE: {{type:"RESIZE",shapeId,width,height}}
+UPDATE: {{type:"UPDATE",shapeId,fill?,text?}}
+DELETE: {{type:"DELETE",shapeId}}
+ARRANGE: {{type:"ARRANGE",shapeIds:["id1"],layout:"horizontal|vertical|grid",spacing?}}
+
+ARTISTIC PRINCIPLES:
+✓ Be wildly creative - use 10-100+ shapes for rich, detailed art
+✓ LAYER extensively - overlap shapes for depth, gradients, textures
+✓ **CRITICAL: VARY EVERY SHAPE SIZE** - Mix tiny (20-50px), small (50-100px), medium (100-300px), large (300-600px), huge (600-1000px)
+✓ Create 3D effects: combine circles (width≠height for ovals) and rectangles
+✓ Create gradients: layer 5-10 shapes with incrementing positions and color transitions
+✓ Abstract art: clouds, crystals, organic forms, geometric patterns
+✓ UI elements: add text to buttons/labels when making interfaces
+✓ Experiment with density, spacing, composition, visual flow
+
+CONSTRAINTS: positions 0-5000, sizes 20-1000, use real shape IDs from context
 
 EXAMPLES:
-User: "Create red circle"
-{"reasoning":"create circle at default position","actions":[{"type":"CREATE","shape":"circle","x":300,"y":300,"fill":"#ef4444"}],"summary":"Created red circle"}
+"tree" → {{"actions":[{{type:"CREATE",shape:"rectangle",x:380,y:350,width:45,height:180,fill:"#92400e"}},{{type:"CREATE",shape:"circle",x:400,y:270,width:200,height:195,fill:"#166534"}},{{type:"CREATE",shape:"circle",x:360,y:290,width:150,height:145,fill:"#16a34a"}},{{type:"CREATE",shape:"circle",x:440,y:305,width:95,height:92,fill:"#22c55e"}},{{type:"CREATE",shape:"circle",x:385,y:250,width:65,height:63,fill:"#4ade80"}},{{type:"CREATE",shape:"circle",x:420,y:280,width:30,height:28,fill:"#86efac"}}],"summary":"Tree with varied sizes: trunk 45×180, leaves 200px to tiny 30px"}}
 
-User: "Create blue rectangle at 500, 600"
-{"reasoning":"create rectangle at specified position","actions":[{"type":"CREATE","shape":"rectangle","x":500,"y":600,"fill":"#3b82f6"}],"summary":"Created blue rectangle"}
+"cosmic scene" → {{"actions":[{{type:"CREATE",shape:"rectangle",x:200,y:150,width:800,height:600,fill:"#0f172a"}},{{type:"CREATE",shape:"circle",x:600,y:250,width:350,height:350,fill:"#fbbf24"}},{{type:"CREATE",shape:"circle",x:300,y:400,width:120,height:118,fill:"#8b5cf6"}},{{type:"CREATE",shape:"circle",x:500,y:600,width:85,height:83,fill:"#ec4899"}},{{type:"CREATE",shape:"circle",x:750,y:500,width:45,height:44,fill:"#3b82f6"}},{{type:"CREATE",shape:"circle",x:350,y:250,width:22,height:21,fill:"#ffffff"}},{{type:"CREATE",shape:"circle",x:650,y:350,width:25,height:24,fill:"#ffffff"}},{{type:"CREATE",shape:"circle",x:450,y:480,width:20,height:20,fill:"#ffffff"}}],"summary":"Space scene: huge background 800×600, large sun 350px, planets 120/85/45px, tiny stars 20-25px"}}
 
-User: "Create a 3x3 grid"
-{"reasoning":"create 9 rectangles in 3x3 pattern","actions":[{"type":"CREATE","shape":"rectangle","x":100,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":100,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":100,"y":340,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":340,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":340,"width":100,"height":100,"fill":"#ef4444"}],"summary":"Created a 3x3 grid of rectangles"}
+"3D cylinder" → {{"actions":[{{type:"CREATE",shape:"circle",x:400,y:400,width:150,height:80,fill:"#3b82f6"}},{{type:"CREATE",shape:"rectangle",x:400,y:320,width:150,height:80,fill:"#3b82f6"}},{{type:"CREATE",shape:"circle",x:400,y:320,width:150,height:80,fill:"#60a5fa"}}],"summary":"Cylinder: ovals 150×80, rectangle body matches width"}}
 
-User: "Create a login form"
-{"reasoning":"create login form with header, username field, password field, and button","actions":[{"type":"CREATE","shape":"rectangle","x":300,"y":200,"width":400,"height":60,"fill":"#3b82f6"},{"type":"CREATE","shape":"rectangle","x":300,"y":280,"width":400,"height":50,"fill":"#CCCCCC"},{"type":"CREATE","shape":"rectangle","x":300,"y":350,"width":400,"height":50,"fill":"#CCCCCC"},{"type":"CREATE","shape":"rectangle","x":300,"y":420,"width":400,"height":50,"fill":"#22c55e"}],"summary":"Created login form with header, username field, password field, and login button"}
+Be wildly creative. Layer shapes. Create gradients. Make art.
 
-User: "Create a navigation bar"
-{"reasoning":"create horizontal nav bar with logo and menu items","actions":[{"type":"CREATE","shape":"rectangle","x":100,"y":50,"width":1000,"height":80,"fill":"#3b82f6"},{"type":"CREATE","shape":"rectangle","x":120,"y":65,"width":100,"height":50,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":800,"y":70,"width":80,"height":40,"fill":"#CCCCCC"},{"type":"CREATE","shape":"rectangle","x":900,"y":70,"width":80,"height":40,"fill":"#CCCCCC"}],"summary":"Created navigation bar with logo and menu buttons"}
-
-CONTEXT: ${shapesInfo}
+CANVAS STATE: ${JSON.stringify(canvasState)}
 
 User: "${message}"
 JSON:`;
@@ -160,13 +167,21 @@ JSON:`;
     // Try to parse JSON response
     let parsedResponse: AgentResponse;
     try {
+      console.log('🔍 Parsing backend response, length:', content.length);
+      console.log('📝 First 200 chars:', content.substring(0, 200));
+      
+      // Remove markdown code blocks if present
+      let cleanedContent = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
       // Try to find JSON object in the response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
+        console.log('✅ Found JSON match, attempting parse...');
         const parsed = JSON.parse(jsonMatch[0]);
         
         // Check if it has actions array (multiple actions) - this is the format we want
         if (parsed.actions && Array.isArray(parsed.actions)) {
+          console.log('✅ Actions array found, count:', parsed.actions.length);
           parsedResponse = {
             success: true,
             actions: parsed.actions,
@@ -175,6 +190,7 @@ JSON:`;
         } 
         // Legacy: Check if it has single action wrapped in action object
         else if (parsed.action) {
+          console.log('⚠️ Legacy single action format');
           parsedResponse = {
             success: true,
             action: parsed.action,
@@ -183,7 +199,7 @@ JSON:`;
         } 
         // No action found
         else {
-          console.warn('No action or actions found in response:', content.substring(0, 200));
+          console.warn('⚠️ No action or actions found in response:', content.substring(0, 200));
           parsedResponse = {
             success: true,
             message: content,
@@ -191,14 +207,15 @@ JSON:`;
         }
       } else {
         // No JSON found
-        console.warn('Could not parse JSON from response:', content.substring(0, 200));
+        console.warn('⚠️ Could not find JSON in response:', content.substring(0, 200));
         parsedResponse = {
           success: true,
           message: content,
         };
       }
     } catch (parseError) {
-      console.error('Error parsing LLM response:', parseError);
+      console.error('❌ Error parsing LLM response:', parseError);
+      console.error('📝 Raw content:', content.substring(0, 500));
       parsedResponse = {
         success: true,
         message: content,
