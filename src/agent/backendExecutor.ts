@@ -48,7 +48,10 @@ export async function executeCommandViaBackend(
 
     // Convert API response to AgentResponse format
     const agentResponse: AgentResponse = {
-      actions: response.action ? [response.action.properties as any] : [],
+      actions: response.action ? [{
+        type: response.action.type.toUpperCase() as any,
+        ...response.action.properties
+      }] : [],
       summary: response.message,
     };
 
