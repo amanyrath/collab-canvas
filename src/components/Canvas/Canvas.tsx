@@ -10,6 +10,7 @@ import { usePresenceMonitor } from '../../hooks/usePresenceMonitor'
 import { createShape, deleteShape, updateShape } from '../../utils/shapeUtils'
 import { releaseLock } from '../../utils/lockUtils'
 import { Shape, ShapeType } from '../../utils/types'
+import { historyManager } from '../../utils/historyManager'
 import GridLayer from './GridLayer'
 import ShapeLayer from './ShapeLayer'
 import SelectionLayer from './SelectionLayer'
@@ -80,14 +81,33 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     await Promise.all(deletionPromises)
   }, [user])
 
-  // ✅ COMBINED: Space key + Delete key handling
+  // ✅ COMBINED: Space key + Delete key + Undo/Redo handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // ✅ FIX: Don't intercept if user is typing in an input/textarea
+      const target = e.target as HTMLElement
+      const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+      
+      // Handle Undo/Redo shortcuts (Cmd+Z / Cmd+Shift+Z)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.repeat) {
+        if (isTyping) return
+        
+        e.preventDefault()
+        const { undo, redo } = useCanvasStore.getState()
+        
+        if (e.shiftKey) {
+          // Cmd+Shift+Z = Redo
+          redo()
+        } else {
+          // Cmd+Z = Undo
+          undo()
+        }
+        return
+      }
+      
       // Handle Delete/Backspace for shape deletion
       if ((e.key === 'Delete' || e.key === 'Backspace') && !e.repeat) {
-        // ✅ FIX: Don't intercept if user is typing in an input/textarea
-        const target = e.target as HTMLElement
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        if (isTyping) {
           return // Let the input handle the backspace
         }
         e.preventDefault()
@@ -97,9 +117,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       
       // Handle Space for panning
       if (e.code === 'Space' && !e.repeat && !isSpacePressed) {
-        // ✅ FIX: Don't intercept if user is typing in an input/textarea
-        const target = e.target as HTMLElement
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        if (isTyping) {
           return // Let the input handle the space
         }
         e.preventDefault()
@@ -387,7 +405,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
           lockedBy: null,
           lockedByName: null,
           lockedByColor: null
-        })
+        }, false) // Don't record lock changes in history
       })
       
       // ✅ BACKGROUND SYNC: Release Firebase locks (non-blocking)
@@ -438,7 +456,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     }
     
     // ✅ FASTEST: Direct store update without validation delays
-    addShape(optimisticShape)
+    // Record history immediately with temp ID (will be updated later)
+    addShape(optimisticShape) // recordHistory = true (default)
     pendingShapeCreations.current.add(shapeId)
     console.log(`🚀 Created shape instantly: ${shapeId} at (${x}, ${y})`)
     
@@ -464,9 +483,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
               // Create real shape in Firebase
               const realShapeId = await createShape(tempShape.x, tempShape.y, tempShape.type, tempShape.fill, user.uid, user.displayName)
           
-          // Update the optimistic shape with real ID
-          const { updateShapeOptimistic } = useCanvasStore.getState()
-          updateShapeOptimistic(tempId, { id: realShapeId })
+          // ✅ Replace the temp shape with the real Firebase ID
+          const { shapes, setShapes } = useCanvasStore.getState()
+          
+          // Find and replace the temp shape with the real ID in the store
+          const updatedShapes = shapes.map(shape => 
+            shape.id === tempId ? { ...shape, id: realShapeId } : shape
+          )
+          setShapes(updatedShapes)
+          
+          // ✅ Update history to use real Firebase ID (for cleaner logs)
+          historyManager.updateShapeId(tempId, realShapeId)
           
           // ✅ NO AUTO-LOCK: Let users manually select shapes when needed
           // This creates a cleaner UX where every click creates, no auto-selection

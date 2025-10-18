@@ -77,7 +77,7 @@ const SimpleShape: React.FC<{
             lockedBy: null, 
             lockedByName: null, 
             lockedByColor: null 
-          })
+          }, false) // Don't record lock changes in history
           releaseLock(shape.id, user.uid, user.displayName)
         } else {
           // Add to selection
@@ -86,7 +86,7 @@ const SimpleShape: React.FC<{
             lockedBy: user.uid,
             lockedByName: user.displayName,
             lockedByColor: user.cursorColor
-          })
+          }, false) // Don't record lock changes in history
           acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
         }
       } else {
@@ -102,7 +102,7 @@ const SimpleShape: React.FC<{
           lockedBy: null, 
           lockedByName: null, 
           lockedByColor: null 
-        })
+        }, false) // Don't record lock changes in history
       })
       
         // Lock new shape (single selection)
@@ -111,7 +111,7 @@ const SimpleShape: React.FC<{
         lockedBy: user.uid,
         lockedByName: user.displayName,
         lockedByColor: user.cursorColor
-      })
+      }, false) // Don't record lock changes in history
       
       // ✅ BACKGROUND: Firebase operations (non-blocking)
       if (userLockedShapes.length > 0) {
@@ -144,7 +144,7 @@ const SimpleShape: React.FC<{
           lockedBy: null, 
           lockedByName: null, 
           lockedByColor: null 
-        })
+        }, false) // Don't record lock changes in history
         releaseLock(s.id, user.uid, user.displayName)
       })
       
@@ -154,7 +154,7 @@ const SimpleShape: React.FC<{
         lockedBy: user.uid,
         lockedByName: user.displayName,
         lockedByColor: user.cursorColor
-      })
+      }, false) // Don't record lock changes in history
       acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
   }, [shape.id, isLockedByMe, user, onSelect])
