@@ -5,7 +5,8 @@
  * the appropriate tools and utilities.
  */
 
-import { createShape, updateShape, deleteShape } from '../utils/shapeUtils';
+import { createShape, updateShape, deleteShape, createShapeBatch } from '../utils/shapeUtils';
+import { clearAllShapes } from '../utils/devUtils';
 import { useCanvasStore } from '../store/canvasStore';
 import type { CanvasAction, AgentResponse, UserContext } from './types';
 
@@ -135,6 +136,15 @@ async function executeAction(
     case 'UPDATE':
       return await executeUpdate(action, userContext);
     
+    case 'ALIGN':
+      return await executeAlign(action, userContext);
+    
+    case 'BULK_CREATE':
+      return await executeBulkCreate(action, userContext);
+    
+    case 'DELETE_ALL':
+      return await executeDeleteAll(action);
+    
     default:
       return {
         success: false,
@@ -171,6 +181,7 @@ async function executeCreate(
   const width = action.width || 100;
   const height = action.height || 100;
   const fill = action.fill || '#CCCCCC';
+  const text = action.text || '';
 
   // Validate bounds
   if (action.x < 0 || action.y < 0 || action.x + width > 5000 || action.y + height > 5000) {
@@ -187,6 +198,9 @@ async function executeCreate(
       y: action.y,
       type: action.shape,
       fill,
+      width,
+      height,
+      text,
       userId: userContext.userId,
       displayName: userContext.displayName
     });
@@ -197,10 +211,13 @@ async function executeCreate(
       action.shape,
       fill,
       userContext.userId,
-      userContext.displayName
+      userContext.displayName,
+      width,
+      height,
+      text
     );
 
-    console.log(`✅ createShape returned shapeId: ${shapeId}`);
+    console.log(`✅ createShape returned shapeId: ${shapeId} with text: "${text}"`);
 
     // Build all updates to run in parallel for maximum speed
     const updates: any = {
@@ -210,21 +227,10 @@ async function executeCreate(
       lockedByColor: userContext.cursorColor,
     };
 
-    // Add size if specified
-    if (action.width !== undefined || action.height !== undefined) {
-      updates.width = width;
-      updates.height = height;
-    }
-
-    // Add text if specified
-    if (action.text) {
-      updates.text = action.text;
-    }
-
     // Execute all updates in a single call for maximum performance
     try {
       await updateShape(shapeId, updates, userContext.userId);
-      console.log(`✅ Shape updated (locked, sized, text)`);
+      console.log(`✅ Shape updated (locked)`);
     } catch (updateError) {
       console.warn(`⚠️ Shape updates failed (shape created but not fully configured):`, updateError);
     }
@@ -556,6 +562,294 @@ async function executeUpdate(
 }
 
 /**
+ * Execute ALIGN action
+ */
+async function executeAlign(
+  action: CanvasAction,
+  userContext: UserContext
+): Promise<ActionResult> {
+  if (!Array.isArray(action.shapeIds) || action.shapeIds.length === 0) {
+    return {
+      success: false,
+      action,
+      error: 'Missing or empty shapeIds array',
+    };
+  }
+
+  if (!action.alignment) {
+    return {
+      success: false,
+      action,
+      error: 'Missing alignment type',
+    };
+  }
+
+  const validAlignments = ['left', 'right', 'top', 'bottom', 'center-x', 'center-y'];
+  if (!validAlignments.includes(action.alignment)) {
+    return {
+      success: false,
+      action,
+      error: `Invalid alignment type. Must be one of: ${validAlignments.join(', ')}`,
+    };
+  }
+
+  const { shapes } = useCanvasStore.getState();
+  const shapesToAlign = shapes.filter(s => action.shapeIds!.includes(s.id));
+
+  if (shapesToAlign.length === 0) {
+    return {
+      success: false,
+      action,
+      error: 'No valid shapes found with provided IDs',
+    };
+  }
+
+  try {
+    let alignmentValue: number;
+
+    switch (action.alignment) {
+      case 'left':
+        // Align all shapes to the leftmost x position
+        alignmentValue = Math.min(...shapesToAlign.map(s => s.x));
+        await Promise.all(
+          shapesToAlign.map(shape =>
+            updateShape(shape.id, { x: alignmentValue }, userContext.userId)
+          )
+        );
+        break;
+
+      case 'right':
+        // Align all shapes to the rightmost x + width position
+        alignmentValue = Math.max(...shapesToAlign.map(s => s.x + s.width));
+        await Promise.all(
+          shapesToAlign.map(shape =>
+            updateShape(shape.id, { x: alignmentValue - shape.width }, userContext.userId)
+          )
+        );
+        break;
+
+      case 'top':
+        // Align all shapes to the topmost y position
+        alignmentValue = Math.min(...shapesToAlign.map(s => s.y));
+        await Promise.all(
+          shapesToAlign.map(shape =>
+            updateShape(shape.id, { y: alignmentValue }, userContext.userId)
+          )
+        );
+        break;
+
+      case 'bottom':
+        // Align all shapes to the bottommost y + height position
+        alignmentValue = Math.max(...shapesToAlign.map(s => s.y + s.height));
+        await Promise.all(
+          shapesToAlign.map(shape =>
+            updateShape(shape.id, { y: alignmentValue - shape.height }, userContext.userId)
+          )
+        );
+        break;
+
+      case 'center-x':
+        // Center all shapes horizontally at the average x center
+        const avgCenterX = shapesToAlign.reduce((sum, s) => sum + s.x + s.width / 2, 0) / shapesToAlign.length;
+        await Promise.all(
+          shapesToAlign.map(shape =>
+            updateShape(shape.id, { x: avgCenterX - shape.width / 2 }, userContext.userId)
+          )
+        );
+        break;
+
+      case 'center-y':
+        // Center all shapes vertically at the average y center
+        const avgCenterY = shapesToAlign.reduce((sum, s) => sum + s.y + s.height / 2, 0) / shapesToAlign.length;
+        await Promise.all(
+          shapesToAlign.map(shape =>
+            updateShape(shape.id, { y: avgCenterY - shape.height / 2 }, userContext.userId)
+          )
+        );
+        break;
+    }
+
+    console.log(`✅ Aligned ${shapesToAlign.length} shapes to ${action.alignment}`);
+
+    return {
+      success: true,
+      action,
+      message: `Aligned ${shapesToAlign.length} shapes to ${action.alignment}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      action,
+      error: error instanceof Error ? error.message : 'Align failed',
+    };
+  }
+}
+
+/**
+ * Execute BULK_CREATE action - High-performance bulk shape creation
+ */
+async function executeBulkCreate(
+  action: CanvasAction,
+  userContext: UserContext
+): Promise<ActionResult> {
+  const startTime = Date.now();
+  
+  try {
+    const { 
+      count = 10, 
+      pattern = 'random', 
+      shapeType = 'mixed', 
+      fill = 'random',
+      spacing = 150,
+      centerX = 2500,
+      centerY = 2500
+    } = action;
+    
+    // Validate count
+    if (count < 1 || count > 1000) {
+      return {
+        success: false,
+        action,
+        error: 'Bulk create count must be between 1 and 1000',
+      };
+    }
+    
+    console.log(`🎨 Bulk creating ${count} shapes with pattern: ${pattern}`);
+    
+    // Generate shape specifications
+    const shapes: Array<{
+      x: number;
+      y: number;
+      type: 'rectangle' | 'circle';
+      color: string;
+      createdBy: string;
+    }> = [];
+    
+    const colors = ['#4477AA', '#EE6677', '#228833', '#CCBB44', '#66CCEE', '#AA3377', '#3b82f6', '#ef4444', '#22c55e'];
+    const types: Array<'rectangle' | 'circle'> = ['rectangle', 'circle'];
+    
+    for (let i = 0; i < count; i++) {
+      let x: number, y: number;
+      
+      // Position based on pattern
+      switch (pattern) {
+        case 'grid': {
+          const cols = Math.ceil(Math.sqrt(count));
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          x = 100 + col * spacing;
+          y = 100 + row * spacing;
+          break;
+        }
+        case 'horizontal': {
+          x = 100 + (i * spacing) % 4800;
+          y = centerY;
+          break;
+        }
+        case 'vertical': {
+          x = centerX;
+          y = 100 + (i * spacing) % 4800;
+          break;
+        }
+        case 'circular': {
+          const radius = 1000;
+          const angle = (i / count) * 2 * Math.PI;
+          x = centerX + radius * Math.cos(angle);
+          y = centerY + radius * Math.sin(angle);
+          break;
+        }
+        default: // random
+          x = Math.random() * 4800 + 100;
+          y = Math.random() * 4800 + 100;
+      }
+      
+      // Determine type
+      const type = shapeType === 'mixed' 
+        ? types[Math.floor(Math.random() * types.length)]
+        : shapeType as 'rectangle' | 'circle';
+      
+      // Determine color
+      const color = fill === 'random'
+        ? colors[Math.floor(Math.random() * colors.length)]
+        : fill;
+      
+      shapes.push({
+        x: Math.max(100, Math.min(4900, x)),
+        y: Math.max(100, Math.min(4900, y)),
+        type,
+        color,
+        createdBy: userContext.userId,
+      });
+    }
+    
+    // Use batch API for performance
+    const shapeIds = await withTimeout(
+      createShapeBatch(shapes),
+      10000, // 10 second timeout for bulk operations
+      'BULK_CREATE'
+    );
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Bulk created ${shapeIds.length} shapes in ${duration}ms`);
+    
+    return {
+      success: true,
+      action,
+      message: `Created ${shapeIds.length} ${pattern} shapes in ${duration}ms`,
+    };
+  } catch (error) {
+    console.error('❌ Bulk create failed:', error);
+    return {
+      success: false,
+      action,
+      error: error instanceof Error ? error.message : 'Bulk create failed',
+    };
+  }
+}
+
+/**
+ * Execute DELETE_ALL action - Clear entire canvas (admin function)
+ */
+async function executeDeleteAll(action: CanvasAction): Promise<ActionResult> {
+  const startTime = Date.now();
+  
+  try {
+    console.log(`🗑️ Clearing all shapes from canvas...`);
+    
+    // Use existing admin clearAllShapes function
+    const result = await withTimeout(
+      clearAllShapes(),
+      10000, // 10 second timeout
+      'DELETE_ALL'
+    );
+    
+    if (!result.success) {
+      return {
+        success: false,
+        action,
+        error: result.error instanceof Error ? result.error.message : 'Failed to clear canvas',
+      };
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Cleared ${result.deletedCount} shapes in ${duration}ms`);
+    
+    return {
+      success: true,
+      action,
+      message: `Deleted all ${result.deletedCount} shapes from canvas`,
+    };
+  } catch (error) {
+    console.error('❌ Delete all failed:', error);
+    return {
+      success: false,
+      action,
+      error: error instanceof Error ? error.message : 'Delete all failed',
+    };
+  }
+}
+
+/**
  * Dry run: validate actions without executing
  */
 export async function validateActions(
@@ -593,6 +887,25 @@ export async function validateActions(
           errors.push(`Action ${i}: Missing or empty shapeIds`);
         }
         if (!action.layout) errors.push(`Action ${i}: Missing layout`);
+        break;
+
+      case 'ALIGN':
+        if (!action.shapeIds || action.shapeIds.length === 0) {
+          errors.push(`Action ${i}: Missing or empty shapeIds`);
+        }
+        if (!action.alignment) errors.push(`Action ${i}: Missing alignment type`);
+        break;
+
+      case 'BULK_CREATE':
+        if (typeof action.count !== 'number') {
+          errors.push(`Action ${i}: Missing count`);
+        } else if (action.count < 1 || action.count > 1000) {
+          errors.push(`Action ${i}: count must be between 1 and 1000`);
+        }
+        break;
+
+      case 'DELETE_ALL':
+        // No validation needed - just clears everything
         break;
     }
   }

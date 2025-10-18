@@ -27,7 +27,10 @@ export const createShape = async (
   type: 'rectangle' | 'circle',
   color: string,
   createdBy: string,
-  displayName: string
+  displayName: string,
+  width: number = 100,
+  height: number = 100,
+  text: string = ''
 ): Promise<string> => {
   return FirebaseErrorHandler.withRetry(async () => {
     logFirestoreWrite('createShape')
@@ -39,10 +42,10 @@ export const createShape = async (
       type, // ✅ USE PROVIDED SHAPE TYPE
       x,
       y,
-      width: 100, // Default size from PRD
-      height: 100,
+      width, // ✅ USE PROVIDED WIDTH
+      height, // ✅ USE PROVIDED HEIGHT
       fill: color, // ✅ USE PROVIDED COLOR
-      text: '',
+      text, // ✅ USE PROVIDED TEXT
       textColor: '#000000',
       fontSize: 14,
       createdBy,

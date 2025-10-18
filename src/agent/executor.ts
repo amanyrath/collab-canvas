@@ -7,7 +7,7 @@
 
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { getLLM } from './llm';
-import { createSystemPrompt, buildAgentContext } from './prompts';
+import { STATIC_SYSTEM_PROMPT, createDynamicContext, buildAgentContext } from './prompts';
 import type { UserContext, AgentMessage, AgentResponse } from './types';
 
 /**
@@ -44,12 +44,15 @@ export async function executeCommand(
     // Build context
     const context = buildAgentContext(userContext, recentMessages);
     
-    // Create system prompt with context
-    const systemPrompt = createSystemPrompt(context.canvasState, userContext);
+    // Create dynamic context (canvas state + user info)
+    const dynamicContext = createDynamicContext(context.canvasState, userContext);
 
-    // Create prompt template
+    // Create prompt template with SPLIT messages for caching
+    // Message 1: Static prompt (CACHED by OpenAI after first use)
+    // Message 2: Dynamic context (NOT cached - changes every request)
     const prompt = ChatPromptTemplate.fromMessages([
-      ['system', systemPrompt],
+      ['system', STATIC_SYSTEM_PROMPT],
+      ['system', dynamicContext],
       ['human', '{input}'],
     ]);
 
@@ -153,13 +156,16 @@ export async function executeCommandWithStreaming(
     const context = buildAgentContext(userContext, recentMessages);
     console.log(`⏱️ [${Date.now() - startTime}ms] Context built with ${context.canvasState.shapes.length} shapes`);
     
-    // Create system prompt with context
-    const systemPrompt = createSystemPrompt(context.canvasState, userContext);
-    console.log(`⏱️ [${Date.now() - startTime}ms] System prompt created`);
+    // Create dynamic context (canvas state + user info)
+    const dynamicContext = createDynamicContext(context.canvasState, userContext);
+    console.log(`⏱️ [${Date.now() - startTime}ms] Dynamic context created (static prompt will be cached)`);
 
-    // Create prompt template
+    // Create prompt template with SPLIT messages for caching
+    // Message 1: Static prompt (CACHED by OpenAI after first use - 50% cost reduction)
+    // Message 2: Dynamic context (NOT cached - changes every request)
     const prompt = ChatPromptTemplate.fromMessages([
-      ['system', systemPrompt],
+      ['system', STATIC_SYSTEM_PROMPT],
+      ['system', dynamicContext],
       ['human', '{input}'],
     ]);
 
@@ -230,7 +236,7 @@ export function validateAgentResponse(response: AgentResponse): {
   // Validate each action
   response.actions.forEach((action, index) => {
     // Check action type
-    const validTypes = ['CREATE', 'MOVE', 'RESIZE', 'DELETE', 'ARRANGE', 'UPDATE'];
+    const validTypes = ['CREATE', 'MOVE', 'RESIZE', 'DELETE', 'ARRANGE', 'UPDATE', 'ALIGN', 'BULK_CREATE', 'DELETE_ALL'];
     if (!validTypes.includes(action.type)) {
       errors.push(`Action ${index}: Invalid type "${action.type}"`);
     }
@@ -262,6 +268,28 @@ export function validateAgentResponse(response: AgentResponse): {
         if (!action.layout || !['horizontal', 'vertical', 'grid'].includes(action.layout)) {
           errors.push(`Action ${index}: Invalid or missing layout`);
         }
+        break;
+
+      case 'ALIGN':
+        if (!Array.isArray(action.shapeIds) || action.shapeIds.length === 0) {
+          errors.push(`Action ${index}: Align requires non-empty shapeIds array`);
+        }
+        const validAlignments = ['left', 'right', 'top', 'bottom', 'center-x', 'center-y'];
+        if (!action.alignment || !validAlignments.includes(action.alignment)) {
+          errors.push(`Action ${index}: Invalid or missing alignment type`);
+        }
+        break;
+
+      case 'BULK_CREATE':
+        if (typeof action.count !== 'number') {
+          errors.push(`Action ${index}: Missing count`);
+        } else if (action.count < 1 || action.count > 1000) {
+          errors.push(`Action ${index}: count must be between 1 and 1000`);
+        }
+        break;
+
+      case 'DELETE_ALL':
+        // No validation needed - just clears everything
         break;
     }
   });

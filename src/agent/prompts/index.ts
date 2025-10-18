@@ -3,8 +3,9 @@
  */
 
 export {
-  SYSTEM_PROMPT,
-  createSystemPrompt,
+  STATIC_SYSTEM_PROMPT,
+  createDynamicContext,
+  createSystemPrompt, // Deprecated - kept for backward compatibility
   createUserPrompt,
   ERROR_RECOVERY_PROMPT,
   CONTINUATION_PROMPT,

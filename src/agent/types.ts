@@ -11,7 +11,7 @@ export interface AgentConfig {
 }
 
 export interface CanvasAction {
-  type: 'CREATE' | 'MOVE' | 'RESIZE' | 'DELETE' | 'ARRANGE' | 'UPDATE';
+  type: 'CREATE' | 'MOVE' | 'RESIZE' | 'DELETE' | 'ARRANGE' | 'UPDATE' | 'ALIGN' | 'BULK_CREATE' | 'DELETE_ALL';
   shape?: 'rectangle' | 'circle';
   shapeId?: string;
   x?: number;
@@ -24,7 +24,14 @@ export interface CanvasAction {
   shapeIds?: string[];
   positions?: Array<{ x: number; y: number }>;
   layout?: 'horizontal' | 'vertical' | 'grid';
+  alignment?: 'left' | 'right' | 'top' | 'bottom' | 'center-x' | 'center-y'; // For ALIGN action
   spacing?: number;
+  // For BULK_CREATE:
+  count?: number;           // Number of shapes to create (10-1000)
+  pattern?: 'random' | 'grid' | 'horizontal' | 'vertical' | 'circular';
+  shapeType?: 'rectangle' | 'circle' | 'mixed';
+  centerX?: number;         // Optional center point for patterns
+  centerY?: number;
 }
 
 export interface AgentResponse {
@@ -43,6 +50,7 @@ export interface CanvasState {
     height: number;
     fill: string;
     text?: string;
+    rotation?: number;
     isLocked?: boolean;
     lockedBy?: string;
   }>;

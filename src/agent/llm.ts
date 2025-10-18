@@ -17,7 +17,7 @@ const DEFAULT_CONFIG = {
   model: 'gpt-4o-mini',     // Fastest GPT-4 variant
   temperature: 0.1,          // Very low for fast, deterministic outputs
   streaming: true,           // Enable streaming for better UX
-  maxTokens: 500,            // Reduced for faster responses (JSON is concise)
+  maxTokens: 2000,           // Support large multi-shape commands (grids, complex layouts)
 };
 
 /**
@@ -140,23 +140,42 @@ export async function testLLM(): Promise<{ success: boolean; error?: string; res
 }
 
 /**
- * Cost estimation helper
+ * Cost estimation helper with prompt caching
  * GPT-4o-mini pricing (as of Oct 2024):
  * - Input: $0.15 per 1M tokens
+ * - Cached input: $0.075 per 1M tokens (50% discount)
  * - Output: $0.60 per 1M tokens
  * 
- * Typical canvas command:
- * - Input: ~500 tokens (system prompt + context + user message)
+ * Typical canvas command WITHOUT caching:
+ * - Input: ~2500 tokens (system prompt + context + user message)
  * - Output: ~200 tokens (JSON action + summary)
- * - Cost per command: ~$0.0002 (less than a cent)
+ * - Cost per command: ~$0.0005
+ * 
+ * WITH prompt caching (after first request):
+ * - Static prompt: ~2000 tokens (CACHED - 50% discount)
+ * - Dynamic context: ~500 tokens (NOT cached)
+ * - Output: ~200 tokens
+ * - Cost per command: ~$0.0003 (40% cheaper)
+ * 
+ * @param inputTokens - Number of input tokens
+ * @param outputTokens - Number of output tokens
+ * @param cachedTokens - Number of cached input tokens (default 0)
  */
-export function estimateCost(inputTokens: number, outputTokens: number): number {
+export function estimateCost(
+  inputTokens: number, 
+  outputTokens: number, 
+  cachedTokens: number = 0
+): number {
   const INPUT_COST_PER_MILLION = 0.15;
+  const CACHED_INPUT_COST_PER_MILLION = 0.075; // 50% discount
   const OUTPUT_COST_PER_MILLION = 0.60;
   
-  const inputCost = (inputTokens / 1_000_000) * INPUT_COST_PER_MILLION;
+  const uncachedTokens = Math.max(0, inputTokens - cachedTokens);
+  
+  const inputCost = (uncachedTokens / 1_000_000) * INPUT_COST_PER_MILLION;
+  const cachedCost = (cachedTokens / 1_000_000) * CACHED_INPUT_COST_PER_MILLION;
   const outputCost = (outputTokens / 1_000_000) * OUTPUT_COST_PER_MILLION;
   
-  return inputCost + outputCost;
+  return inputCost + cachedCost + outputCost;
 }
 
