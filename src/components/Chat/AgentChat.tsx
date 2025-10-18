@@ -38,13 +38,12 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
     streamingText,
     error,
     sendCommand,
-    clearHistory,
     cancelCurrentCommand,
     lastExecutionResult,
   } = useAgent({
     userContext: userContext!,
     enableStreaming: true,
-    onSuccess: (response, result) => {
+    onSuccess: (_response, result) => {
       console.log('✅ Command executed successfully:', result);
     },
     onError: (error) => {

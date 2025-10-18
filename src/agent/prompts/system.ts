@@ -46,7 +46,7 @@ User: "Arrange all horizontally"  [Context: shapes "abc123", "def456" exist]
  */
 export function createSystemPrompt(
   canvasState: CanvasState,
-  userContext: UserContext
+  _userContext: UserContext
 ): string {
   const basePrompt = SYSTEM_PROMPT;
   
@@ -138,7 +138,7 @@ export function getTemplate(
     return '';
   }
   
-  let template = templates[key as keyof typeof templates];
+  let template: string = templates[key as keyof typeof templates];
   
   // Substitute variables
   Object.entries(variables).forEach(([varKey, value]) => {

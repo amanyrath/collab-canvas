@@ -7,6 +7,7 @@
 
 import { ChatOpenAI } from '@langchain/openai';
 import type { AgentConfig } from './types';
+import { getOpenAIKey, isAgentEnvironmentSecure } from '../utils/keyManager';
 
 /**
  * Default configuration for the LLM
@@ -33,18 +34,28 @@ const DEFAULT_CONFIG = {
  * ```
  */
 export function initializeLLM(config: Partial<AgentConfig> = {}): ChatOpenAI {
-  const apiKey = config.openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+  // Check if we're in a secure environment for agent features
+  if (!isAgentEnvironmentSecure() && !config.openaiApiKey) {
+    throw new Error(
+      'Agent features require a backend API in production. ' +
+      'See SECURITY.md for implementation details.'
+    );
+  }
+
+  const apiKey = config.openaiApiKey || getOpenAIKey();
 
   console.log('🔑 Environment check:', {
     hasConfigKey: !!config.openaiApiKey,
-    hasEnvKey: !!import.meta.env.VITE_OPENAI_API_KEY,
-    envKeyPrefix: import.meta.env.VITE_OPENAI_API_KEY?.substring(0, 7),
+    isSecureEnv: isAgentEnvironmentSecure(),
+    isDev: import.meta.env.DEV,
   });
 
   if (!apiKey) {
     throw new Error(
-      'OpenAI API key not found. Please set VITE_OPENAI_API_KEY in your .env file. ' +
-      'See SETUP.md for instructions.'
+      'OpenAI API key not found. ' +
+      (import.meta.env.DEV 
+        ? 'Please set VITE_OPENAI_API_KEY in your .env file. See SETUP.md for instructions.'
+        : 'Agent features require a backend API. See SECURITY.md for details.')
     );
   }
 

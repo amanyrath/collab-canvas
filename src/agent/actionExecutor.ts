@@ -564,7 +564,7 @@ async function executeUpdate(
  */
 export async function validateActions(
   actions: CanvasAction[],
-  userContext: UserContext
+  _userContext: UserContext
 ): Promise<{ valid: boolean; errors: string[] }> {
   const errors: string[] = [];
 

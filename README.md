@@ -108,6 +108,34 @@ npm run build
 npm run preview
 ```
 
+## 🚀 Deployment
+
+### Deploy to Vercel (Recommended)
+
+CollabCanvas includes serverless backend support for secure API key management:
+
+```bash
+# Quick deploy
+vercel
+
+# Or connect to GitHub for automatic deployments
+# See VERCEL_DEPLOYMENT.md for complete guide
+```
+
+**Key Features:**
+- ✅ Serverless functions keep API keys secure
+- ✅ Automatic builds on push
+- ✅ Preview deployments for pull requests
+- ✅ Zero-config deployment
+
+**Setup Guide:** See [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md) for complete instructions
+
+**Security:** See [SECURITY.md](./SECURITY.md) for API key management best practices
+
+### Deploy to Other Platforms
+
+The app can be deployed to any static hosting service (Netlify, GitHub Pages, etc.), but you'll need to implement a backend for secure API key management. See `SECURITY.md` for implementation options.
+
 ## 🎮 How to Use
 
 ### Canvas Controls

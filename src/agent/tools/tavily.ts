@@ -7,12 +7,19 @@
 
 import { Tool } from '@langchain/core/tools';
 import { TavilySearchResults } from '@langchain/community/tools/tavily_search';
+import { getTavilyKey, isAgentEnvironmentSecure } from '../../utils/keyManager';
 
 /**
  * Initialize Tavily search tool
  */
 export function createTavilyTool(): Tool {
-  const apiKey = import.meta.env.VITE_TAVILY_API_KEY;
+  // Check if we're in a secure environment
+  if (!isAgentEnvironmentSecure()) {
+    console.warn('Tavily search requires backend API in production.');
+    return new MockTavilyTool();
+  }
+
+  const apiKey = getTavilyKey();
 
   if (!apiKey) {
     console.warn('Tavily API key not found. Search functionality will be limited.');

@@ -7,7 +7,9 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { executeCommand, executeCommandWithStreaming } from '../agent/executor';
+import { executeCommandViaBackend, executeCommandViaBackendWithStreaming } from '../agent/backendExecutor';
 import { executeAgentActions } from '../agent/actionExecutor';
+import { shouldUseBackendAPI } from '../utils/keyManager';
 import type { AgentMessage, UserContext, AgentResponse } from '../agent/types';
 import type { ExecutionResult } from '../agent/actionExecutor';
 
@@ -133,6 +135,10 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
 
       console.log('🤖 Sending command to agent:', command);
 
+      // Determine if we should use backend API or local LLM
+      const useBackend = shouldUseBackendAPI();
+      console.log(`📡 Using ${useBackend ? 'backend API' : 'local LLM'}`);
+
       let agentResponse: AgentResponse;
 
       if (enableStreaming) {
@@ -145,15 +151,25 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         });
 
         agentResponse = await Promise.race([
-          executeCommandWithStreaming(
-            command,
-            userContext,
-            (token) => {
-              // Update streaming text as tokens arrive
-              setStreamingText(prev => prev + token);
-            },
-            recentMessages
-          ),
+          useBackend
+            ? executeCommandViaBackendWithStreaming(
+                command,
+                userContext,
+                (token) => {
+                  // Update streaming text as tokens arrive
+                  setStreamingText(prev => prev + token);
+                },
+                recentMessages
+              )
+            : executeCommandWithStreaming(
+                command,
+                userContext,
+                (token) => {
+                  // Update streaming text as tokens arrive
+                  setStreamingText(prev => prev + token);
+                },
+                recentMessages
+              ),
           timeoutPromise
         ]);
 
@@ -165,7 +181,9 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         });
 
         agentResponse = await Promise.race([
-          executeCommand(command, userContext, recentMessages),
+          useBackend
+            ? executeCommandViaBackend(command, userContext, recentMessages)
+            : executeCommand(command, userContext, recentMessages),
           timeoutPromise
         ]);
       }

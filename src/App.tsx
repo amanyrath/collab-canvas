@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import ConnectionBanner from './components/ConnectionBanner'
 import FastPresenceSidebar from './components/Canvas/FastPresenceSidebar'
 import PerformanceDisplay from './components/Debug/PerformanceDisplay'
+import { DevWarningBanner } from './components/DevWarningBanner'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -34,6 +35,9 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-50">
+        {/* ⚠️ DEV: Security warning for exposed API keys */}
+        <DevWarningBanner />
+        
         {/* ✅ PHASE 9: Connection status banner */}
         <ConnectionBanner />
         

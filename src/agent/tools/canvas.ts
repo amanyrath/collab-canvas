@@ -8,7 +8,7 @@
 import { Tool } from '@langchain/core/tools';
 import { createShape, updateShape, deleteShape } from '../../utils/shapeUtils';
 import { useCanvasStore } from '../../store/canvasStore';
-import type { CanvasAction, CanvasState } from '../types';
+import type { CanvasState } from '../types';
 
 /**
  * Get current canvas state for context
@@ -56,16 +56,17 @@ function validateSize(width: number, height: number): boolean {
 /**
  * Color validation and normalization
  */
-const VALID_COLORS = [
-  '#CCCCCC', // Grey
-  '#ef4444', // Red
-  '#22c55e', // Green
-  '#3b82f6', // Blue
-  '#f59e0b', // Yellow
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#14b8a6', // Teal
-];
+// Available colors for validation (currently not enforced but kept for reference)
+// const VALID_COLORS = [
+//   '#CCCCCC', // Grey
+//   '#ef4444', // Red
+//   '#22c55e', // Green
+//   '#3b82f6', // Blue
+//   '#f59e0b', // Yellow
+//   '#8b5cf6', // Purple
+//   '#ec4899', // Pink
+//   '#14b8a6', // Teal
+// ];
 
 function normalizeColor(color: string): string {
   const lowerColor = color.toLowerCase().trim();

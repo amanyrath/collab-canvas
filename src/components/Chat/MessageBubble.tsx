@@ -4,7 +4,6 @@
  * Displays a single message in the chat interface.
  */
 
-import React from 'react';
 import type { AgentMessage } from '../../agent/types';
 
 interface MessageBubbleProps {

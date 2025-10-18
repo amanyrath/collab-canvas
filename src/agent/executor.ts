@@ -17,9 +17,10 @@ export interface AgentConfig {
   verbose?: boolean;
 }
 
-const DEFAULT_AGENT_CONFIG: AgentConfig = {
-  verbose: true,
-};
+// Removed unused config - can be added back if needed
+// const DEFAULT_AGENT_CONFIG: AgentConfig = {
+//   verbose: true,
+// };
 
 /**
  * Execute a user command through the LLM

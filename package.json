@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:emulator": "firebase emulators:start --only auth,firestore,database",
+    "prebuild": "node scripts/validate-build.js",
     "build": "tsc && vite build",
+    "build:dev": "SKIP_KEY_VALIDATION=true npm run build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -31,6 +33,7 @@
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "@vercel/node": "^3.0.21",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.57.0",
