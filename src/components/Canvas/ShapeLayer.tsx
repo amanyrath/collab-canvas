@@ -1003,6 +1003,44 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
           }
           return newBox
         }}
+        onTransformEnd={(e) => {
+          // When transform ends, sync the new dimensions
+          const node = e.target
+          
+          if (node && (node.getType() === 'Rect' || node.className === 'Rect')) {
+            const shapeId = node.id()
+            const shape = shapes.find(s => s.id === shapeId)
+            if (shape && user) {
+              // Get transformed dimensions
+              const scaleX = node.scaleX()
+              const scaleY = node.scaleY()
+              const newWidth = Math.max(20, Math.round(node.width() * scaleX))
+              const newHeight = Math.max(20, Math.round(node.height() * scaleY))
+              const newX = Math.round(node.x())
+              const newY = Math.round(node.y())
+              
+              // Reset scale to 1 (bake the scale into width/height)
+              node.scaleX(1)
+              node.scaleY(1)
+              
+              // Update store and Firebase
+              const { updateShapeOptimistic } = useCanvasStore.getState()
+              updateShapeOptimistic(shapeId, { 
+                x: newX,
+                y: newY,
+                width: newWidth, 
+                height: newHeight 
+              })
+              
+              updateShape(shapeId, { 
+                x: newX,
+                y: newY,
+                width: newWidth, 
+                height: newHeight 
+              }, user.uid)
+            }
+          }
+        }}
         // ✅ SHIFT-KEY ASPECT RATIO: Enable when shift is pressed
         enabledAnchors={[
           'top-left',
