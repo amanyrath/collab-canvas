@@ -1024,7 +1024,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
               node.scaleY(1)
               
               // Update store and Firebase
-              const { updateShapeOptimistic } = useCanvasStore.getState()
+              const { updateShapeOptimistic, optimisticUpdates } = useCanvasStore.getState()
               updateShapeOptimistic(shapeId, { 
                 x: newX,
                 y: newY,
@@ -1032,12 +1032,18 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
                 height: newHeight 
               })
               
+              // Sync to Firebase and clear optimistic update when done
               updateShape(shapeId, { 
                 x: newX,
                 y: newY,
                 width: newWidth, 
                 height: newHeight 
-              }, user.uid)
+              }, user.uid).then(() => {
+                // Clear optimistic update to allow other users' changes through
+                const newOptimisticUpdates = new Map(optimisticUpdates)
+                newOptimisticUpdates.delete(shapeId)
+                useCanvasStore.setState({ optimisticUpdates: newOptimisticUpdates })
+              })
             }
           }
         }}

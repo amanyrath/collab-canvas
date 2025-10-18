@@ -169,20 +169,19 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
     const now = Date.now()
     const protectedShapes = shapes.map(shape => {
       const optimistic = state.optimisticUpdates.get(shape.id)
+      const currentShape = state.shapes.find(s => s.id === shape.id)
       
-      // ✅ MULTIPLAYER FIX: Only protect if we have a recent optimistic update
-      // AND the shape is currently locked by us (active editing)
-      // This allows other users' changes to sync through
+      // ✅ MULTIPLAYER FIX: Don't block updates from other users
+      // Only protect our own optimistic updates while we're actively editing
       if (optimistic && now - optimistic.timestamp < OPTIMISTIC_TIMEOUT) {
         // Check if this shape is locked by the current user
-        const currentShape = state.shapes.find(s => s.id === shape.id)
         const isLockedByCurrentUser = currentShape?.isLocked && 
                                        optimistic.updates.lockedBy && 
                                        currentShape?.lockedBy === optimistic.updates.lockedBy
         
         // Only protect if shape is being actively edited by current user
         if (isLockedByCurrentUser) {
-        return { ...shape, ...optimistic.updates }
+          return { ...shape, ...optimistic.updates }
         }
       }
       
