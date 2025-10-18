@@ -1,0 +1,14 @@
+{
+  "name": "collabcanvas-api",
+  "version": "1.0.0",
+  "description": "CollabCanvas API functions",
+  "private": true,
+  "dependencies": {
+    "@langchain/community": "^0.3.57",
+    "@langchain/core": "^0.3.78",
+    "@langchain/openai": "^0.6.16",
+    "@vercel/node": "^3.0.21",
+    "langchain": "^0.3.36"
+  }
+}
+
