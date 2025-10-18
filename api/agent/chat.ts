@@ -140,6 +140,12 @@ User: "Create blue rectangle at 500, 600"
 User: "Create a 3x3 grid"
 {"reasoning":"create 9 rectangles in 3x3 pattern","actions":[{"type":"CREATE","shape":"rectangle","x":100,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":100,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":100,"y":340,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":340,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":340,"width":100,"height":100,"fill":"#ef4444"}],"summary":"Created a 3x3 grid of rectangles"}
 
+User: "Create a login form"
+{"reasoning":"create login form with header, username field, password field, and button","actions":[{"type":"CREATE","shape":"rectangle","x":300,"y":200,"width":400,"height":60,"fill":"#3b82f6"},{"type":"CREATE","shape":"rectangle","x":300,"y":280,"width":400,"height":50,"fill":"#CCCCCC"},{"type":"CREATE","shape":"rectangle","x":300,"y":350,"width":400,"height":50,"fill":"#CCCCCC"},{"type":"CREATE","shape":"rectangle","x":300,"y":420,"width":400,"height":50,"fill":"#22c55e"}],"summary":"Created login form with header, username field, password field, and login button"}
+
+User: "Create a navigation bar"
+{"reasoning":"create horizontal nav bar with logo and menu items","actions":[{"type":"CREATE","shape":"rectangle","x":100,"y":50,"width":1000,"height":80,"fill":"#3b82f6"},{"type":"CREATE","shape":"rectangle","x":120,"y":65,"width":100,"height":50,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":800,"y":70,"width":80,"height":40,"fill":"#CCCCCC"},{"type":"CREATE","shape":"rectangle","x":900,"y":70,"width":80,"height":40,"fill":"#CCCCCC"}],"summary":"Created navigation bar with logo and menu buttons"}
+
 CONTEXT: ${shapesInfo}
 
 User: "${message}"
