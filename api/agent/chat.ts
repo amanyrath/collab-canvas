@@ -37,18 +37,21 @@ const corsHeaders = {
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
-): Promise<void> {
+) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).setHeader('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin'])
+    res.status(200)
+      .setHeader('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin'])
       .setHeader('Access-Control-Allow-Methods', corsHeaders['Access-Control-Allow-Methods'])
       .setHeader('Access-Control-Allow-Headers', corsHeaders['Access-Control-Allow-Headers'])
       .end();
+    return;
   }
 
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   try {
@@ -56,32 +59,35 @@ export default async function handler(
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       console.error('OPENAI_API_KEY not configured in Vercel environment');
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         error: 'Server configuration error',
         message: 'API key not configured. Please set OPENAI_API_KEY in Vercel environment variables.'
       });
+      return;
     }
 
     // Parse and validate request body
     const { message, canvasContext, userId } = req.body;
     
     if (!message || typeof message !== 'string') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid request',
         message: 'Message is required and must be a string'
       });
+      return;
     }
 
     // Basic rate limiting check (you may want to implement more sophisticated rate limiting)
     // For now, we'll just validate the user ID exists
     if (!userId) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Unauthorized',
         message: 'User ID is required'
       });
+      return;
     }
 
     console.log('Processing agent request:', {
@@ -182,7 +188,7 @@ If you can't perform an action, respond with:
     });
 
     // Return response with CORS headers
-    return res
+    res
       .status(200)
       .setHeader('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin'])
       .json(parsedResponse);
@@ -192,7 +198,7 @@ If you can't perform an action, respond with:
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
-    return res
+    res
       .status(500)
       .setHeader('Access-Control-Allow-Origin', corsHeaders['Access-Control-Allow-Origin'])
       .json({
