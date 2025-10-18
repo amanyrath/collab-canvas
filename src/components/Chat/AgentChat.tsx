@@ -22,6 +22,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestions = useSuggestedCommands();
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Create user context from auth
   const userContext: UserContext | null = user ? {
@@ -164,8 +165,18 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowHelp(!showHelp)}
+            className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full p-1 transition-colors"
+            aria-label="Show help"
+            title="Show example commands"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+          <button
             onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full p-1 transition-colors"
             aria-label="Close chat"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,6 +185,137 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
           </button>
         </div>
       </div>
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="absolute inset-0 bg-white z-10 flex flex-col">
+          {/* Help Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-800">Agent Capabilities</h3>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="text-gray-500 hover:text-gray-700"
+              aria-label="Close help"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Help Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Creation Commands */}
+            <div>
+              <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+                <span className="text-blue-500">🎨</span>
+                Creation Commands
+              </h4>
+              <div className="space-y-1 text-xs text-gray-600">
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Create a red circle"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Create a large green rectangle"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Create a small button that says Login"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Create 100 shapes in a grid"</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Manipulation Commands */}
+            <div>
+              <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+                <span className="text-purple-500">✨</span>
+                Manipulation Commands
+              </h4>
+              <div className="space-y-1 text-xs text-gray-600">
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Move the circle to the center"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Make the rectangle bigger"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Change the red shapes to blue"</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Layout Commands */}
+            <div>
+              <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+                <span className="text-green-500">📐</span>
+                Layout Commands
+              </h4>
+              <div className="space-y-1 text-xs text-gray-600">
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Arrange the shapes in a grid"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Align all shapes to the left"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Arrange purple shapes in three rows"</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Complex Commands */}
+            <div>
+              <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+                <span className="text-orange-500">🚀</span>
+                Complex Commands
+              </h4>
+              <div className="space-y-1 text-xs text-gray-600">
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Create a login form"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Draw a tree"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Create a mockup of MS Paint"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Create 500 shapes for testing"</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Delete Commands */}
+            <div>
+              <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+                <span className="text-red-500">🗑️</span>
+                Delete Commands
+              </h4>
+              <div className="space-y-1 text-xs text-gray-600">
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Delete the red circle"</code>
+                </div>
+                <div className="bg-gray-50 p-2 rounded">
+                  <code className="text-blue-600">"Delete all shapes"</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="border-t border-gray-200 pt-3">
+              <h4 className="font-semibold text-sm text-gray-700 mb-2">💡 Tips</h4>
+              <ul className="space-y-1 text-xs text-gray-600">
+                <li>• Use color names: red, blue, purple, green, etc.</li>
+                <li>• Use size words: large, small, tiny, huge</li>
+                <li>• Be specific about positions and quantities</li>
+                <li>• Try complex layouts and artistic creations!</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
