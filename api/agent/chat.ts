@@ -110,22 +110,17 @@ export default async function handler(
     const shapesInfo = JSON.stringify(canvasContext?.shapes || []);
     
     // Build the full prompt with message directly (avoid LangChain template issues)
-    const fullPrompt = `You are an AI assistant that helps users create shapes on a canvas.
-You can execute canvas actions by responding with JSON.
+    const fullPrompt = `You are an AI assistant for a canvas app. Respond ONLY with valid JSON, no explanations.
 
-Available action types (uppercase):
-- CREATE - Create a new shape
-- MOVE - Move an existing shape  
-- UPDATE - Update shape properties
-- DELETE - Delete a shape
-- ARRANGE - Arrange multiple shapes
+IMPORTANT: For multiple shapes, create them ONE AT A TIME. Only return ONE action per response.
 
-Canvas context:
-- Canvas size: 1200x800
-- Available shapes: rectangle, circle
-- Shapes on canvas: ${shapesInfo}
+Available action types: CREATE, MOVE, UPDATE, DELETE, ARRANGE
 
-For CREATE actions, respond with:
+Canvas: 1200x800px
+Available shapes: rectangle, circle
+Current shapes: ${shapesInfo}
+
+Format (respond ONLY with this JSON, nothing else):
 {
   "action": {
     "type": "CREATE",
@@ -138,18 +133,14 @@ For CREATE actions, respond with:
       "fill": "#ef4444"
     }
   },
-  "message": "Description of what you did"
+  "message": "Brief description"
 }
 
-For circles, use shape: "circle" with width and height (they will be converted to radius).
+Colors: #ef4444 (red), #3b82f6 (blue), #22c55e (green), #CCCCCC (grey)
 
-Always use these exact color codes:
-- Red: #ef4444
-- Blue: #3b82f6
-- Green: #22c55e
-- Grey: #CCCCCC
+User request: ${message}
 
-User request: ${message}`;
+Respond with JSON only:`;
 
     // Get LLM response
     const response = await llm.invoke(fullPrompt);
@@ -160,8 +151,8 @@ User request: ${message}`;
     // Try to parse JSON response
     let parsedResponse: AgentResponse;
     try {
-      // Try to extract JSON from response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      // Try to find JSON object in the response
+      const jsonMatch = content.match(/\{[\s\S]*"action"[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         parsedResponse = {
@@ -170,11 +161,24 @@ User request: ${message}`;
           message: parsed.message || 'Action completed',
         };
       } else {
-        // Plain text response
-        parsedResponse = {
-          success: true,
-          message: content,
-        };
+        // Try to find action object directly
+        const actionMatch = content.match(/"action":\s*\{[\s\S]*?\}/);
+        if (actionMatch) {
+          const actionStr = '{' + actionMatch[0] + '}';
+          const parsed = JSON.parse(actionStr);
+          parsedResponse = {
+            success: true,
+            action: parsed.action,
+            message: 'Action executed',
+          };
+        } else {
+          // No parseable action found
+          console.warn('Could not parse action from response:', content.substring(0, 200));
+          parsedResponse = {
+            success: true,
+            message: content,
+          };
+        }
       }
     } catch (parseError) {
       console.error('Error parsing LLM response:', parseError);
