@@ -47,11 +47,23 @@ export async function executeCommandViaBackend(
     }
 
     // Convert API response to AgentResponse format
-    const agentResponse: AgentResponse = {
-      actions: response.action ? [{
-        type: response.action.type as any, // Already uppercase from prompt
+    let actions: any[] = [];
+    
+    // Handle multiple actions format (matches local dev)
+    if (response.actions && Array.isArray(response.actions)) {
+      // Actions are already in the correct format from the prompt
+      actions = response.actions;
+    }
+    // Handle legacy single action format (old API responses)
+    else if (response.action) {
+      actions = [{
+        type: response.action.type as any,
         ...response.action.properties
-      }] : [],
+      }];
+    }
+    
+    const agentResponse: AgentResponse = {
+      actions,
       summary: response.message,
     };
 

@@ -29,6 +29,7 @@ export interface CanvasAction {
 export interface AgentChatResponse {
   success: boolean;
   action?: CanvasAction;
+  actions?: CanvasAction[];
   message: string;
   error?: string;
 }

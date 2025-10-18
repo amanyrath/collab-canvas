@@ -23,6 +23,7 @@ interface CanvasAction {
 interface AgentResponse {
   success: boolean;
   action?: CanvasAction;
+  actions?: CanvasAction[];
   message: string;
   error?: string;
 }
@@ -109,41 +110,43 @@ export default async function handler(
     // Prepare canvas context string
     const shapesInfo = JSON.stringify(canvasContext?.shapes || []);
     
-    // Build the full prompt with message directly (avoid LangChain template issues)
-    const fullPrompt = `You are an AI assistant for a canvas app. Respond ONLY with valid JSON, no explanations.
+    // Use the same prompt as local dev for consistency
+    const systemPrompt = `You are a CollabCanvas AI that creates and arranges shapes via JSON commands.
 
-IMPORTANT: For multiple shapes, create them ONE AT A TIME. Only return ONE action per response.
+CANVAS INFO:
+- Size: 5000×5000px | Types: rectangle, circle | Colors: red, green, blue, yellow, purple, pink, teal, grey
+- Defaults: position (300, 300), size 100×100px, color grey, spacing 120px
 
-Available action types: CREATE, MOVE, UPDATE, DELETE, ARRANGE
-
-Canvas: 1200x800px
-Available shapes: rectangle, circle
-Current shapes: ${shapesInfo}
-
-Format (respond ONLY with this JSON, nothing else):
+JSON OUTPUT (required):
 {
-  "action": {
-    "type": "CREATE",
-    "properties": {
-      "shape": "rectangle",
-      "x": 100,
-      "y": 100,
-      "width": 100,
-      "height": 100,
-      "fill": "#ef4444"
-    }
-  },
-  "message": "Brief description"
+  "reasoning": "brief",
+  "actions": [{ "type": "CREATE|MOVE|RESIZE|DELETE|ARRANGE|UPDATE", "shape": "rectangle|circle", "x": num, "y": num, "width": num, "height": num, "fill": "#hex", "shapeId": "id", "shapeIds": ["id1","id2"], "layout": "horizontal|vertical|grid", "spacing": num }],
+  "summary": "what you did"
 }
 
-Colors: #ef4444 (red), #3b82f6 (blue), #22c55e (green), #CCCCCC (grey)
+RULES:
+- Use actual shape IDs from context (never "shape1", "shape2")
+- Keep positions 0-5000, sizes 20-1000
+- Default to x:300, y:300 if no position specified
+- For ARRANGE: use real shape IDs
 
-User request: ${message}
+EXAMPLES:
+User: "Create red circle"
+{"reasoning":"create circle at default position","actions":[{"type":"CREATE","shape":"circle","x":300,"y":300,"fill":"#ef4444"}],"summary":"Created red circle"}
 
-Respond with JSON only:`;
+User: "Create blue rectangle at 500, 600"
+{"reasoning":"create rectangle at specified position","actions":[{"type":"CREATE","shape":"rectangle","x":500,"y":600,"fill":"#3b82f6"}],"summary":"Created blue rectangle"}
+
+User: "Create a 3x3 grid"
+{"reasoning":"create 9 rectangles in 3x3 pattern","actions":[{"type":"CREATE","shape":"rectangle","x":100,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":100,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":100,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":220,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":100,"y":340,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":220,"y":340,"width":100,"height":100,"fill":"#ef4444"},{"type":"CREATE","shape":"rectangle","x":340,"y":340,"width":100,"height":100,"fill":"#ef4444"}],"summary":"Created a 3x3 grid of rectangles"}
+
+CONTEXT: ${shapesInfo}
+
+User: "${message}"
+JSON:`;
 
     // Get LLM response
-    const response = await llm.invoke(fullPrompt);
+    const response = await llm.invoke(systemPrompt);
     const content = response.content.toString();
 
     console.log('LLM response:', content.substring(0, 200));
@@ -152,33 +155,41 @@ Respond with JSON only:`;
     let parsedResponse: AgentResponse;
     try {
       // Try to find JSON object in the response
-      const jsonMatch = content.match(/\{[\s\S]*"action"[\s\S]*\}/);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        parsedResponse = {
-          success: true,
-          action: parsed.action,
-          message: parsed.message || 'Action completed',
-        };
-      } else {
-        // Try to find action object directly
-        const actionMatch = content.match(/"action":\s*\{[\s\S]*?\}/);
-        if (actionMatch) {
-          const actionStr = '{' + actionMatch[0] + '}';
-          const parsed = JSON.parse(actionStr);
+        
+        // Check if it has actions array (multiple actions) - this is the format we want
+        if (parsed.actions && Array.isArray(parsed.actions)) {
+          parsedResponse = {
+            success: true,
+            actions: parsed.actions,
+            message: parsed.summary || parsed.message || 'Actions completed',
+          };
+        } 
+        // Legacy: Check if it has single action wrapped in action object
+        else if (parsed.action) {
           parsedResponse = {
             success: true,
             action: parsed.action,
-            message: 'Action executed',
+            message: parsed.summary || parsed.message || 'Action completed',
           };
-        } else {
-          // No parseable action found
-          console.warn('Could not parse action from response:', content.substring(0, 200));
+        } 
+        // No action found
+        else {
+          console.warn('No action or actions found in response:', content.substring(0, 200));
           parsedResponse = {
             success: true,
             message: content,
           };
         }
+      } else {
+        // No JSON found
+        console.warn('Could not parse JSON from response:', content.substring(0, 200));
+        parsedResponse = {
+          success: true,
+          message: content,
+        };
       }
     } catch (parseError) {
       console.error('Error parsing LLM response:', parseError);
