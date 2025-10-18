@@ -59,41 +59,40 @@ export async function executeAgentActions(
   agentResponse: AgentResponse,
   userContext: UserContext
 ): Promise<ExecutionResult> {
-  const results: ActionResult[] = [];
-  let successCount = 0;
-  let failureCount = 0;
-
   console.log(`🤖 Executing ${agentResponse.actions.length} actions from agent`);
 
-  for (const action of agentResponse.actions) {
-    try {
-      // Add 10 second timeout to prevent hanging on Firebase connection issues
-      const result = await withTimeout(
-        executeAction(action, userContext),
-        10000,
-        action.type
-      );
-      results.push(result);
-
-      if (result.success) {
-        successCount++;
-        console.log(`✅ Action ${action.type} succeeded:`, result.message);
-      } else {
-        failureCount++;
-        console.error(`❌ Action ${action.type} failed:`, result.error);
-      }
-    } catch (error) {
+  // Execute all actions in parallel for faster grid creation
+  const actionPromises = agentResponse.actions.map(action => 
+    withTimeout(
+      executeAction(action, userContext),
+      3000, // Reduced timeout: shapes create quickly
+      action.type
+    ).catch(error => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Action execution failed:`, error);
-      
-      results.push({
+      return {
         success: false,
         action,
         error: errorMessage,
-      });
-      failureCount++;
+      } as ActionResult;
+    })
+  );
+
+  // Wait for all actions to complete
+  const results = await Promise.all(actionPromises);
+
+  // Count successes and failures
+  const successCount = results.filter(r => r.success).length;
+  const failureCount = results.filter(r => !r.success).length;
+
+  // Log results
+  results.forEach(result => {
+    if (result.success) {
+      console.log(`✅ Action ${result.action.type} succeeded:`, result.message);
+    } else {
+      console.error(`❌ Action ${result.action.type} failed:`, result.error);
     }
-  }
+  });
 
   const overallSuccess = failureCount === 0 && successCount > 0;
 
