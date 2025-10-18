@@ -87,23 +87,37 @@ export async function executeCommand(
  * Parse LLM output into structured response
  */
 function parseAgentOutput(output: string): AgentResponse {
+  console.log('🔍 Parsing agent output, length:', output.length);
+  console.log('📝 First 200 chars:', output.substring(0, 200));
+  
   try {
-    // Look for JSON in the response
-    const jsonMatch = output.match(/\{[\s\S]*\}/);
+    // Remove markdown code blocks if present
+    let cleanedOutput = output.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    
+    // Try to find JSON object
+    const jsonMatch = cleanedOutput.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
+      console.log('✅ Found JSON match, attempting parse...');
       const parsed = JSON.parse(jsonMatch[0]);
+      
+      console.log('✅ JSON parsed successfully');
+      console.log('📊 Actions count:', parsed.actions?.length || 0);
       
       return {
         actions: parsed.actions || [],
         summary: parsed.summary || output,
         reasoning: parsed.reasoning,
       };
+    } else {
+      console.warn('⚠️ No JSON object found in output');
     }
   } catch (error) {
-    console.warn('Failed to parse JSON from LLM output:', error);
+    console.error('❌ Failed to parse JSON from LLM output:', error);
+    console.error('📝 Raw output:', output.substring(0, 500));
   }
 
   // Fallback: return output as summary
+  console.warn('⚠️ Falling back to summary-only response');
   return {
     actions: [],
     summary: output,

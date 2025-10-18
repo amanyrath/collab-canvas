@@ -3,6 +3,11 @@
 .env.local
 .env.production
 
+# Build artifacts
+dist/
+dist-ssr/
+*.local
+
 # Firebase
 .firebase/
 firebase-debug.log

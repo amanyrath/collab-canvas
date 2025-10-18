@@ -1,22 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
-import { Layer, Rect, Circle, Text, Transformer } from 'react-konva'
+import { Layer, Group, Rect, Text, Transformer } from 'react-konva'
 import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
 import { Shape } from '../../utils/types'
 import { updateShape } from '../../utils/shapeUtils'
 import { acquireLock, releaseLock, acquireLockBatch, releaseLockBatch } from '../../utils/lockUtils'
-import { updateCursorPosition } from '../../utils/presenceUtils'
+import { TextEditor } from './TextEditor'
 
 interface ShapeLayerProps {
   listening: boolean
   isDragSelectingRef?: React.MutableRefObject<boolean>
+  stageRef?: React.RefObject<Konva.Stage>
 }
 
 // ✅ PERFORMANCE: Custom comparison for React.memo to prevent unnecessary re-renders
 const areShapePropsEqual = (
-  prevProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; shapeRef: React.RefObject<Konva.Shape> },
-  nextProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; shapeRef: React.RefObject<Konva.Shape> }
+  prevProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean },
+  nextProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean }
 ) => {
   // Only re-render if shape properties that affect rendering changed
   const prev = prevProps.shape
@@ -36,7 +37,8 @@ const areShapePropsEqual = (
     prev.isLocked === next.isLocked &&
     prev.lockedBy === next.lockedBy &&
     prev.lockedByColor === next.lockedByColor &&
-    prevProps.isSelected === nextProps.isSelected
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.disableDrag === nextProps.disableDrag
     // Note: We don't compare onSelect or shapeRef as they are stable
   )
 }
@@ -46,14 +48,16 @@ const SimpleShape: React.FC<{
   shape: Shape
   isSelected: boolean
   onSelect: (e: any) => void
+  onDoubleClick: (id: string) => void
   shapeRef: React.RefObject<Konva.Shape>
-}> = React.memo(({ shape, isSelected: _isSelected, onSelect, shapeRef }) => {
+  disableDrag?: boolean  // Disable dragging when inside a Group
+}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   
   const isLockedByMe = shape.isLocked && shape.lockedBy === user?.uid
   const isLockedByOthers = shape.isLocked && shape.lockedBy !== user?.uid
-  const canDrag = !isLockedByOthers && !!user
+  const canDrag = !isLockedByOthers && !!user && !disableDrag
 
   // ✅ MULTI-SELECT: Support shift+click for multiple selection (Figma-like UX)
   const handleClick = useCallback(async (e: any) => {
@@ -124,183 +128,47 @@ const SimpleShape: React.FC<{
     }
   }, [shape.id, isLockedByMe, isLockedByOthers, user, shapes, onSelect])
 
-  // ✅ MULTI-SELECT DRAG: Track starting positions for "virtual group"
-  const dragStartPositionsRef = useRef<Map<string, { startX: number; startY: number }>>(new Map())
-  
-  // ✅ DRAG START: Support both single and multi-select dragging
-  const handleDragStart = useCallback((e: any) => {
-    // ✅ Clear node cache at start of drag
-    dragNodesCache.current.clear()
-    
-    // ✅ GET FRESH DATA: Read latest shape positions from store
-    const { shapes: freshShapes } = useCanvasStore.getState()
-    const userLockedShapes = freshShapes.filter(s => s.lockedBy === user?.uid)
-    const isMultiSelect = userLockedShapes.length > 1 && isLockedByMe
-    
-    if (isMultiSelect) {
-      // ✅ MULTI-SELECT: Store starting positions for all selected shapes
-      console.log('🚀 Multi-select drag starting with', userLockedShapes.length, 'shapes')
-      
-      dragStartPositionsRef.current.clear()
-      
-      // ✅ ALWAYS GET FRESH NODE POSITIONS: This handles shape type changes
-      const layer = e.target.getLayer()
-      userLockedShapes.forEach(s => {
-        const node = layer?.findOne(`#${s.id}`)
-        if (node) {
-          // Store current Konva position (whatever it is right now)
-          dragStartPositionsRef.current.set(s.id, {
-            startX: node.x(),
-            startY: node.y()
-          })
-        }
-      })
-    } else {
-      // ✅ SINGLE SELECT: Release others and select only this shape
-      dragStartPositionsRef.current.clear()
+  // ✅ SIMPLIFIED: Drag handlers for single shapes only (multi-select uses Group)
+  const handleDragStart = useCallback((_e: any) => {
+    // Auto-select and lock this shape when drag starts
+    if (!isLockedByMe && user) {
       onSelect({ evt: { shiftKey: false } })
       
-      if (!isLockedByMe && user) {
-        const { updateShapeOptimistic } = useCanvasStore.getState()
-        
-        // Release other shapes
-        userLockedShapes.forEach(s => {
-          if (s.id !== shape.id) {
-            updateShapeOptimistic(s.id, { 
-              isLocked: false, 
-              lockedBy: null, 
-              lockedByName: null, 
-              lockedByColor: null 
-            })
-            releaseLock(s.id, user.uid, user.displayName)
-          }
+      const { updateShapeOptimistic, shapes: freshShapes } = useCanvasStore.getState()
+      const userLockedShapes = freshShapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
+      
+      // Release other shapes
+      userLockedShapes.forEach(s => {
+        updateShapeOptimistic(s.id, { 
+          isLocked: false, 
+          lockedBy: null, 
+          lockedByName: null, 
+          lockedByColor: null 
         })
-        
-        // Lock the shape being dragged
-        updateShapeOptimistic(shape.id, {
-          isLocked: true,
-          lockedBy: user.uid,
-          lockedByName: user.displayName,
-          lockedByColor: user.cursorColor
-        })
-        
-        acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
-      }
+        releaseLock(s.id, user.uid, user.displayName)
+      })
+      
+      // Lock this shape
+      updateShapeOptimistic(shape.id, {
+        isLocked: true,
+        lockedBy: user.uid,
+        lockedByName: user.displayName,
+        lockedByColor: user.cursorColor
+      })
+      acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
   }, [shape.id, isLockedByMe, user, onSelect])
-  
-  // ✅ Cache for drag nodes to reduce lookups
-  const dragNodesCache = useRef<Map<string, Konva.Node>>(new Map())
-  
-  // ✅ DRAG MOVE: Move all selected shapes together (virtual group)
-  const handleDragMove = useCallback((e: any) => {
-    // ✅ Update cursor position during drag
-    if (user) {
-      const stage = e.target.getStage()
-      const pointerPos = stage.getRelativePointerPosition()
-      if (pointerPos) {
-        updateCursorPosition(user.uid, Math.round(pointerPos.x), Math.round(pointerPos.y))
-      }
-    }
-    
-    if (dragStartPositionsRef.current.size <= 1) return // Single or no selection
-    
-    const thisShapeStart = dragStartPositionsRef.current.get(shape.id)
-    if (!thisShapeStart) return
-    
-    // Calculate how much this shape has moved
-    const deltaX = e.target.x() - thisShapeStart.startX
-    const deltaY = e.target.y() - thisShapeStart.startY
-    
-    // ✅ OPTIMIZED: Use cached layer reference
-    const layer = e.target.getLayer()
-    if (!layer) return
-    
-    // ✅ PERFORMANCE: Build node cache on first drag move if needed
-    if (dragNodesCache.current.size === 0) {
-      dragStartPositionsRef.current.forEach((_, shapeId) => {
-        if (shapeId !== shape.id) {
-          const node = layer.findOne(`#${shapeId}`)
-          if (node) {
-            dragNodesCache.current.set(shapeId, node)
-          }
-        }
-      })
-    }
-    
-    // Move all other selected shapes by the same delta (using cached nodes)
-    dragStartPositionsRef.current.forEach((data, shapeId) => {
-      if (shapeId !== shape.id) {
-        const node = dragNodesCache.current.get(shapeId)
-        if (node) {
-          node.x(data.startX + deltaX)
-          node.y(data.startY + deltaY)
-        }
-      }
-    })
-    
-    // Batch draw for performance
-    layer.batchDraw()
-  }, [shape.id, user])
 
-  // ✅ DRAG END: Save final positions for all moved shapes
   const handleDragEnd = useCallback((e: any) => {
     if (!user) return
     
-    // ✅ Clear caches
-    dragNodesCache.current.clear()
+    const finalX = Math.round(e.target.x())
+    const finalY = Math.round(e.target.y())
     
-    const { updateShapeOptimistic, shapes: freshShapes } = useCanvasStore.getState()
-    
-    if (dragStartPositionsRef.current.size > 1) {
-      // ✅ MULTI-SELECT: Update all shapes that were moved together
-      console.log(`💾 Saving positions for ${dragStartPositionsRef.current.size} shapes`)
-      
-      // ✅ USE CACHED NODES: Reuse from drag operation
-      const layer = e.target.getLayer()
-      
-      dragStartPositionsRef.current.forEach((_data, shapeId) => {
-        const currentShape = freshShapes.find(s => s.id === shapeId)
-        if (!currentShape) return
-        
-        // Get node from cache or lookup
-        let node = dragNodesCache.current.get(shapeId)
-        if (!node && layer) {
-          node = layer.findOne(`#${shapeId}`) as Konva.Node
-        }
-        if (!node) return
-        
-        // Get final position from node
-        let finalX = Math.round(node.x())
-        let finalY = Math.round(node.y())
-        
-        // Convert to store coordinates (top-left for all shapes)
-        if (currentShape.type === 'circle') {
-          finalX = finalX - currentShape.width / 2
-          finalY = finalY - currentShape.height / 2
-        }
-        
-        // Update store and Firebase
-        updateShapeOptimistic(shapeId, { x: finalX, y: finalY })
-        updateShape(shapeId, { x: finalX, y: finalY }, user.uid)
-      })
-      
-      dragStartPositionsRef.current.clear()
-    } else {
-      // ✅ SINGLE SELECT: Update just this shape
-      let finalX = Math.round(e.target.x())
-      let finalY = Math.round(e.target.y())
-      
-      // Convert to store coordinates
-      if (shape.type === 'circle') {
-        finalX = finalX - shape.width / 2
-        finalY = finalY - shape.height / 2
-      }
-      
-      updateShapeOptimistic(shape.id, { x: finalX, y: finalY })
-      updateShape(shape.id, { x: finalX, y: finalY }, user.uid)
-    }
-  }, [shape.id, shape.type, shape.width, shape.height, user])
+    const { updateShapeOptimistic } = useCanvasStore.getState()
+    updateShapeOptimistic(shape.id, { x: finalX, y: finalY })
+    updateShape(shape.id, { x: finalX, y: finalY }, user.uid)
+  }, [shape.id, user])
 
   // ✅ RESIZE HANDLER: Update shape dimensions after transform
   const handleTransformEnd = useCallback((_e: any) => {
@@ -310,7 +178,7 @@ const SimpleShape: React.FC<{
     const scaleX = node.scaleX()
     const scaleY = node.scaleY()
     
-    // Calculate new dimensions
+    // Calculate new dimensions (all shapes use corner positioning now)
     let newWidth = Math.max(20, Math.round(node.width() * scaleX))
     let newHeight = Math.max(20, Math.round(node.height() * scaleY))
     let newX = Math.round(node.x())
@@ -320,35 +188,21 @@ const SimpleShape: React.FC<{
     node.scaleX(1)
     node.scaleY(1)
     
-    // For circles, maintain circular shape or update based on scale
-    if (shape.type === 'circle') {
-      // Adjust position for circle center
-      newX = newX - newWidth / 2
-      newY = newY - newHeight / 2
-    }
-    
     // ✅ BOUNDARY CONSTRAINTS: Ensure resized shape stays within canvas
-    if (shape.type === 'circle') {
-      const radius = Math.min(newWidth, newHeight) / 2
-      // Constrain position so circle doesn't go outside
-      newX = Math.max(-newWidth / 2 + radius, Math.min(5000 - newWidth / 2 - radius, newX))
-      newY = Math.max(-newHeight / 2 + radius, Math.min(5000 - newHeight / 2 - radius, newY))
-    } else {
-      // Constrain so rectangle doesn't exceed boundaries
-      if (newX + newWidth > 5000) {
-        newWidth = 5000 - newX
-      }
-      if (newY + newHeight > 5000) {
-        newHeight = 5000 - newY
-      }
-      if (newX < 0) {
-        newWidth = newWidth + newX
-        newX = 0
-      }
-      if (newY < 0) {
-        newHeight = newHeight + newY
-        newY = 0
-      }
+    // Constrain so shape doesn't exceed boundaries
+    if (newX + newWidth > 5000) {
+      newWidth = 5000 - newX
+    }
+    if (newY + newHeight > 5000) {
+      newHeight = 5000 - newY
+    }
+    if (newX < 0) {
+      newWidth = newWidth + newX
+      newX = 0
+    }
+    if (newY < 0) {
+      newHeight = newHeight + newY
+      newY = 0
     }
     
     const { updateShapeOptimistic } = useCanvasStore.getState()
@@ -368,106 +222,23 @@ const SimpleShape: React.FC<{
       width: newWidth, 
       height: newHeight 
     }, user.uid)
-  }, [shape.id, shape.type, user, shapeRef])
+  }, [shape.id, user, shapeRef])
 
-  // ✅ DRAG BOUNDS: Constrain individual shapes and virtual group within canvas
+  // ✅ DRAG BOUNDS: Constrain single shapes within canvas (Group handles multi-select)
   const dragBoundFunc = useCallback((pos: any) => {
-    // Get fresh shape data
     const { shapes: freshShapes } = useCanvasStore.getState()
     const currentShape = freshShapes.find(s => s.id === shape.id)
     if (!currentShape) return pos
     
-    // Ensure positive dimensions
     const shapeWidth = Math.max(1, currentShape.width)
     const shapeHeight = Math.max(1, currentShape.height)
     
     // Snap to grid
     const gridSize = 1
-    let x = Math.round(pos.x / gridSize) * gridSize
-    let y = Math.round(pos.y / gridSize) * gridSize
+    const x = Math.round(pos.x / gridSize) * gridSize
+    const y = Math.round(pos.y / gridSize) * gridSize
     
-    // Check if multi-select
-    const userLockedShapes = freshShapes.filter(s => s.lockedBy === user?.uid)
-    const isMultiSelect = userLockedShapes.length > 1
-    
-    if (isMultiSelect && dragStartPositionsRef.current.size > 1) {
-      // ✅ VIRTUAL GROUP: Calculate bounds for entire group
-      const thisStart = dragStartPositionsRef.current.get(shape.id)
-      if (!thisStart) return { x, y }
-      
-      const deltaX = x - thisStart.startX
-      const deltaY = y - thisStart.startY
-      
-      let constrainedDeltaX = deltaX
-      let constrainedDeltaY = deltaY
-      
-      // Check boundaries for each shape in the group
-      dragStartPositionsRef.current.forEach((data, shapeId) => {
-        const s = freshShapes.find(sh => sh.id === shapeId)
-        if (!s) return
-        
-        const newX = data.startX + deltaX
-        const newY = data.startY + deltaY
-        
-        // Calculate bounds (Konva coordinates)
-        let minX, maxX, minY, maxY
-        
-        // Ensure positive dimensions
-        const w = Math.max(1, s.width)
-        const h = Math.max(1, s.height)
-        
-        if (s.type === 'circle') {
-          const radius = Math.min(w, h) / 2
-          minX = radius
-          maxX = Math.max(radius, 5000 - radius)
-          minY = radius
-          maxY = Math.max(radius, 5000 - radius)
-        } else {
-          minX = 0
-          maxX = Math.max(0, 5000 - w)
-          minY = 0
-          maxY = Math.max(0, 5000 - h)
-        }
-        
-        // Constrain delta to keep this shape in bounds
-        if (newX < minX) {
-          // Moving too far left - reduce negative delta (make it less negative)
-          const maxAllowedDelta = minX - data.startX
-          constrainedDeltaX = Math.max(constrainedDeltaX, maxAllowedDelta)
-        } else if (newX > maxX) {
-          // Moving too far right - reduce positive delta
-          const maxAllowedDelta = maxX - data.startX
-          constrainedDeltaX = Math.min(constrainedDeltaX, maxAllowedDelta)
-        }
-        
-        if (newY < minY) {
-          // Moving too far up - reduce negative delta (make it less negative)
-          const maxAllowedDelta = minY - data.startY
-          constrainedDeltaY = Math.max(constrainedDeltaY, maxAllowedDelta)
-        } else if (newY > maxY) {
-          // Moving too far down - reduce positive delta
-          const maxAllowedDelta = maxY - data.startY
-          constrainedDeltaY = Math.min(constrainedDeltaY, maxAllowedDelta)
-        }
-      })
-      
-      return {
-        x: thisStart.startX + constrainedDeltaX,
-        y: thisStart.startY + constrainedDeltaY
-      }
-    }
-    
-    // ✅ SINGLE SELECT: Standard boundary constraints
-    if (currentShape.type === 'circle') {
-      const radius = Math.min(shapeWidth, shapeHeight) / 2
-      const maxPos = Math.max(radius, 5000 - radius)
-      return {
-        x: Math.max(radius, Math.min(maxPos, x)),
-        y: Math.max(radius, Math.min(maxPos, y))
-      }
-    }
-    
-    // Rectangle: constrain top-left corner
+    // Constrain to canvas bounds
     const maxX = Math.max(0, 5000 - shapeWidth)
     const maxY = Math.max(0, 5000 - shapeHeight)
     
@@ -475,7 +246,7 @@ const SimpleShape: React.FC<{
       x: Math.max(0, Math.min(maxX, x)),
       y: Math.max(0, Math.min(maxY, y))
     }
-  }, [shape.id, user])
+  }, [shape.id])
 
   // ✅ SHAPE RENDERING: Support both rectangles and circles
   const renderShape = () => {
@@ -494,35 +265,28 @@ const SimpleShape: React.FC<{
       draggable: canDrag,
       dragBoundFunc: canDrag ? dragBoundFunc : undefined,
       onClick: handleClick,
+      onDblClick: () => onDoubleClick(shape.id),
       onDragStart: handleDragStart,
-      onDragMove: handleDragMove, // ✅ VIRTUAL GROUP: Sync other shapes during drag
       onDragEnd: handleDragEnd,
       onTransformEnd: handleTransformEnd,
       ref: (shapeRef as any).callback || shapeRef,
     }
 
-    if (shape.type === 'circle') {
-      return (
-        <Circle
-          id={shape.id} // ✅ Required for findOne() in handleDragStart
-          x={shape.x + shape.width / 2}
-          y={shape.y + shape.height / 2}
-          radius={Math.min(shape.width, shape.height) / 2}
-          {...commonProps}
-        />
-      )
-    } else {
-      return (
-        <Rect
-          id={shape.id} // ✅ Required for findOne() in handleDragStart
-          x={shape.x}
-          y={shape.y}
-          width={shape.width}
-          height={shape.height}
-          {...commonProps}
-        />
-      )
-    }
+    // ✅ CIRCLES: Use Rect with cornerRadius for square bounding box (better drag behavior)
+    const isCircle = shape.type === 'circle'
+    const cornerRadius = isCircle ? Math.max(shape.width, shape.height) / 2 : 0
+    
+    return (
+      <Rect
+        id={shape.id} // ✅ Required for findOne() in handleDragStart
+        x={shape.x}
+        y={shape.y}
+        width={shape.width}
+        height={shape.height}
+        cornerRadius={cornerRadius}
+        {...commonProps}
+      />
+    )
   }
 
   return (
@@ -550,11 +314,12 @@ const SimpleShape: React.FC<{
 SimpleShape.displayName = 'SimpleShape'
 
 // ✅ PERFORMANCE: Memoize shape layer to prevent unnecessary re-renders
-const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }) => {
+const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, stageRef }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([])
   const [isShiftPressed, setIsShiftPressed] = useState(false)
+  const [editingShapeId, setEditingShapeId] = useState<string | null>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const shapeRefs = useRef<{ [key: string]: Konva.Shape }>({})
   
@@ -834,6 +599,36 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     setSelectionRect(prev => ({ ...prev, visible: false }))
   }, [selectionRect, shapes, user])
 
+  // ✅ TEXT EDITING: Handle double-click to edit text
+  const handleDoubleClick = useCallback((shapeId: string) => {
+    setEditingShapeId(shapeId)
+  }, [])
+
+  // Get editing shape and stage transform for TextEditor
+  const editingShape = editingShapeId ? shapes.find(s => s.id === editingShapeId) : null
+  const stageTransform = useMemo(() => {
+    if (!stageRef?.current) return { scale: 1, x: 0, y: 0 }
+    const stage = stageRef.current
+    return {
+      scale: stage.scaleX(),
+      x: stage.x(),
+      y: stage.y()
+    }
+  }, [stageRef, editingShapeId])
+
+  // Update text in shape
+  const handleTextChange = useCallback((shapeId: string, newText: string) => {
+    if (!user) return
+    const { updateShapeOptimistic } = useCanvasStore.getState()
+    updateShapeOptimistic(shapeId, { text: newText })
+    updateShape(shapeId, { text: newText }, user.uid)
+  }, [user])
+
+  // Close text editor
+  const handleCloseTextEditor = useCallback(() => {
+    setEditingShapeId(null)
+  }, [])
+
   // Handle deselection when clicking outside (without drag)
   const handleStageClick = useCallback((e: any) => {
     // Don't deselect if we just finished a drag-to-select
@@ -947,6 +742,166 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
     height: Math.abs(selectionRect.y2 - selectionRect.y1)
   }), [selectionRect])
 
+  // ✅ KONVA GROUP: Separate shapes into multi-select group and individual shapes
+  const multiSelectShapes = useMemo(() => {
+    if (!user || selectedShapeIds.length <= 1) return []
+    return shapes.filter(s => selectedShapeIds.includes(s.id))
+  }, [shapes, selectedShapeIds, user])
+
+  const singleShapes = useMemo(() => {
+    if (multiSelectShapes.length === 0) return shapes
+    const multiSelectIds = new Set(multiSelectShapes.map(s => s.id))
+    return shapes.filter(s => !multiSelectIds.has(s.id))
+  }, [shapes, multiSelectShapes])
+
+  // ✅ GROUP DRAG: Handle group drag with proper boundary constraints
+  const groupRef = useRef<Konva.Group>(null)
+  
+  // Ensure group position is always at (0, 0) when selection changes
+  useEffect(() => {
+    if (groupRef.current && multiSelectShapes.length > 1) {
+      groupRef.current.position({ x: 0, y: 0 })
+    }
+  }, [multiSelectShapes.length])
+  
+  const handleGroupDragStart = useCallback(() => {
+    // Ensure group starts at (0, 0) for consistent boundary calculations
+    const group = groupRef.current
+    if (group) {
+      group.position({ x: 0, y: 0 })
+    }
+  }, [])
+  
+  const handleGroupDragMove = useCallback((e: any) => {
+    const group = e.target
+    const pos = group.position()
+    
+    // Get fresh shapes and calculate bounds
+    const { shapes: freshShapes } = useCanvasStore.getState()
+    const lockedShapes = user ? freshShapes.filter(s => s.lockedBy === user.uid) : []
+    
+    if (lockedShapes.length <= 1) return
+    
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    
+    lockedShapes.forEach(shape => {
+      minX = Math.min(minX, shape.x)
+      minY = Math.min(minY, shape.y)
+      maxX = Math.max(maxX, shape.x + shape.width)
+      maxY = Math.max(maxY, shape.y + shape.height)
+    })
+    
+    // Calculate new bounds
+    const newMinX = minX + pos.x
+    const newMinY = minY + pos.y
+    const newMaxX = maxX + pos.x
+    const newMaxY = maxY + pos.y
+    
+    // Manually constrain
+    let constrainedX = pos.x
+    let constrainedY = pos.y
+    let constrained = false
+    
+    if (newMinX < 0) {
+      constrainedX = -minX
+      constrained = true
+    }
+    if (newMaxX > 5000) {
+      constrainedX = 5000 - maxX
+      constrained = true
+    }
+    if (newMinY < 0) {
+      constrainedY = -minY
+      constrained = true
+    }
+    if (newMaxY > 5000) {
+      constrainedY = 5000 - maxY
+      constrained = true
+    }
+    
+    // Apply constraint if needed
+    if (constrained) {
+      group.position({ x: constrainedX, y: constrainedY })
+      group.getLayer()?.batchDraw()
+    }
+  }, [user])
+  
+  const handleGroupDragEnd = useCallback((e: any) => {
+    if (!user) return
+    
+    const group = e.target
+    const groupX = group.x()
+    const groupY = group.y()
+    
+    const { updateShapeOptimistic } = useCanvasStore.getState()
+    
+    // Update all shapes in the group with their new absolute positions
+    multiSelectShapes.forEach(shape => {
+      const newX = shape.x + groupX
+      const newY = shape.y + groupY
+      
+      updateShapeOptimistic(shape.id, { x: newX, y: newY })
+      updateShape(shape.id, { x: newX, y: newY }, user.uid)
+    })
+    
+    // Reset group position after updating shapes
+    group.position({ x: 0, y: 0 })
+  }, [user, multiSelectShapes])
+
+  const groupDragBoundFunc = useCallback((pos: { x: number, y: number }) => {
+    // Get fresh shapes from store to avoid stale closure
+    const { shapes: freshShapes } = useCanvasStore.getState()
+    const lockedShapes = user ? freshShapes.filter(s => s.lockedBy === user.uid) : []
+    
+    if (lockedShapes.length <= 1) return pos
+    
+    // Calculate group bounding box
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    
+    lockedShapes.forEach(shape => {
+      minX = Math.min(minX, shape.x)
+      minY = Math.min(minY, shape.y)
+      maxX = Math.max(maxX, shape.x + shape.width)
+      maxY = Math.max(maxY, shape.y + shape.height)
+    })
+    
+    // Apply delta to bounding box
+    const newMinX = minX + pos.x
+    const newMinY = minY + pos.y
+    const newMaxX = maxX + pos.x
+    const newMaxY = maxY + pos.y
+    
+    // Constrain to canvas bounds (check ALL boundaries, not else-if)
+    let constrainedX = pos.x
+    let constrainedY = pos.y
+    
+    // Check left boundary
+    if (newMinX < 0) {
+      constrainedX = -minX
+    }
+    // Check right boundary
+    if (newMaxX > 5000) {
+      constrainedX = 5000 - maxX
+    }
+    
+    // Check top boundary
+    if (newMinY < 0) {
+      constrainedY = -minY
+    }
+    // Check bottom boundary  
+    if (newMaxY > 5000) {
+      constrainedY = 5000 - maxY
+    }
+    
+    return { x: constrainedX, y: constrainedY }
+  }, [user])
+
   return (
     <Layer 
       listening={listening}
@@ -967,7 +922,43 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
         onTap={handleStageClick}
       />
       
-      {shapes.map((shape) => {
+      {/* ✅ KONVA GROUP: Multi-selected shapes wrapped in draggable group */}
+      {multiSelectShapes.length > 1 && (
+        <Group
+          key={`group-${multiSelectShapes.map(s => s.id).join('-')}`}
+          ref={groupRef}
+          x={0}
+          y={0}
+          draggable={true}
+          onDragStart={handleGroupDragStart}
+          onDragMove={handleGroupDragMove}
+          onDragEnd={handleGroupDragEnd}
+          dragBoundFunc={groupDragBoundFunc}
+        >
+          {multiSelectShapes.map((shape) => {
+            const handleRef = (node: Konva.Shape | null) => {
+              if (node) {
+                shapeRefs.current[shape.id] = node
+              }
+            }
+            
+            return (
+              <SimpleShape 
+                key={shape.id} 
+                shape={shape}
+                isSelected={true}
+                onSelect={(e: any) => handleShapeSelect(shape.id, e.evt?.shiftKey || false)}
+                onDoubleClick={handleDoubleClick}
+                shapeRef={{ current: null, callback: handleRef } as any}
+                disableDrag={true}
+              />
+            )
+          })}
+        </Group>
+      )}
+      
+      {/* ✅ INDIVIDUAL SHAPES: Single shapes or unselected shapes */}
+      {singleShapes.map((shape) => {
         const handleRef = (node: Konva.Shape | null) => {
           if (node) {
             shapeRefs.current[shape.id] = node
@@ -980,6 +971,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
             shape={shape}
             isSelected={selectedShapeIds.includes(shape.id)}
             onSelect={(e: any) => handleShapeSelect(shape.id, e.evt?.shiftKey || false)}
+            onDoubleClick={handleDoubleClick}
             shapeRef={{ current: null, callback: handleRef } as any}
           />
         )
@@ -1033,6 +1025,18 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef }
         ignoreStroke={true}
         rotateEnabled={false} // Disable rotation for now
       />
+      
+      {/* ✅ TEXT EDITOR: Double-click shape to edit text */}
+      {editingShape && stageRef && (
+        <TextEditor
+          shape={editingShape}
+          stageScale={stageTransform.scale}
+          stageX={stageTransform.x}
+          stageY={stageTransform.y}
+          onTextChange={(text) => handleTextChange(editingShape.id, text)}
+          onClose={handleCloseTextEditor}
+        />
+      )}
     </Layer>
   )
 }

@@ -5,6 +5,7 @@
 export {
   SYSTEM_PROMPT,
   createSystemPrompt,
+  createUserPrompt,
   ERROR_RECOVERY_PROMPT,
   CONTINUATION_PROMPT,
   createClarificationPrompt,

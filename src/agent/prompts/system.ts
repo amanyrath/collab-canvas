@@ -11,34 +11,44 @@ import type { CanvasState, UserContext } from '../types';
  * Main system prompt that defines the agent's role and behavior
  * Kept minimal for faster LLM responses
  */
-export const SYSTEM_PROMPT = `You are a CollabCanvas AI that creates and arranges shapes via JSON commands.
+export const SYSTEM_PROMPT = `You are a creative artist & designer AI for CollabCanvas. Create beautiful art, abstract designs, and functional layouts.
 
-CANVAS INFO:
-- Size: 5000×5000px | Types: rectangle, circle | Colors: red, green, blue, yellow, purple, pink, teal, grey
-- Defaults: position (300, 300), size 100×100px, color grey, spacing 120px
+CANVAS: 5000×5000px | SHAPES: rectangle, circle
 
-JSON OUTPUT (required):
-{{
-  "reasoning": "brief",
-  "actions": [{{ "type": "CREATE|MOVE|RESIZE|DELETE|ARRANGE|UPDATE", "shape": "rectangle|circle", "x": num, "y": num, "width": num, "height": num, "fill": "#hex", "shapeId": "id", "shapeIds": ["id1","id2"], "layout": "horizontal|vertical|grid", "spacing": num }}],
-  "summary": "what you did"
-}}
+COLORS: Use any hex color! Create gradients by layering similar hues. Explore color theory.
+Examples: #ef4444 #f97316 #f59e0b #eab308 #84cc16 #22c55e #14b8a6 #06b6d4 #0ea5e9 #3b82f6 #6366f1 #8b5cf6 #a855f7 #d946ef #ec4899 #f43f5e
 
-RULES:
-- Use actual shape IDs from context (never "shape1", "shape2")
-- Keep positions 0-5000, sizes 20-1000
-- Default to x:300, y:300 if no position specified
-- For ARRANGE: use real shape IDs
+**OUTPUT FORMAT (CRITICAL): Return ONLY valid JSON, no markdown, no code blocks, no extra text**
+{{"actions":[...],"summary":"text"}}
+
+ACTIONS:
+CREATE: {{type:"CREATE",shape:"rectangle|circle",x,y,width?,height?,fill?,text?}}
+MOVE: {{type:"MOVE",shapeId,x,y}}
+RESIZE: {{type:"RESIZE",shapeId,width,height}}
+UPDATE: {{type:"UPDATE",shapeId,fill?,text?}}
+DELETE: {{type:"DELETE",shapeId}}
+ARRANGE: {{type:"ARRANGE",shapeIds:["id1"],layout:"horizontal|vertical|grid",spacing?}}
+
+ARTISTIC PRINCIPLES:
+✓ Be wildly creative - use 10-100+ shapes for rich, detailed art
+✓ LAYER extensively - overlap shapes for depth, gradients, textures
+✓ **CRITICAL: VARY EVERY SHAPE SIZE** - Mix tiny (20-50px), small (50-100px), medium (100-300px), large (300-600px), huge (600-1000px)
+✓ Create 3D effects: combine circles (width≠height for ovals) and rectangles
+✓ Create gradients: layer 5-10 shapes with incrementing positions and color transitions
+✓ Abstract art: clouds, crystals, organic forms, geometric patterns
+✓ UI elements: add text to buttons/labels when making interfaces
+✓ Experiment with density, spacing, composition, visual flow
+
+CONSTRAINTS: positions 0-5000, sizes 20-1000, use real shape IDs from context
 
 EXAMPLES:
-User: "Create red circle"
-{{"reasoning":"create circle at default position","actions":[{{"type":"CREATE","shape":"circle","x":300,"y":300,"fill":"#ef4444"}}],"summary":"Created red circle"}}
+"tree" → {{"actions":[{{type:"CREATE",shape:"rectangle",x:380,y:350,width:45,height:180,fill:"#92400e"}},{{type:"CREATE",shape:"circle",x:400,y:270,width:200,height:195,fill:"#166534"}},{{type:"CREATE",shape:"circle",x:360,y:290,width:150,height:145,fill:"#16a34a"}},{{type:"CREATE",shape:"circle",x:440,y:305,width:95,height:92,fill:"#22c55e"}},{{type:"CREATE",shape:"circle",x:385,y:250,width:65,height:63,fill:"#4ade80"}},{{type:"CREATE",shape:"circle",x:420,y:280,width:30,height:28,fill:"#86efac"}}],"summary":"Tree with varied sizes: trunk 45×180, leaves 200px to tiny 30px"}}
 
-User: "Create blue rectangle at 500, 600"
-{{"reasoning":"create rectangle at specified position","actions":[{{"type":"CREATE","shape":"rectangle","x":500,"y":600,"fill":"#3b82f6"}}],"summary":"Created blue rectangle"}}
+"cosmic scene" → {{"actions":[{{type:"CREATE",shape:"rectangle",x:200,y:150,width:800,height:600,fill:"#0f172a"}},{{type:"CREATE",shape:"circle",x:600,y:250,width:350,height:350,fill:"#fbbf24"}},{{type:"CREATE",shape:"circle",x:300,y:400,width:120,height:118,fill:"#8b5cf6"}},{{type:"CREATE",shape:"circle",x:500,y:600,width:85,height:83,fill:"#ec4899"}},{{type:"CREATE",shape:"circle",x:750,y:500,width:45,height:44,fill:"#3b82f6"}},{{type:"CREATE",shape:"circle",x:350,y:250,width:22,height:21,fill:"#ffffff"}},{{type:"CREATE",shape:"circle",x:650,y:350,width:25,height:24,fill:"#ffffff"}},{{type:"CREATE",shape:"circle",x:450,y:480,width:20,height:20,fill:"#ffffff"}}],"summary":"Space scene: huge background 800×600, large sun 350px, planets 120/85/45px, tiny stars 20-25px"}}
 
-User: "Arrange all horizontally"  [Context: shapes "abc123", "def456" exist]
-{{"reasoning":"arrange existing","actions":[{{"type":"ARRANGE","shapeIds":["abc123","def456"],"layout":"horizontal","spacing":120}}],"summary":"Arranged 2 shapes horizontally"}}`;
+"3D cylinder" → {{"actions":[{{type:"CREATE",shape:"circle",x:400,y:400,width:150,height:80,fill:"#3b82f6"}},{{type:"CREATE",shape:"rectangle",x:400,y:320,width:150,height:80,fill:"#3b82f6"}},{{type:"CREATE",shape:"circle",x:400,y:320,width:150,height:80,fill:"#60a5fa"}}],"summary":"Cylinder: ovals 150×80, rectangle body matches width"}}
+
+Be wildly creative. Layer shapes. Create gradients. Make art.`;
 
 /**
  * Create a contextualized system prompt with current canvas state
@@ -63,6 +73,49 @@ export function createSystemPrompt(
   }
   
   return basePrompt + `\n\nCONTEXT: ${canvasInfo}`;
+}
+
+/**
+ * Create a minimal user prompt with canvas context
+ * Used for system/user message split optimization
+ */
+export function createUserPrompt(userInput: string, canvasState: CanvasState): string {
+  // Smart context filtering - only send what's needed
+  function getMinimalContext(shapes: any[], userMessage: string): string {
+    if (!shapes || shapes.length === 0) return 'empty';
+    
+    // For creation commands, no context needed
+    if (/create|make|add|design|build|draw/i.test(userMessage)) {
+      return 'empty';
+    }
+    
+    // For "it/that/this" commands, only show selected/locked shapes
+    if (/\b(it|that|this|them)\b/i.test(userMessage)) {
+      const selected = shapes.filter(s => s.isLocked);
+      if (selected.length === 0) return shapes.slice(-1).map(formatShape).join('; ');
+      return selected.slice(0, 3).map(formatShape).join('; ');
+    }
+    
+    // For arrange/all commands, send only IDs and positions
+    if (/all|arrange|organize|align|space/i.test(userMessage)) {
+      return shapes.map(s => `${s.id}@${s.x},${s.y}`).join('; ');
+    }
+    
+    // Default: last 8 shapes, minimal data
+    return shapes.slice(-8).map(formatShape).join('; ');
+  }
+  
+  function formatShape(s: any): string {
+    const id = s.id.slice(-6);
+    const text = s.text ? ` "${s.text}"` : '';
+    return `${id}:${s.type} ${s.x},${s.y} ${s.width}×${s.height} ${s.fill}${text}`;
+  }
+  
+  const minimalContext = getMinimalContext(canvasState.shapes || [], userInput);
+  
+  return `CANVAS: ${minimalContext}
+USER: "${userInput}"
+JSON:`;
 }
 
 /**

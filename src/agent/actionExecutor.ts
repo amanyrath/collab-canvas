@@ -202,40 +202,31 @@ async function executeCreate(
 
     console.log(`✅ createShape returned shapeId: ${shapeId}`);
 
-    // Lock the shape so user can immediately delete it if needed
-    try {
-      await updateShape(shapeId, {
-        isLocked: true,
-        lockedBy: userContext.userId,
-        lockedByName: userContext.displayName,
-        lockedByColor: userContext.cursorColor,
-      }, userContext.userId);
-      console.log(`✅ Shape locked for user`);
-    } catch (lockError) {
-      console.warn(`⚠️ Could not lock shape:`, lockError);
-    }
+    // Build all updates to run in parallel for maximum speed
+    const updates: any = {
+      isLocked: true,
+      lockedBy: userContext.userId,
+      lockedByName: userContext.displayName,
+      lockedByColor: userContext.cursorColor,
+    };
 
-    // If custom size was specified, update it
+    // Add size if specified
     if (action.width !== undefined || action.height !== undefined) {
-      try {
-        console.log(`📝 Updating size to ${width}×${height}`);
-        await updateShape(shapeId, { width, height }, userContext.userId);
-        console.log(`✅ Size updated`);
-      } catch (updateError) {
-        // Ignore update errors - shape was created successfully with default size
-        console.warn(`⚠️ Size update failed (shape created with default size):`, updateError);
-      }
+      updates.width = width;
+      updates.height = height;
     }
 
-    // If text was specified, add it
+    // Add text if specified
     if (action.text) {
-      try {
-        console.log(`📝 Adding text: ${action.text}`);
-        await updateShape(shapeId, { text: action.text }, userContext.userId);
-        console.log(`✅ Text added`);
-      } catch (updateError) {
-        console.warn(`⚠️ Text update failed:`, updateError);
-      }
+      updates.text = action.text;
+    }
+
+    // Execute all updates in a single call for maximum performance
+    try {
+      await updateShape(shapeId, updates, userContext.userId);
+      console.log(`✅ Shape updated (locked, sized, text)`);
+    } catch (updateError) {
+      console.warn(`⚠️ Shape updates failed (shape created but not fully configured):`, updateError);
     }
 
     console.log(`✅ Created ${action.shape}: ${shapeId}`);
@@ -466,16 +457,19 @@ async function executeArrange(
   }
 
   try {
+    // Execute all arrange updates in parallel for speed
+    const updatePromises: Promise<void>[] = [];
+    
     if (action.layout === 'horizontal') {
       let currentX = startX;
       for (const shape of shapesToArrange) {
-        await updateShape(shape.id, { x: currentX, y: startY }, userContext.userId);
+        updatePromises.push(updateShape(shape.id, { x: currentX, y: startY }, userContext.userId));
         currentX += spacing;
       }
     } else if (action.layout === 'vertical') {
       let currentY = startY;
       for (const shape of shapesToArrange) {
-        await updateShape(shape.id, { x: startX, y: currentY }, userContext.userId);
+        updatePromises.push(updateShape(shape.id, { x: startX, y: currentY }, userContext.userId));
         currentY += spacing;
       }
     } else if (action.layout === 'grid') {
@@ -486,10 +480,13 @@ async function executeArrange(
         const row = Math.floor(index / cols);
         const x = startX + (col * spacing);
         const y = startY + (row * spacing);
-        await updateShape(shape.id, { x, y }, userContext.userId);
+        updatePromises.push(updateShape(shape.id, { x, y }, userContext.userId));
         index++;
       }
     }
+    
+    // Wait for all updates to complete in parallel
+    await Promise.all(updatePromises);
 
     console.log(`✅ Arranged ${shapesToArrange.length} shapes in ${action.layout} layout`);
 
