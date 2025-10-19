@@ -26,7 +26,9 @@ AVAILABLE CAPABILITIES:
 ✅ You CAN:
 - Create rectangles, circles, and triangles with ANY hex color
 - Create BULK shapes (10-1000) with patterns (random, grid, circular, etc.)
-- 🎄 Create Christmas trees with one command (stacked triangles + trunk)
+- 🎄 Create large Christmas trees with one command (pre-textured, stacked triangles + trunk)
+- 🌲 Create forests by making multiple trees at different positions
+- 🎁 Decorate trees with tiny ornaments (12px circles) and gift boxes
 - 🎅 Apply Christmas textures to all shapes (Santa's Magic)
 - Move shapes to specific coordinates
 - Resize shapes (width and height)
@@ -51,7 +53,7 @@ Schema:
 {{
   "actions": [
     {{
-      "type": "CREATE" | "MOVE" | "RESIZE" | "UPDATE" | "DELETE" | "ARRANGE" | "ALIGN" | "BULK_CREATE" | "DELETE_ALL" | "CREATE_CHRISTMAS_TREE" | "APPLY_SANTA_MAGIC",
+      "type": "CREATE" | "MOVE" | "RESIZE" | "UPDATE" | "DELETE" | "ARRANGE" | "ALIGN" | "BULK_CREATE" | "DELETE_ALL" | "CREATE_CHRISTMAS_TREE" | "DECORATE_TREE" | "APPLY_SANTA_MAGIC",
       
       // For CREATE:
       "shape": "rectangle" | "circle" | "triangle",
@@ -104,7 +106,10 @@ Schema:
       // For CREATE_CHRISTMAS_TREE:
       "x": number,          // Optional center X position
       "y": number,          // Optional center Y position
-      "size": "small" | "medium" | "large",  // Optional size
+      "size": "small" | "medium" | "large",  // Optional size (defaults to 'large')
+      
+      // For DECORATE_TREE:
+      "treeId": string,     // Optional - ID of tree to decorate (defaults to most recent tree)
       
       // For APPLY_SANTA_MAGIC:
       // No additional fields needed - applies textures to all shapes
@@ -409,28 +414,48 @@ Response:
   "summary": "Created a 3D cylinder using two ovals (150×80px) and a rectangle body"
 }}
 
-14. CREATE_CHRISTMAS_TREE - Create a Christmas tree:
+14. CREATE_CHRISTMAS_TREE - Create a Christmas tree (defaults to large):
 User: "Create a Christmas tree"
 Response:
 {{
   "actions": [{{
-    "type": "CREATE_CHRISTMAS_TREE",
-    "size": "medium"
+    "type": "CREATE_CHRISTMAS_TREE"
   }}],
-  "summary": "Created a medium Christmas tree with stacked triangles and trunk at the center"
+  "summary": "Created a large Christmas tree with pre-applied textures at the center"
 }}
 
-14b. CREATE_CHRISTMAS_TREE - With position:
-User: "Make a large Christmas tree at 1000, 2000"
+14b. CREATE_CHRISTMAS_TREE - Create a forest:
+User: "Make a forest of 5 Christmas trees"
+Response:
+{{
+  "actions": [
+    {{"type": "CREATE_CHRISTMAS_TREE", "x": 1500, "y": 2500}},
+    {{"type": "CREATE_CHRISTMAS_TREE", "x": 2000, "y": 2400}},
+    {{"type": "CREATE_CHRISTMAS_TREE", "x": 2500, "y": 2500}},
+    {{"type": "CREATE_CHRISTMAS_TREE", "x": 3000, "y": 2600}},
+    {{"type": "CREATE_CHRISTMAS_TREE", "x": 3500, "y": 2500}}
+  ],
+  "summary": "Created a forest of 5 large Christmas trees arranged horizontally"
+}}
+
+14c. DECORATE_TREE - Decorate an existing tree:
+User: "Decorate the tree"
 Response:
 {{
   "actions": [{{
-    "type": "CREATE_CHRISTMAS_TREE",
-    "x": 1000,
-    "y": 2000,
-    "size": "large"
+    "type": "DECORATE_TREE"
   }}],
-  "summary": "Created a large Christmas tree at position (1000, 2000)"
+  "summary": "Decorated the most recent Christmas tree with 8 colorful ornaments and 3 gift boxes at the base"
+}}
+
+14d. DECORATE_TREE - With explicit instruction:
+User: "Add ornaments and presents to the tree"
+Response:
+{{
+  "actions": [{{
+    "type": "DECORATE_TREE"
+  }}],
+  "summary": "Added festive ornaments and gift boxes to the Christmas tree"
 }}
 
 15. APPLY_SANTA_MAGIC - Apply Christmas textures:
@@ -443,8 +468,18 @@ Response:
   "summary": "Applied Christmas textures to all shapes on the canvas - triangles became trees, circles became ornaments, and rectangles became trunks or gifts"
 }}
 
-15b. APPLY_SANTA_MAGIC - Alternative phrasings:
-User: "It's Christmas time!" or "Add Christmas decorations" or "Make everything festive"
+15b. APPLY_SANTA_MAGIC - Natural Christmas phrases:
+User: "Make it Christmas" or "It's Christmas time" or "Make it Christmassy"
+Response:
+{{
+  "actions": [{{
+    "type": "APPLY_SANTA_MAGIC"
+  }}],
+  "summary": "Applied festive Christmas textures to all shapes - now it's Christmas time!"
+}}
+
+15c. APPLY_SANTA_MAGIC - More alternatives:
+User: "Add Christmas decorations" or "Make everything festive" or "Christmas magic please"
 Response:
 {{
   "actions": [{{

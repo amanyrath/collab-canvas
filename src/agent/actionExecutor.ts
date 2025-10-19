@@ -151,6 +151,9 @@ async function executeAction(
     case 'CREATE_CHRISTMAS_TREE':
       return await executeCreateChristmasTree(action, userContext);
     
+    case 'DECORATE_TREE':
+      return await executeDecorateTree(action, userContext);
+    
     case 'APPLY_SANTA_MAGIC':
       return await executeApplySantaMagic(action, userContext);
     
@@ -869,7 +872,7 @@ async function executeCreateChristmasTree(
   
   try {
     const { shapes, addShape } = useCanvasStore.getState();
-    const size = action.size || 'medium';
+    const size = action.size || 'large'; // Default to large (same as Quick Tree)
     
     // Find position
     let x = action.x;
@@ -968,6 +971,156 @@ async function executeApplySantaMagic(
 }
 
 /**
+ * Execute DECORATE_TREE action - Add ornaments and gifts to a Christmas tree
+ */
+async function executeDecorateTree(
+  action: CanvasAction,
+  userContext: UserContext
+): Promise<ActionResult> {
+  const startTime = Date.now();
+  
+  try {
+    const { shapes, addShape } = useCanvasStore.getState();
+    
+    // Find the tree to decorate (triangles with treeLayer property or any triangle)
+    const treeShapes = shapes.filter(s => s.type === 'triangle');
+    
+    if (treeShapes.length === 0) {
+      return {
+        success: false,
+        action,
+        error: 'No trees found on canvas to decorate',
+      };
+    }
+    
+    // Get the most recent tree (or specified tree)
+    const targetTree = action.treeId 
+      ? shapes.find(s => s.id === action.treeId)
+      : treeShapes[treeShapes.length - 1];
+    
+    if (!targetTree) {
+      return {
+        success: false,
+        action,
+        error: 'Could not find tree to decorate',
+      };
+    }
+    
+    console.log(`🎄 Decorating tree ${targetTree.id.slice(-6)}...`);
+    
+    const createdShapes: string[] = [];
+    const ornamentSize = 12; // Tiny circles for ornaments
+    const ornamentCount = 8; // Number of ornaments
+    const giftCount = 3; // Number of gift boxes
+    
+    // Add ornaments (tiny circles) scattered on the tree
+    const ornamentPromises = [];
+    for (let i = 0; i < ornamentCount; i++) {
+      // Random position within tree bounds
+      const xOffset = (Math.random() - 0.5) * targetTree.width * 0.7;
+      const yOffset = Math.random() * targetTree.height * 0.7;
+      
+      const ornamentX = targetTree.x + targetTree.width / 2 + xOffset - ornamentSize / 2;
+      const ornamentY = targetTree.y + yOffset;
+      
+      const ornamentColors = ['#ef4444', '#3b82f6', '#fbbf24', '#8b5cf6', '#ec4899'];
+      const color = ornamentColors[i % ornamentColors.length];
+      
+      // Add locally
+      const ornamentId = `ornament-${Date.now()}-${i}`;
+      addShape({
+        id: ornamentId,
+        type: 'circle',
+        x: ornamentX,
+        y: ornamentY,
+        width: ornamentSize,
+        height: ornamentSize,
+        fill: color,
+        text: '',
+        textColor: '#ffffff',
+        fontSize: 12,
+        createdBy: userContext.userId,
+        createdAt: new Date(),
+        lastModifiedBy: userContext.userId,
+        lastModifiedAt: new Date(),
+        isLocked: false,
+        lockedBy: null,
+      } as Shape, false);
+      
+      // Sync to Firebase
+      ornamentPromises.push(
+        createShape(ornamentX, ornamentY, 'circle', color, userContext.userId, userContext.displayName, ornamentSize, ornamentSize, '')
+      );
+      
+      createdShapes.push(ornamentId);
+    }
+    
+    // Add gift boxes at the base of the tree
+    const giftPromises = [];
+    const baseY = targetTree.y + targetTree.height;
+    const baseCenterX = targetTree.x + targetTree.width / 2;
+    
+    for (let i = 0; i < giftCount; i++) {
+      const giftWidth = 30 + Math.random() * 20;
+      const giftHeight = 30 + Math.random() * 20;
+      const xOffset = (i - giftCount / 2 + 0.5) * 40;
+      const giftX = baseCenterX + xOffset - giftWidth / 2;
+      const giftY = baseY - giftHeight / 2;
+      
+      const giftColors = ['#ef4444', '#22c55e', '#3b82f6', '#fbbf24'];
+      const color = giftColors[i % giftColors.length];
+      
+      // Add locally
+      const giftId = `gift-${Date.now()}-${i}`;
+      addShape({
+        id: giftId,
+        type: 'rectangle',
+        x: giftX,
+        y: giftY,
+        width: giftWidth,
+        height: giftHeight,
+        fill: color,
+        text: '',
+        textColor: '#ffffff',
+        fontSize: 12,
+        createdBy: userContext.userId,
+        createdAt: new Date(),
+        lastModifiedBy: userContext.userId,
+        lastModifiedAt: new Date(),
+        isLocked: false,
+        lockedBy: null,
+      } as Shape, false);
+      
+      // Sync to Firebase
+      giftPromises.push(
+        createShape(giftX, giftY, 'rectangle', color, userContext.userId, userContext.displayName, giftWidth, giftHeight, '')
+      );
+      
+      createdShapes.push(giftId);
+    }
+    
+    // Wait for all to complete
+    await Promise.all([...ornamentPromises, ...giftPromises]);
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Tree decorated with ${ornamentCount} ornaments and ${giftCount} gifts in ${duration}ms`);
+    
+    return {
+      success: true,
+      action,
+      message: `Decorated tree with ${ornamentCount} ornaments and ${giftCount} gift boxes`,
+    };
+  } catch (error) {
+    console.error('❌ Decorate tree failed:', error);
+    return {
+      success: false,
+      action,
+      error: error instanceof Error ? error.message : 'Decorate tree failed',
+    };
+  }
+}
+
+/**
  * Dry run: validate actions without executing
  */
 export async function validateActions(
@@ -1024,6 +1177,7 @@ export async function validateActions(
 
       case 'DELETE_ALL':
       case 'CREATE_CHRISTMAS_TREE':
+      case 'DECORATE_TREE':
       case 'APPLY_SANTA_MAGIC':
         // No validation needed
         break;

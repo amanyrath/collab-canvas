@@ -11,7 +11,7 @@ export interface AgentConfig {
 }
 
 export interface CanvasAction {
-  type: 'CREATE' | 'MOVE' | 'RESIZE' | 'DELETE' | 'ARRANGE' | 'UPDATE' | 'ALIGN' | 'BULK_CREATE' | 'DELETE_ALL' | 'CREATE_CHRISTMAS_TREE' | 'APPLY_SANTA_MAGIC';
+  type: 'CREATE' | 'MOVE' | 'RESIZE' | 'DELETE' | 'ARRANGE' | 'UPDATE' | 'ALIGN' | 'BULK_CREATE' | 'DELETE_ALL' | 'CREATE_CHRISTMAS_TREE' | 'APPLY_SANTA_MAGIC' | 'DECORATE_TREE';
   shape?: 'rectangle' | 'circle' | 'triangle';
   shapeId?: string;
   x?: number;
@@ -34,6 +34,8 @@ export interface CanvasAction {
   centerY?: number;
   // For CREATE_CHRISTMAS_TREE:
   size?: 'small' | 'medium' | 'large';
+  // For DECORATE_TREE:
+  treeId?: string;          // Optional - ID of tree to decorate (or auto-find nearest)
 }
 
 export interface AgentResponse {
