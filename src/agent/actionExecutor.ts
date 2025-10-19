@@ -982,10 +982,10 @@ async function executeDecorateTree(
   try {
     const { shapes, addShape } = useCanvasStore.getState();
     
-    // Find the tree to decorate (triangles with treeLayer property or any triangle)
-    const treeShapes = shapes.filter(s => s.type === 'triangle');
+    // Find ALL triangles - these make up the tree layers
+    const allTriangles = shapes.filter(s => s.type === 'triangle');
     
-    if (treeShapes.length === 0) {
+    if (allTriangles.length === 0) {
       return {
         success: false,
         action,
@@ -993,85 +993,117 @@ async function executeDecorateTree(
       };
     }
     
-    // Get the most recent tree (or specified tree)
-    const targetTree = action.treeId 
-      ? shapes.find(s => s.id === action.treeId)
-      : treeShapes[treeShapes.length - 1];
+    // Group triangles by proximity to identify tree layers
+    const treeGroups: Shape[][] = [];
+    const visited = new Set<string>();
     
-    if (!targetTree) {
-      return {
-        success: false,
-        action,
-        error: 'Could not find tree to decorate',
-      };
+    for (const triangle of allTriangles) {
+      if (visited.has(triangle.id)) continue;
+      
+      const group = [triangle];
+      visited.add(triangle.id);
+      
+      // Find other triangles within 200px vertically of this one
+      for (const other of allTriangles) {
+        if (visited.has(other.id)) continue;
+        
+        const verticalDistance = Math.abs(triangle.y - other.y);
+        const horizontalDistance = Math.abs((triangle.x + triangle.width / 2) - (other.x + other.width / 2));
+        
+        if (verticalDistance < 200 && horizontalDistance < 150) {
+          group.push(other);
+          visited.add(other.id);
+        }
+      }
+      
+      treeGroups.push(group);
     }
     
-    console.log(`🎄 Decorating tree ${targetTree.id.slice(-6)}...`);
+    // Get the most recent/largest tree group
+    const targetTreeGroup = treeGroups.sort((a, b) => b.length - a.length)[0];
+    
+    console.log(`🎄 Decorating tree with ${targetTreeGroup.length} triangle layers...`);
+    
+    // Find the trunk (rectangle below the tree)
+    const lowestTriangle = targetTreeGroup.reduce((lowest, tri) => 
+      (tri.y + tri.height) > (lowest.y + lowest.height) ? tri : lowest
+    );
+    
+    const treeBaseY = lowestTriangle.y + lowestTriangle.height;
+    const treeCenterX = lowestTriangle.x + lowestTriangle.width / 2;
+    
+    // Find trunk: rectangle within 50px below the lowest triangle
+    const trunk = shapes.find(s => 
+      s.type === 'rectangle' && 
+      Math.abs(s.y - treeBaseY) < 50 &&
+      Math.abs((s.x + s.width / 2) - treeCenterX) < 100
+    );
     
     const createdShapes: string[] = [];
-    const ornamentSize = 12; // Tiny circles for ornaments
-    const ornamentCount = 8; // Number of ornaments
-    const giftCount = 3; // Number of gift boxes
+    const ornamentSize = 12;
+    const ornamentsPerTriangle = 3; // Distribute across all triangles
+    const giftCount = 3;
     
-    // Add ornaments (tiny circles) scattered on the tree
+    // Add ornaments distributed across ALL triangle layers
     const ornamentPromises = [];
-    for (let i = 0; i < ornamentCount; i++) {
-      // Random position within tree bounds
-      const xOffset = (Math.random() - 0.5) * targetTree.width * 0.7;
-      const yOffset = Math.random() * targetTree.height * 0.7;
-      
-      const ornamentX = targetTree.x + targetTree.width / 2 + xOffset - ornamentSize / 2;
-      const ornamentY = targetTree.y + yOffset;
-      
-      const ornamentColors = ['#ef4444', '#3b82f6', '#fbbf24', '#8b5cf6', '#ec4899'];
-      const color = ornamentColors[i % ornamentColors.length];
-      
-      // Add locally
-      const ornamentId = `ornament-${Date.now()}-${i}`;
-      addShape({
-        id: ornamentId,
-        type: 'circle',
-        x: ornamentX,
-        y: ornamentY,
-        width: ornamentSize,
-        height: ornamentSize,
-        fill: color,
-        text: '',
-        textColor: '#ffffff',
-        fontSize: 12,
-        createdBy: userContext.userId,
-        createdAt: new Date(),
-        lastModifiedBy: userContext.userId,
-        lastModifiedAt: new Date(),
-        isLocked: false,
-        lockedBy: null,
-      } as Shape, false);
-      
-      // Sync to Firebase
-      ornamentPromises.push(
-        createShape(ornamentX, ornamentY, 'circle', color, userContext.userId, userContext.displayName, ornamentSize, ornamentSize, '')
-      );
-      
-      createdShapes.push(ornamentId);
+    const ornamentColors = ['#ef4444', '#3b82f6', '#fbbf24', '#8b5cf6', '#ec4899'];
+    
+    for (const triangle of targetTreeGroup) {
+      for (let i = 0; i < ornamentsPerTriangle; i++) {
+        const xOffset = (Math.random() - 0.5) * triangle.width * 0.7;
+        const yOffset = Math.random() * triangle.height * 0.7;
+        
+        const ornamentX = triangle.x + triangle.width / 2 + xOffset - ornamentSize / 2;
+        const ornamentY = triangle.y + yOffset;
+        
+        const color = ornamentColors[Math.floor(Math.random() * ornamentColors.length)];
+        
+        const ornamentId = `ornament-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        addShape({
+          id: ornamentId,
+          type: 'circle',
+          x: ornamentX,
+          y: ornamentY,
+          width: ornamentSize,
+          height: ornamentSize,
+          fill: color,
+          text: '',
+          textColor: '#ffffff',
+          fontSize: 12,
+          createdBy: userContext.userId,
+          createdAt: new Date(),
+          lastModifiedBy: userContext.userId,
+          lastModifiedAt: new Date(),
+          isLocked: false,
+          lockedBy: null,
+        } as Shape, false);
+        
+        ornamentPromises.push(
+          createShape(ornamentX, ornamentY, 'circle', color, userContext.userId, userContext.displayName, ornamentSize, ornamentSize, '')
+        );
+        
+        createdShapes.push(ornamentId);
+      }
     }
     
-    // Add gift boxes at the base of the tree
+    // Add gift boxes aligned with the TRUNK bottom (if trunk exists) or tree base
     const giftPromises = [];
-    const baseY = targetTree.y + targetTree.height;
-    const baseCenterX = targetTree.x + targetTree.width / 2;
+    const giftBaseY = trunk ? trunk.y + trunk.height : treeBaseY;
+    const giftCenterX = trunk ? trunk.x + trunk.width / 2 : treeCenterX;
     
     for (let i = 0; i < giftCount; i++) {
       const giftWidth = 30 + Math.random() * 20;
       const giftHeight = 30 + Math.random() * 20;
-      const xOffset = (i - giftCount / 2 + 0.5) * 40;
-      const giftX = baseCenterX + xOffset - giftWidth / 2;
-      const giftY = baseY - giftHeight / 2;
+      const xOffset = (i - giftCount / 2 + 0.5) * 50;
+      const giftX = giftCenterX + xOffset - giftWidth / 2;
+      const giftY = giftBaseY; // Top of gift aligns with trunk bottom
       
       const giftColors = ['#ef4444', '#22c55e', '#3b82f6', '#fbbf24'];
       const color = giftColors[i % giftColors.length];
       
-      // Add locally
-      const giftId = `gift-${Date.now()}-${i}`;
+      const giftId = `gift-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       addShape({
         id: giftId,
         type: 'rectangle',
@@ -1080,9 +1112,9 @@ async function executeDecorateTree(
         width: giftWidth,
         height: giftHeight,
         fill: color,
-        text: '',
+        text: '🎁',
         textColor: '#ffffff',
-        fontSize: 12,
+        fontSize: 16,
         createdBy: userContext.userId,
         createdAt: new Date(),
         lastModifiedBy: userContext.userId,
@@ -1091,9 +1123,8 @@ async function executeDecorateTree(
         lockedBy: null,
       } as Shape, false);
       
-      // Sync to Firebase
       giftPromises.push(
-        createShape(giftX, giftY, 'rectangle', color, userContext.userId, userContext.displayName, giftWidth, giftHeight, '')
+        createShape(giftX, giftY, 'rectangle', color, userContext.userId, userContext.displayName, giftWidth, giftHeight, '🎁')
       );
       
       createdShapes.push(giftId);
@@ -1102,13 +1133,14 @@ async function executeDecorateTree(
     // Wait for all to complete
     await Promise.all([...ornamentPromises, ...giftPromises]);
     
+    const totalOrnaments = targetTreeGroup.length * ornamentsPerTriangle;
     const duration = Date.now() - startTime;
-    console.log(`✅ Tree decorated with ${ornamentCount} ornaments and ${giftCount} gifts in ${duration}ms`);
+    console.log(`✅ Tree decorated with ${totalOrnaments} ornaments (across ${targetTreeGroup.length} layers) and ${giftCount} gifts in ${duration}ms`);
     
     return {
       success: true,
       action,
-      message: `Decorated tree with ${ornamentCount} ornaments and ${giftCount} gift boxes`,
+      message: `Decorated tree with ${totalOrnaments} ornaments distributed across all ${targetTreeGroup.length} layers and ${giftCount} gifts ${trunk ? 'aligned with trunk' : 'at tree base'}`,
     };
   } catch (error) {
     console.error('❌ Decorate tree failed:', error);
