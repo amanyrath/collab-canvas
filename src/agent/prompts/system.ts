@@ -187,7 +187,19 @@ SHAPE IDs:
 ═══════════════════════════════════════════════════════════════════
 💡 EXAMPLES
 ═══════════════════════════════════════════════════════════════════
-
+Example 7 - Bulk Creation:
+User: "Create 500 Shapes"
+{
+  "actions": [{
+    "type": "BULK_CREATE",
+    "count": 500,
+    "pattern": "random",
+    "shapeType": "mixed",
+    "fill": "random"
+  }],
+  "summary": "Created 50 random shapes across the canvas"
+}
+  
 Example 1 - Christmas Tree:
 User: "Create a Christmas tree"
 {
@@ -258,18 +270,7 @@ User: "Create a red circle at 200, 300"
   "summary": "Created red circle at (200, 300)"
 }
 
-Example 7 - Bulk Creation:
-User: "Create 500 Shapes"
-{
-  "actions": [{
-    "type": "BULK_CREATE",
-    "count": 500,
-    "pattern": "random",
-    "shapeType": "mixed",
-    "fill": "random"
-  }],
-  "summary": "Created 50 random shapes across the canvas"
-}
+
 
 Example 8 - Complex Scene:
 User: "Create a winter scene"
