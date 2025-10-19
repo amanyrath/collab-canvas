@@ -9,6 +9,7 @@ import FastPresenceSidebar from './components/Canvas/FastPresenceSidebar'
 import PerformanceDisplay from './components/Debug/PerformanceDisplay'
 import { DevWarningBanner } from './components/DevWarningBanner'
 import { initializeLockCleanup } from './utils/lockCleanup'
+import { preloadTextures } from './utils/textureLoader'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -33,6 +34,23 @@ function App() {
         unsubscribe()
       }
     }
+  }, [])
+
+  // 🎄 CHRISTMAS: Preload all textures on app mount
+  useEffect(() => {
+    console.log('🎄 Preloading Christmas textures...')
+    preloadTextures()
+      .then(() => {
+        console.log('✅ All Christmas textures preloaded successfully!')
+        // Force a re-render of any shapes that might have textures
+        // by triggering a small state update
+        setTimeout(() => {
+          console.log('🔄 Triggering canvas re-render after texture load')
+        }, 100)
+      })
+      .catch(error => {
+        console.error('❌ Failed to preload textures:', error)
+      })
   }, [])
 
   // Authentication fallback component

@@ -9,6 +9,9 @@ import { createShape, updateShape, deleteShape, createShapeBatch } from '../util
 import { clearAllShapes } from '../utils/devUtils';
 import { useCanvasStore } from '../store/canvasStore';
 import type { CanvasAction, AgentResponse, UserContext } from './types';
+import { createClassicTree, findAvailableTreeSpace } from '../utils/treeTemplates';
+import { applySantaMagic } from '../utils/santaMagic';
+import { Shape } from '../utils/types';
 
 /**
  * Execution result for a single action
@@ -144,6 +147,12 @@ async function executeAction(
     
     case 'DELETE_ALL':
       return await executeDeleteAll(action);
+    
+    case 'CREATE_CHRISTMAS_TREE':
+      return await executeCreateChristmasTree(action, userContext);
+    
+    case 'APPLY_SANTA_MAGIC':
+      return await executeApplySantaMagic(action, userContext);
     
     default:
       return {
@@ -850,6 +859,115 @@ async function executeDeleteAll(action: CanvasAction): Promise<ActionResult> {
 }
 
 /**
+ * Execute CREATE_CHRISTMAS_TREE action - Create a Christmas tree template
+ */
+async function executeCreateChristmasTree(
+  action: CanvasAction,
+  userContext: UserContext
+): Promise<ActionResult> {
+  const startTime = Date.now();
+  
+  try {
+    const { shapes, addShape } = useCanvasStore.getState();
+    const size = action.size || 'medium';
+    
+    // Find position
+    let x = action.x;
+    let y = action.y;
+    
+    if (x === undefined || y === undefined) {
+      const space = findAvailableTreeSpace(shapes, 200, 400);
+      x = space.x;
+      y = space.y;
+    }
+    
+    console.log(`🎄 Creating ${size} Christmas tree at (${x}, ${y})`);
+    
+    // Generate tree shapes
+    const treeShapes = createClassicTree(x, y, size, userContext.userId);
+    
+    // Add to canvas
+    const createPromises = treeShapes.map(async (shape) => {
+      // Add locally first
+      addShape(shape as Shape, false);
+      
+      // Sync to Firestore
+      return await createShape(
+        shape.x!,
+        shape.y!,
+        shape.type!,
+        shape.fill!,
+        userContext.userId,
+        userContext.displayName,
+        shape.width!,
+        shape.height!,
+        shape.text || ''
+      );
+    });
+    
+    await Promise.all(createPromises);
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Christmas tree created with ${treeShapes.length} shapes in ${duration}ms`);
+    
+    return {
+      success: true,
+      action,
+      message: `Created ${size} Christmas tree with ${treeShapes.length} shapes`,
+    };
+  } catch (error) {
+    console.error('❌ Create Christmas tree failed:', error);
+    return {
+      success: false,
+      action,
+      error: error instanceof Error ? error.message : 'Create Christmas tree failed',
+    };
+  }
+}
+
+/**
+ * Execute APPLY_SANTA_MAGIC action - Apply Christmas textures to all shapes
+ */
+async function executeApplySantaMagic(
+  action: CanvasAction,
+  userContext: UserContext
+): Promise<ActionResult> {
+  const startTime = Date.now();
+  
+  try {
+    const { shapes } = useCanvasStore.getState();
+    
+    if (shapes.length === 0) {
+      return {
+        success: true,
+        action,
+        message: 'No shapes on canvas to apply Christmas magic to',
+      };
+    }
+    
+    console.log(`🎅 Applying Santa's Magic to ${shapes.length} shapes...`);
+    
+    const result = await applySantaMagic(shapes, userContext.userId);
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Santa's Magic complete in ${duration}ms`);
+    
+    return {
+      success: true,
+      action,
+      message: `Applied Christmas textures to ${result.transformedCount} shapes - rectangles became gifts, triangles became pine trees, and circles became ornaments!`,
+    };
+  } catch (error) {
+    console.error('❌ Apply Santa Magic failed:', error);
+    return {
+      success: false,
+      action,
+      error: error instanceof Error ? error.message : 'Apply Santa Magic failed',
+    };
+  }
+}
+
+/**
  * Dry run: validate actions without executing
  */
 export async function validateActions(
@@ -905,7 +1023,9 @@ export async function validateActions(
         break;
 
       case 'DELETE_ALL':
-        // No validation needed - just clears everything
+      case 'CREATE_CHRISTMAS_TREE':
+      case 'APPLY_SANTA_MAGIC':
+        // No validation needed
         break;
     }
   }

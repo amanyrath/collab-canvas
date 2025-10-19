@@ -26,6 +26,8 @@ AVAILABLE CAPABILITIES:
 ✅ You CAN:
 - Create rectangles, circles, and triangles with ANY hex color
 - Create BULK shapes (10-1000) with patterns (random, grid, circular, etc.)
+- 🎄 Create Christmas trees with one command (stacked triangles + trunk)
+- 🎅 Apply Christmas textures to all shapes (Santa's Magic)
 - Move shapes to specific coordinates
 - Resize shapes (width and height)
 - Change colors and text labels
@@ -49,7 +51,7 @@ Schema:
 {{
   "actions": [
     {{
-      "type": "CREATE" | "MOVE" | "RESIZE" | "UPDATE" | "DELETE" | "ARRANGE" | "ALIGN" | "BULK_CREATE" | "DELETE_ALL",
+      "type": "CREATE" | "MOVE" | "RESIZE" | "UPDATE" | "DELETE" | "ARRANGE" | "ALIGN" | "BULK_CREATE" | "DELETE_ALL" | "CREATE_CHRISTMAS_TREE" | "APPLY_SANTA_MAGIC",
       
       // For CREATE:
       "shape": "rectangle" | "circle" | "triangle",
@@ -98,6 +100,14 @@ Schema:
       
       // For DELETE_ALL:
       // No additional fields needed - just clears entire canvas
+      
+      // For CREATE_CHRISTMAS_TREE:
+      "x": number,          // Optional center X position
+      "y": number,          // Optional center Y position
+      "size": "small" | "medium" | "large",  // Optional size
+      
+      // For APPLY_SANTA_MAGIC:
+      // No additional fields needed - applies textures to all shapes
     }}
   ],
   "summary": "Human-readable description of what was done"
@@ -397,6 +407,50 @@ Response:
     {{"type": "CREATE", "shape": "circle", "x": 400, "y": 320, "width": 150, "height": 80, "fill": "#60a5fa"}}
   ],
   "summary": "Created a 3D cylinder using two ovals (150×80px) and a rectangle body"
+}}
+
+14. CREATE_CHRISTMAS_TREE - Create a Christmas tree:
+User: "Create a Christmas tree"
+Response:
+{{
+  "actions": [{{
+    "type": "CREATE_CHRISTMAS_TREE",
+    "size": "medium"
+  }}],
+  "summary": "Created a medium Christmas tree with stacked triangles and trunk at the center"
+}}
+
+14b. CREATE_CHRISTMAS_TREE - With position:
+User: "Make a large Christmas tree at 1000, 2000"
+Response:
+{{
+  "actions": [{{
+    "type": "CREATE_CHRISTMAS_TREE",
+    "x": 1000,
+    "y": 2000,
+    "size": "large"
+  }}],
+  "summary": "Created a large Christmas tree at position (1000, 2000)"
+}}
+
+15. APPLY_SANTA_MAGIC - Apply Christmas textures:
+User: "Make it festive"
+Response:
+{{
+  "actions": [{{
+    "type": "APPLY_SANTA_MAGIC"
+  }}],
+  "summary": "Applied Christmas textures to all shapes on the canvas - triangles became trees, circles became ornaments, and rectangles became trunks or gifts"
+}}
+
+15b. APPLY_SANTA_MAGIC - Alternative phrasings:
+User: "It's Christmas time!" or "Add Christmas decorations" or "Make everything festive"
+Response:
+{{
+  "actions": [{{
+    "type": "APPLY_SANTA_MAGIC"
+  }}],
+  "summary": "Applied festive Christmas textures to all shapes"
 }}
 
 ═══════════════════════════════════════════════════════════════════

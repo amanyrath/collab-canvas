@@ -17,6 +17,10 @@ import SelectionLayer from './SelectionLayer'
 import SimpleCursorLayer from './SimpleCursorLayer'
 import { ShapeSelector } from './ShapeSelector'
 import AgentChat from '../Chat/AgentChat'
+import { applySantaMagic } from '../../utils/santaMagic'
+import { createClassicTree, findAvailableTreeSpace } from '../../utils/treeTemplates'
+import { createShape as createShapeFirebase } from '../../utils/shapeUtils'
+import { useTexturePreload } from '../../hooks/useTexturePreload'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -31,8 +35,13 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [isAgentChatOpen, setIsAgentChatOpen] = useState(false)
+  const [isApplyingMagic, setIsApplyingMagic] = useState(false)
+  const [magicNotification, setMagicNotification] = useState<string | null>(null)
   
   const { user } = useUserStore()
+  
+  // 🎄 CHRISTMAS: Preload textures and track loading state
+  const { texturesLoaded } = useTexturePreload()
   
   // ⚡ ULTRA-FAST cursor tracking
   const { updateCursor } = useSimpleCursorTracking(user)
@@ -79,6 +88,88 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     })
 
     await Promise.all(deletionPromises)
+  }, [user])
+
+  // 🎄 SANTA'S MAGIC: Apply Christmas textures to all shapes
+  const handleSantaMagic = useCallback(async () => {
+    if (!user || isApplyingMagic) return
+
+    const { shapes } = useCanvasStore.getState()
+
+    if (shapes.length === 0) {
+      setMagicNotification('❄️ No shapes to transform!')
+      setTimeout(() => setMagicNotification(null), 2000)
+      return
+    }
+
+    setIsApplyingMagic(true)
+    console.log('🎅 Santa\'s Magic button clicked! Warming up...')
+
+    // 🎄 1-SECOND WARMUP: Wait for any pending shapes to sync from Firebase
+    setMagicNotification('⏳ Gathering the reindeer...')
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    try {
+      // Get fresh shapes after warmup
+      const freshShapes = useCanvasStore.getState().shapes
+      const result = await applySantaMagic(freshShapes, user.uid)
+      
+      setMagicNotification(`✨ Christmas magic applied to ${result.transformedCount} shapes!`)
+      setTimeout(() => setMagicNotification(null), 3000)
+    } catch (error) {
+      console.error('❌ Santa\'s Magic failed:', error)
+      setMagicNotification('❌ Magic failed - try again!')
+      setTimeout(() => setMagicNotification(null), 2000)
+    } finally {
+      setIsApplyingMagic(false)
+    }
+  }, [user, isApplyingMagic])
+
+  // 🎄 QUICK TREE: Create a Christmas tree template
+  const handleQuickTree = useCallback(async () => {
+    if (!user) return
+
+    const { shapes, addShape } = useCanvasStore.getState()
+    
+    console.log('🎄 Quick Tree button clicked!')
+    
+    // Find available space
+    const { x, y } = findAvailableTreeSpace(shapes, 200, 400)
+    
+    // Generate tree shapes
+    const treeShapes = createClassicTree(x, y, 'medium', user.uid)
+    
+    // Add shapes to canvas (locally first for instant feedback)
+    treeShapes.forEach(shape => {
+      addShape(shape as Shape, false) // Don't record in history yet
+    })
+
+    // Sync to Firestore in background
+    try {
+      await Promise.all(
+        treeShapes.map(shape =>
+          createShapeFirebase(
+            shape.x!,
+            shape.y!,
+            shape.type!,
+            shape.fill!,
+            user.uid,
+            user.displayName!,
+            shape.width!,
+            shape.height!,
+            shape.text || '',
+            shape.texture // 🎄 Pass the texture to Firebase
+          )
+        )
+      )
+      
+      setMagicNotification('🎄 Christmas tree created!')
+      setTimeout(() => setMagicNotification(null), 2000)
+    } catch (error) {
+      console.error('❌ Quick Tree failed:', error)
+      setMagicNotification('❌ Tree creation failed!')
+      setTimeout(() => setMagicNotification(null), 2000)
+    }
   }, [user])
 
   // ✅ COMBINED: Space key + Delete key + Undo/Redo handling
@@ -475,12 +566,28 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       
       // Process shapes in parallel for maximum speed
       const syncPromises = pendingIds.map(async (tempId) => {
+        console.log(`🔄 Syncing shape ${tempId}...`)
         const currentShapes = useCanvasStore.getState().shapes
         const tempShape = currentShapes.find(s => s.id === tempId)
         
-        if (!tempShape) return // Shape was deleted before sync
+        if (!tempShape) {
+          console.warn(`⚠️ Shape ${tempId} not found in store, skipping`)
+          return // Shape was deleted before sync
+        }
+        
+        console.log(`✓ Found ${tempShape.type} shape ${tempId} in store`)
         
             try {
+              // 🔍 DEBUG: Log what we're about to send
+              console.log(`🔍 About to create ${tempShape.type} in Firebase:`, {
+                x: tempShape.x,
+                y: tempShape.y,
+                type: tempShape.type,
+                fill: tempShape.fill,
+                userId: user.uid,
+                displayName: user.displayName
+              })
+              
               // Create real shape in Firebase
               const realShapeId = await createShape(tempShape.x, tempShape.y, tempShape.type, tempShape.fill, user.uid, user.displayName)
           
@@ -554,6 +661,13 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         </div>
       )}
       
+      {/* 🎄 CHRISTMAS: Texture loading indicator */}
+      {!texturesLoaded && (
+        <div className="absolute top-2 left-2 bg-green-600 text-white px-3 py-1 rounded text-sm">
+          🎄 Loading Christmas textures...
+        </div>
+      )}
+      
       <Stage
         ref={stageRef}
         width={width}
@@ -567,6 +681,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         onClick={handleStageClick}
         onTap={handleStageClick}
         onMouseMove={handleMouseMove}
+        key={texturesLoaded ? 'loaded' : 'loading'} // Force re-render when textures load
       >
         <GridLayer width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
         <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} stageRef={stageRef} onCursorUpdate={updateCursor} />
@@ -581,6 +696,39 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       {isSpacePressed && (
         <div className="absolute bottom-2 left-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded shadow">
           Space + Drag to Pan
+        </div>
+      )}
+
+      {/* 🎄 Christmas Buttons */}
+      <div className="fixed bottom-4 left-4 flex gap-2">
+        {/* Santa's Magic Button */}
+        <button
+          onClick={handleSantaMagic}
+          disabled={isApplyingMagic}
+          className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg shadow-lg flex items-center gap-2 transition-all font-semibold"
+          title="Apply Christmas textures to all shapes"
+          aria-label="Santa's Magic"
+        >
+          <span className="text-2xl">🎅</span>
+          <span>{isApplyingMagic ? 'Applying...' : "Santa's Magic"}</span>
+        </button>
+
+        {/* Quick Tree Button */}
+        <button
+          onClick={handleQuickTree}
+          className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-lg flex items-center gap-2 transition-all font-semibold"
+          title="Create a Christmas tree"
+          aria-label="Quick Tree"
+        >
+          <span className="text-2xl">🎄</span>
+          <span>Quick Tree</span>
+        </button>
+      </div>
+
+      {/* Magic Notification */}
+      {magicNotification && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-xl z-50 animate-fade-in">
+          {magicNotification}
         </div>
       )}
 

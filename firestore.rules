@@ -47,6 +47,9 @@ service cloud.firestore {
              data.createdBy is string && data.createdBy.size() > 0 &&
              data.lastModifiedBy is string && data.lastModifiedBy.size() > 0 &&
              data.isLocked is bool &&
+             // Timestamps - allow serverTimestamp() sentinel or actual timestamp
+             (data.createdAt == request.time || data.createdAt is timestamp) &&
+             (data.lastModifiedAt == request.time || data.lastModifiedAt is timestamp) &&
              // Optional text field validation
              (!data.keys().hasAny(['text']) || data.text is string) &&
              (!data.keys().hasAny(['textColor']) || data.textColor is string) &&
@@ -54,7 +57,9 @@ service cloud.firestore {
              // Locking fields validation  
              (!data.keys().hasAny(['lockedBy']) || data.lockedBy == null || data.lockedBy is string) &&
              (!data.keys().hasAny(['lockedByName']) || data.lockedByName == null || data.lockedByName is string) &&
-             (!data.keys().hasAny(['lockedByColor']) || data.lockedByColor == null || data.lockedByColor is string);
+             (!data.keys().hasAny(['lockedByColor']) || data.lockedByColor == null || data.lockedByColor is string) &&
+             // 🎄 Christmas texture (optional)
+             (!data.keys().hasAny(['texture']) || data.texture is string);
     }
     
     function validateShapeUpdate() {

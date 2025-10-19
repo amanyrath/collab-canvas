@@ -30,7 +30,8 @@ export const createShape = async (
   displayName: string,
   width: number = 100,
   height: number = 100,
-  text: string = ''
+  text: string = '',
+  texture?: string // 🎄 Optional Christmas texture
 ): Promise<string> => {
   return FirebaseErrorHandler.withRetry(async () => {
     logFirestoreWrite('createShape')
@@ -53,8 +54,16 @@ export const createShape = async (
       lastModifiedBy: createdBy,
       lastModifiedAt: serverTimestamp(),
       isLocked: false,
-      lockedBy: null
+      lockedBy: null,
+      ...(texture && { texture }) // 🎄 Add texture if provided
     }
+    
+    // 🔍 DEBUG: Log what we're sending to Firebase
+    console.log(`🔍 Creating ${type} shape:`, {
+      ...newShape,
+      createdAt: '[serverTimestamp]',
+      lastModifiedAt: '[serverTimestamp]'
+    })
     
     // Use custom document ID
     await setDoc(doc(shapesRef, shapeId), newShape)

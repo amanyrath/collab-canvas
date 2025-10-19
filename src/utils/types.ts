@@ -27,6 +27,10 @@ export interface Shape {
   lockedByName?: string | null // Display name of the user who locked it
   lockedByColor?: string | null // Cursor color of the user who locked it
   // ✅ SIMPLIFIED: No separate selection state - selection = locking
+  
+  // 🎄 CHRISTMAS: Texture overlay (like a visual skin, synced to Firebase)
+  texture?: string              // Path to texture file (e.g., '/textures/trees/pine1.png')
+  treeLayer?: number            // For stacking tree triangles (0 = bottom)
 }
 
 export interface CursorPosition {

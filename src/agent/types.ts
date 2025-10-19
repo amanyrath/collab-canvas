@@ -11,7 +11,7 @@ export interface AgentConfig {
 }
 
 export interface CanvasAction {
-  type: 'CREATE' | 'MOVE' | 'RESIZE' | 'DELETE' | 'ARRANGE' | 'UPDATE' | 'ALIGN' | 'BULK_CREATE' | 'DELETE_ALL';
+  type: 'CREATE' | 'MOVE' | 'RESIZE' | 'DELETE' | 'ARRANGE' | 'UPDATE' | 'ALIGN' | 'BULK_CREATE' | 'DELETE_ALL' | 'CREATE_CHRISTMAS_TREE' | 'APPLY_SANTA_MAGIC';
   shape?: 'rectangle' | 'circle' | 'triangle';
   shapeId?: string;
   x?: number;
@@ -32,6 +32,8 @@ export interface CanvasAction {
   shapeType?: 'rectangle' | 'circle' | 'triangle' | 'mixed';
   centerX?: number;         // Optional center point for patterns
   centerY?: number;
+  // For CREATE_CHRISTMAS_TREE:
+  size?: 'small' | 'medium' | 'large';
 }
 
 export interface AgentResponse {

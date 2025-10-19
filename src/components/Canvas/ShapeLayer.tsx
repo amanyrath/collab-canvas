@@ -7,6 +7,7 @@ import { Shape } from '../../utils/types'
 import { updateShape } from '../../utils/shapeUtils'
 import { acquireLock, releaseLock, acquireLockBatch, releaseLockBatch } from '../../utils/lockUtils'
 import { TextEditor } from './TextEditor'
+import { getTexture } from '../../utils/textureLoader'
 
 interface ShapeLayerProps {
   listening: boolean
@@ -38,6 +39,8 @@ const areShapePropsEqual = (
     prev.isLocked === next.isLocked &&
     prev.lockedBy === next.lockedBy &&
     prev.lockedByColor === next.lockedByColor &&
+    prev.texture === next.texture && // 🎄 CHRISTMAS: Include texture in comparison
+    prev.isChristmasThemed === next.isChristmasThemed && // 🎄 CHRISTMAS: Include theme flag
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.disableDrag === nextProps.disableDrag
     // Note: We don't compare onSelect or shapeRef as they are stable
@@ -249,6 +252,25 @@ const SimpleShape: React.FC<{
     }
   }, [shape.id])
 
+  // 🎄 Force layer redraw when texture changes
+  const layerRef = React.useRef<any>(null);
+  
+  React.useEffect(() => {
+    if (shape.texture) {
+      console.log(`🎨 SimpleShape rendering with texture: ${shape.id.slice(-6)}, texture=${shape.texture}`)
+      
+      // Force Konva layer to redraw
+      if (shapeRef && typeof shapeRef !== 'function' && shapeRef.current) {
+        const node = shapeRef.current;
+        const layer = node.getLayer();
+        if (layer) {
+          console.log(`🔄 Force redrawing layer for shape ${shape.id.slice(-6)}`);
+          layer.batchDraw();
+        }
+      }
+    }
+  }, [shape.texture, shape.id, shapeRef])
+
   // ✅ SHAPE RENDERING: Support both rectangles and circles
   const renderShape = () => {
     const strokeColor = isLockedByMe 
@@ -258,8 +280,24 @@ const SimpleShape: React.FC<{
         : 'transparent'
     const strokeWidth = isLockedByMe || isLockedByOthers ? 2 : 0
 
+    // 🎄 CHRISTMAS: Get texture image if shape has texture property
+    const textureImage = shape.texture ? getTexture(shape.texture) : null
+    
+    // 🎄 DEBUG: Log texture loading status (only once per render)
+    if (shape.texture && !textureImage) {
+      console.warn(`⚠️ Texture not loaded for shape ${shape.id.slice(-6)}: ${shape.texture}`)
+    } else if (shape.texture && textureImage) {
+      console.log(`🎨 Rendering ${shape.type} ${shape.id.slice(-6)} WITH texture: ${shape.texture}`)
+      console.log(`   Image size: ${textureImage.width}x${textureImage.height}, Shape size: ${shape.width}x${shape.height}`)
+      console.log(`   Scale: x=${(shape.width / textureImage.width).toFixed(2)}, y=${(shape.height / textureImage.height).toFixed(2)}`)
+    }
+
     const commonProps = {
-      fill: shape.fill,
+      // 🎄 IMPORTANT: When we have a texture, don't set fill color (Konva will ignore the texture)
+      fill: textureImage ? undefined : shape.fill,
+      fillPatternImage: textureImage || undefined,
+      fillPatternScaleX: textureImage ? shape.width / textureImage.width : undefined,
+      fillPatternScaleY: textureImage ? shape.height / textureImage.height : undefined,
       stroke: strokeColor,
       strokeWidth,
       strokeScaleEnabled: false, // Keep stroke width constant during transforms
@@ -307,7 +345,10 @@ const SimpleShape: React.FC<{
             y={shape.y}
             points={points}
             closed={true}
-            fill={shape.fill}
+            fill={textureImage ? undefined : shape.fill}
+            fillPatternImage={commonProps.fillPatternImage}
+            fillPatternScaleX={commonProps.fillPatternScaleX}
+            fillPatternScaleY={commonProps.fillPatternScaleY}
             stroke={commonProps.stroke}
             strokeWidth={commonProps.strokeWidth}
             listening={false} // Let the bounding rect handle events
