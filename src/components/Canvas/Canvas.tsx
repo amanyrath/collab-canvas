@@ -21,6 +21,7 @@ import { createClassicTree } from '../../utils/treeTemplates'
 import { createShape as createShapeFirebase } from '../../utils/shapeUtils'
 import { useTexturePreload } from '../../hooks/useTexturePreload'
 import { CommentsSidebar } from '../Comments/CommentsSidebar'
+import { useCommentCount } from '../../hooks/useCommentCount'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -311,6 +312,16 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [customColor, setCustomColor] = useState<string>('#9333ea') // Default purple
   const [isUpdatingState, setIsUpdatingState] = useState(false)
   const [lastSelectedShapeId, setLastSelectedShapeId] = useState<string | null>(null)
+  
+  // 💬 Get comment count for selected shape
+  const selectedShapeCommentCount = useCommentCount(lastSelectedShapeId)
+  
+  // 💬 Auto-update comment target when selecting shapes (if sidebar is open)
+  useEffect(() => {
+    if (isCommentsSidebarOpen && lastSelectedShapeId) {
+      setCommentShapeId(lastSelectedShapeId)
+    }
+  }, [isCommentsSidebarOpen, lastSelectedShapeId])
   
   // ✅ Track user's creation preferences (separate from current picker display)
   const [creationShapeType, setCreationShapeType] = useState<ShapeType>('rectangle')
@@ -816,14 +827,21 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
               setCommentShapeId(selectedShape.id)
             }
           }}
-          className="fixed top-4 right-4 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg shadow-md flex items-center gap-2 transition-colors z-30"
-          title="Open Comments"
+          className="fixed top-4 right-4 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg shadow-md flex items-center gap-2 transition-colors z-30 relative"
+          title={lastSelectedShapeId ? `Open Comments${selectedShapeCommentCount > 0 ? ` (${selectedShapeCommentCount})` : ''}` : "Open Comments"}
           aria-label="Open Comments"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
           </svg>
           <span className="text-sm font-medium">Comments</span>
+          
+          {/* Comment count badge (when shape selected with comments) */}
+          {lastSelectedShapeId && selectedShapeCommentCount > 0 && (
+            <span className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md">
+              {selectedShapeCommentCount}
+            </span>
+          )}
         </button>
       )}
 
