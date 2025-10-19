@@ -322,8 +322,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   useEffect(() => {
     if (isCommentsSidebarOpen && lastSelectedShapeId) {
       const timeoutId = setTimeout(() => {
+        console.log(`💬 Canvas: Switching to shape ${lastSelectedShapeId.slice(-6)}`)
         setCommentShapeId(lastSelectedShapeId)
-      }, 300) // 300ms debounce
+      }, 500) // 500ms debounce (increased for stability)
       
       return () => clearTimeout(timeoutId)
     }

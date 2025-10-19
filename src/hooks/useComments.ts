@@ -22,23 +22,33 @@ export function useComments(shapeId: string | null) {
     }
 
     console.log(`💬 useComments: Setting up subscription for shape ${shapeId.slice(-6)}`)
+    
+    // Reset state immediately when shape changes
+    setComments([])
     setLoading(true)
     setError(null)
+    
+    let isMounted = true
 
     const unsubscribe = subscribeToComments(
       shapeId,
       (newComments) => {
-        setComments(newComments)
-        setLoading(false)
+        if (isMounted) {
+          setComments(newComments)
+          setLoading(false)
+        }
       },
       (err) => {
-        setError(err)
-        setLoading(false)
+        if (isMounted) {
+          setError(err)
+          setLoading(false)
+        }
       }
     )
 
     return () => {
       console.log(`💬 useComments: Cleaning up subscription for shape ${shapeId.slice(-6)}`)
+      isMounted = false
       unsubscribe()
     }
   }, [shapeId])
