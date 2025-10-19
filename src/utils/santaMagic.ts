@@ -7,7 +7,8 @@
 
 import { Shape } from './types';
 import { TEXTURES } from '../constants/textureManifest';
-import { updateShape } from './shapeUtils';
+import { updateShapeBatch } from './shapeUtils';
+import { useCanvasStore } from '../store/canvasStore';
 
 /**
  * Apply Christmas textures to all shapes
@@ -22,10 +23,11 @@ export async function applySantaMagic(
 ): Promise<{ transformedCount: number }> {
   console.log('🎅 Applying Santa\'s Magic to', shapes.length, 'shapes...');
 
-  let transformedCount = 0;
+  // Prepare batch updates for all shapes
+  const batchUpdates: Array<{ shapeId: string; updates: Partial<Shape> }> = [];
+  const firebaseUpdates: Array<{ shapeId: string; updates: Partial<Shape>; userId: string }> = [];
 
-  // Update all shapes with Christmas textures
-  const updatePromises = shapes.map(async (shape) => {
+  for (const shape of shapes) {
     // Get random texture based on shape type
     let texturePath: string;
     
@@ -46,26 +48,30 @@ export async function applySantaMagic(
         texturePath = ornamentTextures[Math.floor(Math.random() * ornamentTextures.length)];
         break;
       default:
-        return;
+        continue;
     }
 
-    console.log(`🎨 Applying texture to ${shape.type} (${shape.id.slice(-6)}): ${texturePath}`);
+    const textureUpdate = { texture: texturePath };
+    batchUpdates.push({ shapeId: shape.id, updates: textureUpdate });
+    firebaseUpdates.push({ shapeId: shape.id, updates: textureUpdate, userId });
+  }
 
-    // Update Firebase - just like changing color!
-    await updateShape(
-      shape.id,
-      { texture: texturePath },
-      userId
-    );
+  console.log(`🎨 Applying textures to ${batchUpdates.length} shapes in batch...`);
 
-    transformedCount++;
-  });
+  // 1️⃣ Update UI instantly (optimistic update)
+  const { batchUpdateShapesOptimistic } = useCanvasStore.getState();
+  batchUpdateShapesOptimistic(batchUpdates);
 
-  await Promise.all(updatePromises);
-
-  console.log(`✅ Santa's Magic complete! Transformed: ${transformedCount} shapes`);
+  // 2️⃣ Sync to Firebase in background (batched for efficiency)
+  try {
+    await updateShapeBatch(firebaseUpdates);
+    console.log(`✅ Santa's Magic complete! Transformed: ${batchUpdates.length} shapes`);
+  } catch (error) {
+    console.error('❌ Failed to sync Santa\'s Magic to Firebase:', error);
+    // UI already updated, so partial success
+  }
   
-  return { transformedCount };
+  return { transformedCount: batchUpdates.length };
 }
 
 /**
@@ -80,30 +86,38 @@ export async function removeSantaMagic(
 ): Promise<{ unthemedCount: number }> {
   console.log('🔙 Removing Christmas theme from', shapes.length, 'shapes...');
 
-  let unthemedCount = 0;
+  // Filter shapes that have textures and prepare batch updates
+  const shapesWithTextures = shapes.filter(shape => shape.texture);
+  const batchUpdates: Array<{ shapeId: string; updates: Partial<Shape> }> = [];
+  const firebaseUpdates: Array<{ shapeId: string; updates: Partial<Shape>; userId: string }> = [];
 
-  const updatePromises = shapes
-    .filter(shape => shape.texture) // Remove textures from shapes that have them
-    .map(async (shape) => {
-      try {
-        await updateShape(
-          shape.id,
-          {
-            texture: undefined,
-          },
-          userId
-        );
-        unthemedCount++;
-      } catch (error) {
-        console.error(`❌ Failed to untheme shape ${shape.id}:`, error);
-      }
-    });
+  for (const shape of shapesWithTextures) {
+    const textureUpdate = { texture: undefined };
+    batchUpdates.push({ shapeId: shape.id, updates: textureUpdate });
+    firebaseUpdates.push({ shapeId: shape.id, updates: textureUpdate, userId });
+  }
 
-  await Promise.all(updatePromises);
+  if (batchUpdates.length === 0) {
+    console.log('✅ No textures to remove');
+    return { unthemedCount: 0 };
+  }
 
-  console.log(`✅ Theme removed from ${unthemedCount} shapes`);
+  console.log(`🔙 Removing textures from ${batchUpdates.length} shapes in batch...`);
 
-  return { unthemedCount };
+  // 1️⃣ Update UI instantly (optimistic update)
+  const { batchUpdateShapesOptimistic } = useCanvasStore.getState();
+  batchUpdateShapesOptimistic(batchUpdates);
+
+  // 2️⃣ Sync to Firebase in background (batched for efficiency)
+  try {
+    await updateShapeBatch(firebaseUpdates);
+    console.log(`✅ Theme removed from ${batchUpdates.length} shapes`);
+  } catch (error) {
+    console.error('❌ Failed to sync theme removal to Firebase:', error);
+    // UI already updated, so partial success
+  }
+
+  return { unthemedCount: batchUpdates.length };
 }
 
 /**
