@@ -26,13 +26,6 @@
 * Sync works but noticeable delays (200-300ms)  
 * Some lag during rapid edits
 
-**Poor (0-5 points)**
-
-* Inconsistent sync  
-* Frequent delays over 300ms  
-* Broken under concurrent edits
-
-### Conflict Resolution & State Management (9 points)
 
 **Excellent (8-9 points)**
 
@@ -49,19 +42,7 @@
 * Minor visual artifacts (brief flicker) but state stays consistent  
 * Occasional ghost objects that self-correct
 
-**Satisfactory (4-5 points)**
 
-* Simultaneous edits sometimes create duplicates  
-* Strategy unclear or undocumented  
-* State inconsistencies require refresh  
-* No indication of edit conflicts
-
-**Poor (0-3 points)**
-
-* Simultaneous edits frequently corrupt state  
-* Objects duplicate or disappear  
-* Different users see different canvas states  
-* Requires manual intervention to fix
 
 **Testing Scenarios for Conflict Resolution:**
 
@@ -80,26 +61,6 @@
 * Operations during disconnect queue and sync on reconnect  
 * Clear UI indicator for connection status
 
-**Good (6-7 points)**
-
-* Refresh preserves 95%+ of state  
-* Reconnection works but may lose last 1-2 operations  
-* Connection status shown  
-* Minor data loss on network issues
-
-**Satisfactory (4-5 points)**
-
-* Refresh loses recent changes (last 10-30 seconds)  
-* Reconnection requires manual refresh  
-* Inconsistent persistence  
-* No clear connection indicators
-
-**Poor (0-3 points)**
-
-* Refresh loses significant work  
-* Reconnection fails or requires new session  
-* Canvas resets when last user leaves  
-* Frequent data loss
 
 **Testing Scenarios for Persistence:**
 
@@ -131,17 +92,7 @@
 * Transforms work well  
 * Basic text support
 
-**Satisfactory (3-4 points)**
 
-* Basic shapes and movement  
-* Limited transform capabilities  
-* Single selection only
-
-**Poor (0-2 points)**
-
-* Missing core features  
-* Broken transforms  
-* Poor or no text support
 
 ### Performance & Scalability (12 points)
 
@@ -163,12 +114,6 @@
 * Consistent performance with 100+ objects  
 * 2-3 users supported  
 * Noticeable lag with complexity
-
-**Poor (0-5 points)**
-
-* Fails performance targets  
-* Drops below 60 FPS easily  
-* Can't handle multiple users
 
 ---
 
@@ -225,23 +170,7 @@
 * Covers all categories: creation, manipulation, layout, complex  
 * Commands are diverse and meaningful
 
-**Good (7-8 points)**
 
-* 6-7 command types  
-* Covers most categories  
-* Good variety
-
-**Satisfactory (5-6 points)**
-
-* Exactly 6 command types  
-* Limited variety  
-* Minimal category coverage
-
-**Poor (0-4 points)**
-
-* Fewer than 6 commands  
-* Commands don't work reliably  
-* Very limited scope
 
 ### AI Command Categories (must demonstrate variety):
 
@@ -290,11 +219,6 @@
 * Poor layout quality  
 * Elements created but not arranged
 
-**Poor (0-2 points)**
-
-* Complex commands fail  
-* Nonsensical results  
-* Cannot handle multi-step operations
 
 ### AI Performance & Reliability (7 points)
 

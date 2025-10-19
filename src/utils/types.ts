@@ -9,7 +9,7 @@ export interface User {
 
 export interface Shape {
   id: string
-  type: 'rectangle' | 'circle'
+  type: 'rectangle' | 'circle' | 'triangle'
   x: number
   y: number
   width: number
@@ -52,4 +52,4 @@ export interface UserState {
   error: string | null
 }
 
-export type ShapeType = 'rectangle' | 'circle'
+export type ShapeType = 'rectangle' | 'circle' | 'triangle'

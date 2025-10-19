@@ -23,9 +23,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
     {
       category: 'Create & Edit',
       items: [
-        { keys: 'Click empty space', action: 'Create rectangle' },
+        { keys: 'Click empty space', action: 'Create shape' },
         { keys: 'R', action: 'Rectangle tool' },
         { keys: 'C', action: 'Circle tool' },
+        { keys: 'T', action: 'Triangle tool' },
         { keys: '1-4', action: 'Change color (Gray, Red, Green, Blue)' },
       ]
     },

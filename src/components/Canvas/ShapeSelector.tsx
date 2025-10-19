@@ -123,6 +123,24 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
         >
           <div className="w-6 h-6 border-2 border-current rounded-full"></div>
         </button>
+
+        {/* Triangle Button */}
+        <button
+          onClick={() => onShapeTypeChange('triangle')}
+          className={`
+            w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all duration-200
+            ${currentShapeType === 'triangle' 
+              ? 'border-blue-500 bg-blue-50 text-blue-600' 
+              : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+            }
+          `}
+          title="Triangle (T)"
+        >
+          <div 
+            className="w-0 h-0 border-l-[12px] border-r-[12px] border-b-[20px] border-l-transparent border-r-transparent border-b-current"
+            style={{ borderBottomColor: 'currentColor' }}
+          ></div>
+        </button>
       </div>
 
       {/* Color Selector */}

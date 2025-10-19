@@ -38,7 +38,7 @@ service cloud.firestore {
     function validateShapeData() {
       let data = request.resource.data;
       return data.keys().hasAll(['type', 'x', 'y', 'width', 'height', 'fill', 'createdBy', 'createdAt', 'lastModifiedBy', 'lastModifiedAt', 'isLocked']) &&
-             data.type in ['rectangle', 'circle'] &&
+             data.type in ['rectangle', 'circle', 'triangle'] &&
              data.x is number && data.x >= 0 && data.x <= 5000 &&
              data.y is number && data.y >= 0 && data.y <= 5000 &&
              data.width is number && data.width > 0 && data.width <= 1000 &&

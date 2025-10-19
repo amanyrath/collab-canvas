@@ -356,6 +356,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       switch (e.key.toLowerCase()) {
         case 'r': handleShapeTypeChange('rectangle'); break
         case 'c': handleShapeTypeChange('circle'); break
+        case 't': handleShapeTypeChange('triangle'); break
         case '1': handleColorChange('#ef4444'); break // Red
         case '2': handleColorChange('#22c55e'); break // Green
         case '3': handleColorChange('#3b82f6'); break // Blue

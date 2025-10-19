@@ -244,7 +244,7 @@ export function validateAgentResponse(response: AgentResponse): {
     // Type-specific validation
     switch (action.type) {
       case 'CREATE':
-        if (!action.shape || !['rectangle', 'circle'].includes(action.shape)) {
+        if (!action.shape || !['rectangle', 'circle', 'triangle'].includes(action.shape)) {
           errors.push(`Action ${index}: Invalid or missing shape type`);
         }
         if (typeof action.x !== 'number' || typeof action.y !== 'number') {

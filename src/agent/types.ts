@@ -12,7 +12,7 @@ export interface AgentConfig {
 
 export interface CanvasAction {
   type: 'CREATE' | 'MOVE' | 'RESIZE' | 'DELETE' | 'ARRANGE' | 'UPDATE' | 'ALIGN' | 'BULK_CREATE' | 'DELETE_ALL';
-  shape?: 'rectangle' | 'circle';
+  shape?: 'rectangle' | 'circle' | 'triangle';
   shapeId?: string;
   x?: number;
   y?: number;
@@ -29,7 +29,7 @@ export interface CanvasAction {
   // For BULK_CREATE:
   count?: number;           // Number of shapes to create (10-1000)
   pattern?: 'random' | 'grid' | 'horizontal' | 'vertical' | 'circular';
-  shapeType?: 'rectangle' | 'circle' | 'mixed';
+  shapeType?: 'rectangle' | 'circle' | 'triangle' | 'mixed';
   centerX?: number;         // Optional center point for patterns
   centerY?: number;
 }
@@ -43,7 +43,7 @@ export interface AgentResponse {
 export interface CanvasState {
   shapes: Array<{
     id: string;
-    type: 'rectangle' | 'circle';
+    type: 'rectangle' | 'circle' | 'triangle';
     x: number;
     y: number;
     width: number;

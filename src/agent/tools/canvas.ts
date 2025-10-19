@@ -108,8 +108,8 @@ export class CreateShapeTool extends Tool {
       const { type, x, y, width = 100, height = 100, fill = '#CCCCCC', userId, displayName } = params;
       
       // Validation
-      if (!['rectangle', 'circle'].includes(type)) {
-        return JSON.stringify({ error: 'Invalid shape type. Must be "rectangle" or "circle"' });
+      if (!['rectangle', 'circle', 'triangle'].includes(type)) {
+        return JSON.stringify({ error: 'Invalid shape type. Must be "rectangle", "circle", or "triangle"' });
       }
       
       if (!userId || !displayName) {

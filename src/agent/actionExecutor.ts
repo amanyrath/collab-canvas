@@ -161,7 +161,7 @@ async function executeCreate(
   action: CanvasAction,
   userContext: UserContext
 ): Promise<ActionResult> {
-  if (!action.shape || !['rectangle', 'circle'].includes(action.shape)) {
+  if (!action.shape || !['rectangle', 'circle', 'triangle'].includes(action.shape)) {
     return {
       success: false,
       action,
@@ -720,13 +720,13 @@ async function executeBulkCreate(
     const shapes: Array<{
       x: number;
       y: number;
-      type: 'rectangle' | 'circle';
+      type: 'rectangle' | 'circle' | 'triangle';
       color: string;
       createdBy: string;
     }> = [];
     
     const colors = ['#4477AA', '#EE6677', '#228833', '#CCBB44', '#66CCEE', '#AA3377', '#3b82f6', '#ef4444', '#22c55e'];
-    const types: Array<'rectangle' | 'circle'> = ['rectangle', 'circle'];
+    const types: Array<'rectangle' | 'circle' | 'triangle'> = ['rectangle', 'circle', 'triangle'];
     
     for (let i = 0; i < count; i++) {
       let x: number, y: number;
@@ -766,7 +766,7 @@ async function executeBulkCreate(
       // Determine type
       const type = shapeType === 'mixed' 
         ? types[Math.floor(Math.random() * types.length)]
-        : shapeType as 'rectangle' | 'circle';
+        : shapeType as 'rectangle' | 'circle' | 'triangle';
       
       // Determine color
       const color = fill === 'random'

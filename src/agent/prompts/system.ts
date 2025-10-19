@@ -24,7 +24,7 @@ Your role: Interpret natural language commands and translate them into precise s
 AVAILABLE CAPABILITIES:
 
 ✅ You CAN:
-- Create rectangles and circles with ANY hex color
+- Create rectangles, circles, and triangles with ANY hex color
 - Create BULK shapes (10-1000) with patterns (random, grid, circular, etc.)
 - Move shapes to specific coordinates
 - Resize shapes (width and height)
@@ -52,7 +52,7 @@ Schema:
       "type": "CREATE" | "MOVE" | "RESIZE" | "UPDATE" | "DELETE" | "ARRANGE" | "ALIGN" | "BULK_CREATE" | "DELETE_ALL",
       
       // For CREATE:
-      "shape": "rectangle" | "circle",
+      "shape": "rectangle" | "circle" | "triangle",
       "x": number,          // Top-left X coordinate (0-5000)
       "y": number,          // Top-left Y coordinate (0-5000)
       "width": number,      // Width in pixels (20-1000)
@@ -90,7 +90,7 @@ Schema:
       // For BULK_CREATE:
       "count": number,      // Number of shapes (10-1000)
       "pattern": "random" | "grid" | "horizontal" | "vertical" | "circular",
-      "shapeType": "rectangle" | "circle" | "mixed",
+      "shapeType": "rectangle" | "circle" | "triangle" | "mixed",
       "fill": string,       // Hex color or "random"
       "spacing": number,    // Optional spacing for structured patterns
       "centerX": number,    // Optional center point
@@ -344,19 +344,18 @@ Response:
   "summary": "Arranged 6 purple shapes into a 3x2 grid (3 rows)"
 }}
 
-10. CREATE - Artistic composition (tree):
-User: "Draw a tree"
+10. CREATE - Artistic composition (Christmas tree using triangles):
+User: "Draw a Christmas tree"
 Response:
 {{
   "actions": [
-    {{"type": "CREATE", "shape": "rectangle", "x": 380, "y": 350, "width": 45, "height": 180, "fill": "#92400e"}},
-    {{"type": "CREATE", "shape": "circle", "x": 400, "y": 270, "width": 200, "height": 195, "fill": "#166534"}},
-    {{"type": "CREATE", "shape": "circle", "x": 360, "y": 290, "width": 150, "height": 145, "fill": "#16a34a"}},
-    {{"type": "CREATE", "shape": "circle", "x": 440, "y": 305, "width": 95, "height": 92, "fill": "#22c55e"}},
-    {{"type": "CREATE", "shape": "circle", "x": 385, "y": 250, "width": 65, "height": 63, "fill": "#4ade80"}},
-    {{"type": "CREATE", "shape": "circle", "x": 420, "y": 280, "width": 30, "height": 28, "fill": "#86efac"}}
+    {{"type": "CREATE", "shape": "rectangle", "x": 2450, "y": 2700, "width": 100, "height": 150, "fill": "#78350f"}},
+    {{"type": "CREATE", "shape": "triangle", "x": 2300, "y": 2450, "width": 400, "height": 300, "fill": "#166534"}},
+    {{"type": "CREATE", "shape": "triangle", "x": 2350, "y": 2300, "width": 300, "height": 250, "fill": "#15803d"}},
+    {{"type": "CREATE", "shape": "triangle", "x": 2400, "y": 2150, "width": 200, "height": 200, "fill": "#16a34a"}},
+    {{"type": "CREATE", "shape": "circle", "x": 2475, "y": 2120, "width": 50, "height": 50, "fill": "#fbbf24", "text": "★"}}
   ],
-  "summary": "Created a tree with brown trunk (45×180px) and layered green foliage using 5 circles varying from 200px to tiny 30px for depth"
+  "summary": "Created a Christmas tree with brown trunk (100×150px) and 3 layered green triangles of decreasing size, topped with a gold star"
 }}
 
 11. BULK_CREATE - High-volume testing (random):

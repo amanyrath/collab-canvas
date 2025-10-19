@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
-import { Layer, Group, Rect, Text, Transformer } from 'react-konva'
+import { Layer, Group, Rect, Text, Transformer, Line } from 'react-konva'
 import Konva from 'konva'
 import { useCanvasStore } from '../../store/canvasStore'
 import { useUserStore } from '../../store/userStore'
@@ -52,8 +52,7 @@ const SimpleShape: React.FC<{
   onDoubleClick: (id: string) => void
   shapeRef: React.RefObject<Konva.Shape>
   disableDrag?: boolean  // Disable dragging when inside a Group
-  onDragMove?: (e: any) => void
-}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false, onDragMove }) => {
+}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   
@@ -269,7 +268,6 @@ const SimpleShape: React.FC<{
       onClick: handleClick,
       onDblClick: () => onDoubleClick(shape.id),
       onDragStart: handleDragStart,
-      onDragMove: onDragMove,
       onDragEnd: handleDragEnd,
       onTransformEnd: handleTransformEnd,
       ref: (shapeRef as any).callback || shapeRef,
@@ -278,6 +276,45 @@ const SimpleShape: React.FC<{
     // ✅ CIRCLES: Use Rect with cornerRadius for square bounding box (better drag behavior)
     const isCircle = shape.type === 'circle'
     const cornerRadius = isCircle ? Math.max(shape.width, shape.height) / 2 : 0
+    
+    // ✅ TRIANGLES: Render triangle using Line with points, bounded by invisible Rect
+    if (shape.type === 'triangle') {
+      // Triangle points: top-center, bottom-left, bottom-right
+      const points = [
+        shape.width / 2, 0,                    // Top center
+        0, shape.height,                       // Bottom left
+        shape.width, shape.height              // Bottom right
+      ]
+      
+      // Separate props for bounding rect (without fill) and common props
+      const { fill: _, ...commonPropsWithoutFill } = commonProps
+      
+      return (
+        <>
+          {/* Invisible bounding rect for drag behavior */}
+          <Rect
+            id={shape.id}
+            x={shape.x}
+            y={shape.y}
+            width={shape.width}
+            height={shape.height}
+            fill="transparent"
+            {...commonPropsWithoutFill}
+          />
+          {/* Visible triangle */}
+          <Line
+            x={shape.x}
+            y={shape.y}
+            points={points}
+            closed={true}
+            fill={shape.fill}
+            stroke={commonProps.stroke}
+            strokeWidth={commonProps.strokeWidth}
+            listening={false} // Let the bounding rect handle events
+          />
+        </>
+      )
+    }
     
     return (
       <Rect
@@ -774,19 +811,6 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
       group.position({ x: 0, y: 0 })
     }
   }, [])
-  
-  // Handle cursor updates during individual shape drag
-  const handleShapeDragMove = useCallback((e: any) => {
-    if (onCursorUpdate && user) {
-      const stage = e.target.getStage()
-      const pointerPos = stage.getPointerPosition()
-      if (pointerPos && stageRef?.current) {
-        const transform = stage.getAbsoluteTransform().copy().invert()
-        const canvasPos = transform.point(pointerPos)
-        onCursorUpdate(Math.round(canvasPos.x), Math.round(canvasPos.y))
-      }
-    }
-  }, [onCursorUpdate, user, stageRef])
 
   const handleGroupDragMove = useCallback((e: any) => {
     const group = e.target
@@ -978,7 +1002,6 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
                 onDoubleClick={handleDoubleClick}
                 shapeRef={{ current: null, callback: handleRef } as any}
                 disableDrag={true}
-                onDragMove={handleShapeDragMove}
               />
             )
           })}
@@ -1001,7 +1024,6 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
             onSelect={(e: any) => handleShapeSelect(shape.id, e.evt?.shiftKey || false)}
             onDoubleClick={handleDoubleClick}
             shapeRef={{ current: null, callback: handleRef } as any}
-            onDragMove={handleShapeDragMove}
           />
         )
       })}
