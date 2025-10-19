@@ -39,25 +39,34 @@ export async function addComment(
   authorColor?: string
 ): Promise<string> {
   try {
-    const commentsRef = collection(db, getCommentsCollectionPath(shapeId))
+    const commentsPath = getCommentsCollectionPath(shapeId)
+    const commentsRef = collection(db, commentsPath)
     
-    const newComment = {
+    const newComment: any = {
       shapeId,
       text,
       authorId,
       authorName,
-      authorColor,
       createdAt: serverTimestamp(),
       isEdited: false,
       isResolved: false,
     }
     
+    // Only add authorColor if it exists
+    if (authorColor) {
+      newComment.authorColor = authorColor
+    }
+    
+    console.log(`💬 Creating comment at path: ${commentsPath}`)
+    console.log(`💬 Comment data:`, JSON.stringify(newComment, null, 2))
+    
     const docRef = await addDoc(commentsRef, newComment)
-    console.log(`💬 Comment added to shape ${shapeId.slice(-6)}: ${docRef.id}`)
+    console.log(`✅ Comment added to shape ${shapeId.slice(-6)}: ${docRef.id}`)
     
     return docRef.id
   } catch (error) {
     console.error('❌ Failed to add comment:', error)
+    console.error('❌ Error details:', JSON.stringify(error, null, 2))
     throw error
   }
 }

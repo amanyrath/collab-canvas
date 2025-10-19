@@ -33,13 +33,20 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
   const handleAddComment = async (text: string) => {
     if (!shapeId || !user) return
     
-    await addNewComment(
-      shapeId,
-      text,
-      user.uid,
-      user.displayName,
-      user.cursorColor
-    )
+    try {
+      console.log('💬 Adding comment:', { shapeId: shapeId.slice(-6), text, userId: user.uid, userName: user.displayName })
+      await addNewComment(
+        shapeId,
+        text,
+        user.uid,
+        user.displayName || 'Anonymous',
+        user.cursorColor
+      )
+      console.log('✅ Comment added successfully')
+    } catch (error) {
+      console.error('❌ Failed to add comment:', error)
+      alert('Failed to add comment. Check console for details.')
+    }
   }
 
   const handleEditComment = async (commentId: string, newText: string) => {
