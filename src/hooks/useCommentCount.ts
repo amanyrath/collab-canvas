@@ -5,10 +5,10 @@
  */
 
 import { useState, useEffect } from 'react'
-import { collection, query, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 
-const CANVAS_ID = 'global-canvas-v1'
+const COMMENTS_COLLECTION = 'comments'
 
 export function useCommentCount(shapeId: string | null): number {
   const [count, setCount] = useState(0)
@@ -19,9 +19,8 @@ export function useCommentCount(shapeId: string | null): number {
       return
     }
 
-    const commentsPath = `canvas/${CANVAS_ID}/shapes/${shapeId}/comments`
-    const commentsRef = collection(db, commentsPath)
-    const q = query(commentsRef)
+    const commentsRef = collection(db, COMMENTS_COLLECTION)
+    const q = query(commentsRef, where('shapeId', '==', shapeId))
 
     const unsubscribe = onSnapshot(
       q,

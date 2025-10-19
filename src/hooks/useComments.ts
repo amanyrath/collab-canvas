@@ -88,25 +88,23 @@ export function useCommentActions() {
   }
 
   const editComment = async (
-    shapeId: string,
     commentId: string,
     text: string
   ) => {
     setSubmitting(true)
     try {
-      await updateComment(shapeId, commentId, text)
+      await updateComment(commentId, text)
     } finally {
       setSubmitting(false)
     }
   }
 
   const removeComment = async (
-    shapeId: string,
     commentId: string
   ) => {
     setSubmitting(true)
     try {
-      await deleteComment(shapeId, commentId)
+      await deleteComment(commentId)
     } finally {
       setSubmitting(false)
     }

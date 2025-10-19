@@ -50,14 +50,12 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
   }
 
   const handleEditComment = async (commentId: string, newText: string) => {
-    if (!shapeId) return
-    await editComment(shapeId, commentId, newText)
+    await editComment(commentId, newText)
   }
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!shapeId) return
     if (window.confirm('Delete this comment?')) {
-      await removeComment(shapeId, commentId)
+      await removeComment(commentId)
     }
   }
 

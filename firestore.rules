@@ -12,18 +12,18 @@ service cloud.firestore {
         && validateShapeUpdate();
       allow delete: if request.auth != null 
         && (resource.data.isLocked == false || resource.data.lockedBy == request.auth.uid);
-      
-      // 💬 Comments on shapes
-      match /comments/{commentId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null 
-          && request.auth.uid == request.resource.data.authorId
-          && validateCommentData();
-        allow update: if request.auth != null 
-          && request.auth.uid == resource.data.authorId; // Only author can edit
-        allow delete: if request.auth != null 
-          && request.auth.uid == resource.data.authorId; // Only author can delete
-      }
+    }
+    
+    // 💬 Top-level comments collection (simplified!)
+    match /comments/{commentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null 
+        && request.auth.uid == request.resource.data.authorId
+        && validateCommentData();
+      allow update: if request.auth != null 
+        && request.auth.uid == resource.data.authorId; // Only author can edit
+      allow delete: if request.auth != null 
+        && request.auth.uid == resource.data.authorId; // Only author can delete
     }
     
     // Validation functions

@@ -11,6 +11,7 @@ import {
   updateDoc, 
   deleteDoc, 
   query, 
+  where,
   orderBy, 
   onSnapshot,
   serverTimestamp,
@@ -19,14 +20,8 @@ import {
 import { db } from './firebase'
 import { Comment } from './commentTypes'
 
-const CANVAS_ID = 'global-canvas-v1'
-
-/**
- * Get the comments collection path for a shape
- */
-function getCommentsCollectionPath(shapeId: string): string {
-  return `canvas/${CANVAS_ID}/shapes/${shapeId}/comments`
-}
+// Simple top-level comments collection
+const COMMENTS_COLLECTION = 'comments'
 
 /**
  * Add a new comment to a shape
@@ -39,8 +34,7 @@ export async function addComment(
   authorColor?: string
 ): Promise<string> {
   try {
-    const commentsPath = getCommentsCollectionPath(shapeId)
-    const commentsRef = collection(db, commentsPath)
+    const commentsRef = collection(db, COMMENTS_COLLECTION)
     
     const newComment: any = {
       shapeId,
@@ -57,16 +51,14 @@ export async function addComment(
       newComment.authorColor = authorColor
     }
     
-    console.log(`💬 Creating comment at path: ${commentsPath}`)
-    console.log(`💬 Comment data:`, JSON.stringify(newComment, null, 2))
+    console.log(`💬 Creating comment for shape ${shapeId.slice(-6)}`)
     
     const docRef = await addDoc(commentsRef, newComment)
-    console.log(`✅ Comment added to shape ${shapeId.slice(-6)}: ${docRef.id}`)
+    console.log(`✅ Comment added: ${docRef.id}`)
     
     return docRef.id
   } catch (error) {
     console.error('❌ Failed to add comment:', error)
-    console.error('❌ Error details:', JSON.stringify(error, null, 2))
     throw error
   }
 }
@@ -75,12 +67,11 @@ export async function addComment(
  * Update an existing comment
  */
 export async function updateComment(
-  shapeId: string,
   commentId: string,
   text: string
 ): Promise<void> {
   try {
-    const commentRef = doc(db, getCommentsCollectionPath(shapeId), commentId)
+    const commentRef = doc(db, COMMENTS_COLLECTION, commentId)
     
     await updateDoc(commentRef, {
       text,
@@ -99,11 +90,10 @@ export async function updateComment(
  * Delete a comment
  */
 export async function deleteComment(
-  shapeId: string,
   commentId: string
 ): Promise<void> {
   try {
-    const commentRef = doc(db, getCommentsCollectionPath(shapeId), commentId)
+    const commentRef = doc(db, COMMENTS_COLLECTION, commentId)
     await deleteDoc(commentRef)
     
     console.log(`💬 Comment ${commentId} deleted`)
@@ -117,12 +107,11 @@ export async function deleteComment(
  * Mark a comment thread as resolved
  */
 export async function resolveComment(
-  shapeId: string,
   commentId: string,
   resolved: boolean
 ): Promise<void> {
   try {
-    const commentRef = doc(db, getCommentsCollectionPath(shapeId), commentId)
+    const commentRef = doc(db, COMMENTS_COLLECTION, commentId)
     
     await updateDoc(commentRef, {
       isResolved: resolved,
@@ -147,16 +136,20 @@ export function subscribeToComments(
   console.log(`💬 subscribeToComments called for shape ${shapeId.slice(-6)}`)
   
   try {
-    const commentsPath = getCommentsCollectionPath(shapeId)
-    console.log(`💬 Subscribing to path: ${commentsPath}`)
+    const commentsRef = collection(db, COMMENTS_COLLECTION)
+    // Simple query: get all comments where shapeId matches, ordered by creation time
+    const q = query(
+      commentsRef, 
+      where('shapeId', '==', shapeId),
+      orderBy('createdAt', 'asc')
+    )
     
-    const commentsRef = collection(db, commentsPath)
-    const q = query(commentsRef, orderBy('createdAt', 'asc'))
+    console.log(`💬 Subscribing to comments for shape ${shapeId.slice(-6)}`)
     
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        console.log(`💬 onSnapshot callback fired for shape ${shapeId.slice(-6)}, docs: ${snapshot.docs.length}, metadata:`, snapshot.metadata)
+        console.log(`💬 onSnapshot fired: ${snapshot.docs.length} comments for shape ${shapeId.slice(-6)}`)
         const comments: Comment[] = snapshot.docs.map(doc => {
           const data = doc.data()
           return {
