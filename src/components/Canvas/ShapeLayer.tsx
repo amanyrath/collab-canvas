@@ -72,28 +72,34 @@ const SimpleShape: React.FC<{
       onSelect(e) // Notify parent of selection with event
       
       // ⚡ CRITICAL: Get FRESH state to avoid race conditions on rapid clicks
-      const { updateShapeOptimistic, shapes: freshShapes } = useCanvasStore.getState()
+      const { batchUpdateShapesOptimistic, shapes: freshShapes } = useCanvasStore.getState()
       const userLockedShapes = freshShapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
       if (isShiftKey) {
         // ✅ MULTI-SELECT: Toggle shape lock
         if (isLockedByMe) {
-          // Release this shape
-          updateShapeOptimistic(shape.id, { 
-            isLocked: false, 
-            lockedBy: null, 
-            lockedByName: null, 
-            lockedByColor: null 
-          }, false) // Don't record lock changes in history
+          // Release this shape (atomic update)
+          batchUpdateShapesOptimistic([{
+            shapeId: shape.id,
+            updates: { 
+              isLocked: false, 
+              lockedBy: null, 
+              lockedByName: null, 
+              lockedByColor: null 
+            }
+          }])
           releaseLock(shape.id, user.uid, user.displayName)
         } else {
-          // Add to selection
-          updateShapeOptimistic(shape.id, {
-            isLocked: true,
-            lockedBy: user.uid,
-            lockedByName: user.displayName,
-            lockedByColor: user.cursorColor
-          }, false) // Don't record lock changes in history
+          // Add to selection (atomic update)
+          batchUpdateShapesOptimistic([{
+            shapeId: shape.id,
+            updates: {
+              isLocked: true,
+              lockedBy: user.uid,
+              lockedByName: user.displayName,
+              lockedByColor: user.cursorColor
+            }
+          }])
           acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
         }
       } else {
@@ -102,24 +108,38 @@ const SimpleShape: React.FC<{
           return // Already the only selection, no work needed
         }
         
-        // ⚡ CRITICAL: Release ALL previous selections FIRST (prevents multi-select on rapid clicks)
+        // ⚡ ATOMIC: All lock changes in a SINGLE state update (prevents ghost selections)
+        const batchUpdates: Array<{ shapeId: string; updates: Partial<Shape> }> = []
+        
+        // Add unlock updates for all previously locked shapes
         userLockedShapes.forEach(s => {
-          updateShapeOptimistic(s.id, { 
-            isLocked: false, 
-            lockedBy: null, 
-            lockedByName: null, 
-            lockedByColor: null 
-          }, false) // Don't record lock changes in history
+          batchUpdates.push({
+            shapeId: s.id,
+            updates: { 
+              isLocked: false, 
+              lockedBy: null, 
+              lockedByName: null, 
+              lockedByColor: null 
+            }
+          })
         })
         
-        // Lock new shape (single selection) - only if not already locked
+        // Add lock update for current shape (if not already locked)
         if (!isLockedByMe) {
-          updateShapeOptimistic(shape.id, {
-            isLocked: true,
-            lockedBy: user.uid,
-            lockedByName: user.displayName,
-            lockedByColor: user.cursorColor
-          }, false) // Don't record lock changes in history
+          batchUpdates.push({
+            shapeId: shape.id,
+            updates: {
+              isLocked: true,
+              lockedBy: user.uid,
+              lockedByName: user.displayName,
+              lockedByColor: user.cursorColor
+            }
+          })
+        }
+        
+        // ⚡ CRITICAL: Single atomic state update - no intermediate states!
+        if (batchUpdates.length > 0) {
+          batchUpdateShapesOptimistic(batchUpdates)
         }
         
         // ✅ BACKGROUND: Firebase operations (non-blocking)
