@@ -137,11 +137,11 @@ export function subscribeToComments(
   
   try {
     const commentsRef = collection(db, COMMENTS_COLLECTION)
-    // Simple query: get all comments where shapeId matches, ordered by creation time
+    // Simple query: get all comments where shapeId matches
+    // NOTE: Removed orderBy to avoid requiring a composite index - we'll sort client-side
     const q = query(
       commentsRef, 
-      where('shapeId', '==', shapeId),
-      orderBy('createdAt', 'asc')
+      where('shapeId', '==', shapeId)
     )
     
     console.log(`💬 Subscribing to comments for shape ${shapeId.slice(-6)}`)
@@ -166,14 +166,16 @@ export function subscribeToComments(
           } as Comment
         })
         
-        // Sort comments by createdAt (client-side since we removed orderBy query)
+        // Sort comments by createdAt (client-side since orderBy would require a composite index)
         comments.sort((a, b) => {
-          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0
-          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0
+          if (!a.createdAt) return 1
+          if (!b.createdAt) return -1
+          const timeA = a.createdAt.toMillis ? a.createdAt.toMillis() : 0
+          const timeB = b.createdAt.toMillis ? b.createdAt.toMillis() : 0
           return timeA - timeB
         })
         
-        console.log(`💬 Received ${comments.length} comments for shape ${shapeId.slice(-6)}`)
+        console.log(`✅ Loaded ${comments.length} comments for shape ${shapeId.slice(-6)}`)
         onUpdate(comments)
       },
       (error) => {
