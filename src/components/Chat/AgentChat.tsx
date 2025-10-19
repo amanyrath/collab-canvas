@@ -323,7 +323,7 @@ export default function AgentChat({ isOpen, onClose }: AgentChatProps) {
         {messages.length === 0 && (
           <div className="text-center py-8">
             <div className="mb-4">
-              <span className="text-4xl">🤖</span>
+              <span className="text-4xl">🎅</span>
             </div>
             <h4 className="text-lg font-semibold text-gray-800 mb-2">
               Hi {user.displayName}!

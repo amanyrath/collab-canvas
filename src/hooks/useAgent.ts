@@ -297,14 +297,14 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
  */
 export function useSuggestedCommands() {
   const suggestions = [
-    'Create a red circle at 200, 300',
-    'Make a login form',
-    'Create a 3x3 grid of shapes',
-    'Arrange all shapes horizontally',
-    'Create a navigation bar',
-    'Make a blue rectangle',
-    'Create a color palette',
-    'Design a card layout',
+    '🎄 Create a Christmas tree',
+    '🎁 Create 500 festive shapes',
+    '❄️ Make a winter snowflake pattern',
+    '⛄ Create a snowman',
+    '🎅 Apply Santa\'s magic to everything',
+    '🔔 Create a row of jingle bells',
+    '⭐ Create a 5-pointed star',
+    '🎨 Make a holiday color palette',
   ];
 
   return suggestions;

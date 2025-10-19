@@ -73,7 +73,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-blue-50">
         {/* ⚠️ DEV: Security warning for exposed API keys */}
         <DevWarningBanner />
         
@@ -107,7 +107,7 @@ function App() {
                   </div>
                 }>
                   <div className="flex-1 mr-4">
-                    <Canvas width={1200} height={800} />
+                    <Canvas width={1200} height={600} />
                   </div>
                 </ErrorBoundary>
               
