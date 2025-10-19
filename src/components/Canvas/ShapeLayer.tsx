@@ -12,6 +12,7 @@ interface ShapeLayerProps {
   listening: boolean
   isDragSelectingRef?: React.MutableRefObject<boolean>
   stageRef?: React.RefObject<Konva.Stage>
+  onCursorUpdate?: (x: number, y: number) => void
 }
 
 // ✅ PERFORMANCE: Custom comparison for React.memo to prevent unnecessary re-renders
@@ -51,7 +52,8 @@ const SimpleShape: React.FC<{
   onDoubleClick: (id: string) => void
   shapeRef: React.RefObject<Konva.Shape>
   disableDrag?: boolean  // Disable dragging when inside a Group
-}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false }) => {
+  onDragMove?: (e: any) => void
+}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false, onDragMove }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   
@@ -267,6 +269,7 @@ const SimpleShape: React.FC<{
       onClick: handleClick,
       onDblClick: () => onDoubleClick(shape.id),
       onDragStart: handleDragStart,
+      onDragMove: onDragMove,
       onDragEnd: handleDragEnd,
       onTransformEnd: handleTransformEnd,
       ref: (shapeRef as any).callback || shapeRef,
@@ -314,7 +317,7 @@ const SimpleShape: React.FC<{
 SimpleShape.displayName = 'SimpleShape'
 
 // ✅ PERFORMANCE: Memoize shape layer to prevent unnecessary re-renders
-const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, stageRef }) => {
+const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, stageRef, onCursorUpdate }) => {
   const { shapes } = useCanvasStore()
   const { user } = useUserStore()
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([])
@@ -772,9 +775,33 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
     }
   }, [])
   
+  // Handle cursor updates during individual shape drag
+  const handleShapeDragMove = useCallback((e: any) => {
+    if (onCursorUpdate && user) {
+      const stage = e.target.getStage()
+      const pointerPos = stage.getPointerPosition()
+      if (pointerPos && stageRef?.current) {
+        const transform = stage.getAbsoluteTransform().copy().invert()
+        const canvasPos = transform.point(pointerPos)
+        onCursorUpdate(Math.round(canvasPos.x), Math.round(canvasPos.y))
+      }
+    }
+  }, [onCursorUpdate, user, stageRef])
+
   const handleGroupDragMove = useCallback((e: any) => {
     const group = e.target
     const pos = group.position()
+    
+    // Update cursor position during group drag
+    if (onCursorUpdate && user) {
+      const stage = e.target.getStage()
+      const pointerPos = stage.getPointerPosition()
+      if (pointerPos && stageRef?.current) {
+        const transform = stage.getAbsoluteTransform().copy().invert()
+        const canvasPos = transform.point(pointerPos)
+        onCursorUpdate(Math.round(canvasPos.x), Math.round(canvasPos.y))
+      }
+    }
     
     // Get fresh shapes and calculate bounds
     const { shapes: freshShapes } = useCanvasStore.getState()
@@ -951,6 +978,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
                 onDoubleClick={handleDoubleClick}
                 shapeRef={{ current: null, callback: handleRef } as any}
                 disableDrag={true}
+                onDragMove={handleShapeDragMove}
               />
             )
           })}
@@ -973,6 +1001,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
             onSelect={(e: any) => handleShapeSelect(shape.id, e.evt?.shiftKey || false)}
             onDoubleClick={handleDoubleClick}
             shapeRef={{ current: null, callback: handleRef } as any}
+            onDragMove={handleShapeDragMove}
           />
         )
       })}

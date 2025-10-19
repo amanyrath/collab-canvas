@@ -568,7 +568,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         onMouseMove={handleMouseMove}
       >
         <GridLayer width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
-        <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} stageRef={stageRef} />
+        <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} stageRef={stageRef} onCursorUpdate={updateCursor} />
         <SelectionLayer listening={false} />
         <SimpleCursorLayer />
       </Stage>
