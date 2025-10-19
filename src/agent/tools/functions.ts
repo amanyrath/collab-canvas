@@ -14,7 +14,7 @@ import type { CanvasState } from '../types';
 export const functions = [
   {
     name: 'create_shape',
-    description: 'Create a new shape on the canvas (rectangle, circle, or triangle)',
+    description: 'Create ONE shape on the canvas. WARNING: ONLY use for 1-2 shapes! For 3+ shapes, grids, or bulk operations, return JSON actions instead with BULK_CREATE or CREATE action type.',
     parameters: {
       type: 'object',
       properties: {
