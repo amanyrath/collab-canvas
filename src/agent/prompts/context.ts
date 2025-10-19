@@ -6,7 +6,7 @@
  */
 
 import type { CanvasState, UserContext, AgentMessage } from '../types';
-import { getCanvasState } from '../tools/canvas';
+import { getCanvasState } from '../tools/functions';
 
 /**
  * Build full context for agent prompt

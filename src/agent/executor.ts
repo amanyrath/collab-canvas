@@ -1,13 +1,13 @@
 /**
  * Agent Executor for AI Canvas Agent
  * 
- * This module implements direct LLM calls to generate structured JSON
- * responses for canvas manipulation.
+ * This module implements OpenAI function calling for canvas manipulation.
  */
 
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { HumanMessage, SystemMessage, AIMessage, FunctionMessage } from '@langchain/core/messages';
 import { getLLM } from './llm';
 import { STATIC_SYSTEM_PROMPT, createDynamicContext, buildAgentContext } from './prompts';
+import { functions, executeFunction } from './tools/functions';
 import type { UserContext, AgentMessage, AgentResponse } from './types';
 
 /**
@@ -23,7 +23,7 @@ export interface AgentConfig {
 // };
 
 /**
- * Execute a user command through the LLM
+ * Execute a user command through the LLM with function calling
  * 
  * @param userInput - The natural language command from the user
  * @param userContext - User information (ID, name, color)
@@ -37,8 +37,9 @@ export async function executeCommand(
 ): Promise<AgentResponse> {
   const startTime = Date.now();
   try {
-    console.log('⏱️ Starting LLM request...');
-    // Get LLM instance
+    console.log('⏱️ Starting function calling execution...');
+    
+    // Get LLM instance with function calling
     const llm = getLLM();
 
     // Build context
@@ -47,27 +48,73 @@ export async function executeCommand(
     // Create dynamic context (canvas state + user info)
     const dynamicContext = createDynamicContext(context.canvasState, userContext);
 
-    // Create prompt template with SPLIT messages for caching
-    // Message 1: Static prompt (CACHED by OpenAI after first use)
-    // Message 2: Dynamic context (NOT cached - changes every request)
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', STATIC_SYSTEM_PROMPT],
-      ['system', dynamicContext],
-      ['human', '{input}'],
-    ]);
+    // Build messages array using LangChain message types
+    const messages = [
+      new SystemMessage(STATIC_SYSTEM_PROMPT),
+      new SystemMessage(dynamicContext),
+      new HumanMessage(userInput),
+    ];
 
-    // Create chain
-    const chain = prompt.pipe(llm);
-
-    // Execute
-    const result = await chain.invoke({
-      input: userInput,
+    // Call LLM with functions
+    const result = await llm.invoke(messages, {
+      functions: functions,
+      function_call: 'auto' as any, // LangChain type issue
     });
 
-    // Parse and return result
-    const content = typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
     const duration = Date.now() - startTime;
     console.log(`✅ LLM responded in ${duration}ms`);
+
+    // Check if LLM wants to call functions
+    if (result.additional_kwargs?.function_call) {
+      console.log('🔧 LLM requested function call');
+      
+      const functionCall = result.additional_kwargs.function_call;
+      const functionName = functionCall.name;
+      const functionArgs = JSON.parse(functionCall.arguments);
+      
+      // Execute the function
+      const functionResult = await executeFunction(
+        functionName,
+        functionArgs,
+        userContext.userId,
+        userContext.displayName
+      );
+      
+      console.log('✅ Function executed:', functionResult);
+      
+      // Return function result to LLM for final response
+      // Create AIMessage with function call
+      const aiMessage = new AIMessage({
+        content: '',
+        additional_kwargs: {
+          function_call: functionCall,
+        },
+      });
+      messages.push(aiMessage);
+      
+      // Add function result message
+      const functionMessage = new FunctionMessage({
+        name: functionName,
+        content: JSON.stringify(functionResult),
+      });
+      messages.push(functionMessage);
+      
+      // Get final response from LLM
+      const finalResult = await llm.invoke(messages);
+      const finalContent = typeof finalResult.content === 'string' 
+        ? finalResult.content 
+        : JSON.stringify(finalResult.content);
+      
+      // Parse the response - LLM might return JSON actions or just text
+      const parsed = parseAgentOutput(finalContent);
+      return parsed;
+    }
+
+    // No function call - parse direct response
+    const content = typeof result.content === 'string' 
+      ? result.content 
+      : JSON.stringify(result.content);
+    
     return parseAgentOutput(content);
   } catch (error) {
     console.error('Agent execution error:', error);
@@ -128,9 +175,10 @@ function parseAgentOutput(output: string): AgentResponse {
 }
 
 /**
- * Streaming version of command execution
+ * Streaming version of command execution with function calling
  * 
- * Uses LangChain's streaming capabilities to provide real-time token updates
+ * Note: Function calling doesn't stream well (functions execute then respond)
+ * This version will stream the final response after function execution
  * 
  * @param userInput - The natural language command
  * @param userContext - User information
@@ -146,7 +194,7 @@ export async function executeCommandWithStreaming(
 ): Promise<AgentResponse> {
   const startTime = Date.now();
   try {
-    console.log('🌊 Starting streaming execution...');
+    console.log('🌊 Starting streaming execution with function calling...');
 
     // Get LLM instance
     const llm = getLLM();
@@ -158,31 +206,84 @@ export async function executeCommandWithStreaming(
     
     // Create dynamic context (canvas state + user info)
     const dynamicContext = createDynamicContext(context.canvasState, userContext);
-    console.log(`⏱️ [${Date.now() - startTime}ms] Dynamic context created (static prompt will be cached)`);
+    console.log(`⏱️ [${Date.now() - startTime}ms] Dynamic context created`);
 
-    // Create prompt template with SPLIT messages for caching
-    // Message 1: Static prompt (CACHED by OpenAI after first use - 50% cost reduction)
-    // Message 2: Dynamic context (NOT cached - changes every request)
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', STATIC_SYSTEM_PROMPT],
-      ['system', dynamicContext],
-      ['human', '{input}'],
-    ]);
+    // Build messages array using LangChain message types
+    const messages = [
+      new SystemMessage(STATIC_SYSTEM_PROMPT),
+      new SystemMessage(dynamicContext),
+      new HumanMessage(userInput),
+    ];
 
-    // Create chain
-    const chain = prompt.pipe(llm);
-    console.log(`⏱️ [${Date.now() - startTime}ms] Chain created, starting stream...`);
-    
-    let fullResponse = '';
-
-    // Stream the response
-    const stream = await chain.stream({
-      input: userInput,
+    // Call LLM with functions (non-streaming for function detection)
+    const result = await llm.invoke(messages, {
+      functions: functions,
+      function_call: 'auto' as any, // LangChain type issue
     });
 
-    console.log(`⏱️ [${Date.now() - startTime}ms] Stream started, processing chunks...`);
+    console.log(`⏱️ [${Date.now() - startTime}ms] Initial response received`);
 
-    // Process each chunk
+    // Check if LLM wants to call functions
+    if (result.additional_kwargs?.function_call) {
+      console.log('🔧 LLM requested function call');
+      onToken('🔧 Executing function...\n');
+      
+      const functionCall = result.additional_kwargs.function_call;
+      const functionName = functionCall.name;
+      const functionArgs = JSON.parse(functionCall.arguments);
+      
+      // Execute the function
+      const functionResult = await executeFunction(
+        functionName,
+        functionArgs,
+        userContext.userId,
+        userContext.displayName
+      );
+      
+      console.log('✅ Function executed:', functionResult);
+      onToken(`✅ Function ${functionName} completed\n`);
+      
+      // Return function result to LLM for final response
+      // Create AIMessage with function call
+      const aiMessage = new AIMessage({
+        content: '',
+        additional_kwargs: {
+          function_call: functionCall,
+        },
+      });
+      messages.push(aiMessage);
+      
+      // Add function result message
+      const functionMessage = new FunctionMessage({
+        name: functionName,
+        content: JSON.stringify(functionResult),
+      });
+      messages.push(functionMessage);
+      
+      // Get final response with streaming
+      let fullResponse = '';
+      const stream = await llm.stream(messages);
+      
+      for await (const chunk of stream) {
+        const content = chunk.content;
+        if (typeof content === 'string' && content) {
+          fullResponse += content;
+          onToken(content);
+        }
+      }
+      
+      console.log(`⏱️ [${Date.now() - startTime}ms] Streaming complete`);
+      
+      // Parse the response - LLM might return JSON actions or just text
+      const parsed = parseAgentOutput(fullResponse);
+      return parsed;
+    }
+
+    // No function call - stream the direct response
+    console.log('💬 No function call needed, streaming response');
+    let fullResponse = '';
+    const stream = await llm.stream(messages);
+
     for await (const chunk of stream) {
       const content = chunk.content;
       if (typeof content === 'string' && content) {
@@ -191,13 +292,8 @@ export async function executeCommandWithStreaming(
       }
     }
 
-    console.log(`⏱️ [${Date.now() - startTime}ms] Streaming complete, parsing response...`);
-    console.log('✅ Streaming complete');
-    console.log('📝 Full response length:', fullResponse.length);
-
-    // Parse the full response
+    console.log(`⏱️ [${Date.now() - startTime}ms] Streaming complete`);
     const parsed = parseAgentOutput(fullResponse);
-    console.log(`⏱️ [${Date.now() - startTime}ms] Response parsed, returning`);
     return parsed;
   } catch (error) {
     console.error('Streaming execution error:', error);
