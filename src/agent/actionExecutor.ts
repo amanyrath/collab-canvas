@@ -1032,12 +1032,29 @@ async function executeDecorateTree(
     const treeBaseY = lowestTriangle.y + lowestTriangle.height;
     const treeCenterX = lowestTriangle.x + lowestTriangle.width / 2;
     
-    // Find trunk: rectangle within 50px below the lowest triangle
-    const trunk = shapes.find(s => 
-      s.type === 'rectangle' && 
-      Math.abs(s.y - treeBaseY) < 50 &&
-      Math.abs((s.x + s.width / 2) - treeCenterX) < 100
-    );
+    console.log(`🔍 Looking for trunk near: baseY=${treeBaseY}, centerX=${treeCenterX}`);
+    
+    // Find trunk: rectangle within 100px below the lowest triangle and horizontally centered
+    // Relaxed search criteria to find trunk more reliably
+    const trunk = shapes.find(s => {
+      if (s.type !== 'rectangle') return false;
+      
+      const verticalDistance = Math.abs(s.y - treeBaseY);
+      const horizontalDistance = Math.abs((s.x + s.width / 2) - treeCenterX);
+      const isBelowTree = s.y >= treeBaseY - 10; // Trunk starts at or below tree base
+      
+      const matches = verticalDistance < 100 && horizontalDistance < 150 && isBelowTree;
+      
+      if (matches) {
+        console.log(`✅ Found trunk: ${s.id.slice(-6)} at (${s.x}, ${s.y}), size ${s.width}x${s.height}`);
+      }
+      
+      return matches;
+    });
+    
+    if (!trunk) {
+      console.warn('⚠️ No trunk found, gifts will be placed at tree base');
+    }
     
     const createdShapes: string[] = [];
     const ornamentSize = 12;
@@ -1089,8 +1106,10 @@ async function executeDecorateTree(
     
     // Add gift boxes aligned with the TRUNK bottom (if trunk exists) or tree base
     const giftPromises = [];
-    const giftBaseY = trunk ? trunk.y + trunk.height : treeBaseY;
-    const giftCenterX = trunk ? trunk.x + trunk.width / 2 : treeCenterX;
+    const giftBaseY = trunk ? (trunk.y + trunk.height) : treeBaseY;
+    const giftCenterX = trunk ? (trunk.x + trunk.width / 2) : treeCenterX;
+    
+    console.log(`🎁 Placing gifts at Y=${giftBaseY}, X=${giftCenterX} (${trunk ? 'trunk bottom' : 'tree base'})`);
     
     for (let i = 0; i < giftCount; i++) {
       const giftWidth = 30 + Math.random() * 20;
