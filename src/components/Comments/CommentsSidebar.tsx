@@ -4,7 +4,7 @@
  * Sliding sidebar panel for shape comments (Google Docs style)
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { CommentItem } from './CommentItem'
 import { CommentInput } from './CommentInput'
 import { useUserStore } from '../../store/userStore'
@@ -31,11 +31,19 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
   const comments = selectedShape?.comments || []
   const commentCount = comments.length
 
+  // Reset submitting state when sidebar opens
+  useEffect(() => {
+    if (isOpen) {
+      setSubmitting(false)
+    }
+  }, [isOpen])
+
   console.log('💬 CommentsSidebar:', {
     shapeId: shapeId?.slice(-6) || 'null',
     isOpen,
     commentCount,
-    hasShape: !!selectedShape
+    hasShape: !!selectedShape,
+    submitting
   })
 
   const handleAddComment = async (text: string) => {

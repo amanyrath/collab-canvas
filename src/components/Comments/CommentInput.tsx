@@ -28,11 +28,6 @@ export const CommentInput: React.FC<CommentInputProps> = ({
       textareaRef.current.focus()
     }
   }, [autoFocus])
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('💬 CommentInput state: submitting=' + submitting + ', hasText=' + (text.length > 0) + ', isFocused=' + isFocused)
-  }, [submitting, text, isFocused])
 
   const handleSubmit = () => {
     const trimmedText = text.trim()
