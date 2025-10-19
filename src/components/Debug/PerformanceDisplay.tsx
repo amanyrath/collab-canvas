@@ -63,7 +63,7 @@ const PerformanceDisplay: React.FC = () => {
   }
 
   return (
-    <div className="fixed top-4 left-4 z-50 bg-black bg-opacity-90 text-white p-3 rounded-lg shadow-lg font-mono text-xs max-w-xs">
+    <div className="fixed bottom-4 right-4 z-50 bg-black bg-opacity-90 text-white p-3 rounded-lg shadow-lg font-mono text-xs max-w-xs">
       <div className="flex justify-between items-center mb-2">
         <h3 className="font-semibold text-sm">Performance Monitor</h3>
         <button

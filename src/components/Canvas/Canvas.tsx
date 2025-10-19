@@ -63,6 +63,21 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   useShapeSync()
   usePresenceMonitor()
 
+  // 🎯 CENTER CANVAS: Initialize user position at center of canvas on mount
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    // Center the viewport on the canvas
+    const centerX = width / 2 - CANVAS_WIDTH / 2
+    const centerY = height / 2 - CANVAS_HEIGHT / 2
+    
+    stage.position({ x: centerX, y: centerY })
+    stage.batchDraw()
+    
+    console.log('🎯 Canvas centered at:', { x: centerX, y: centerY })
+  }, [width, height])
+
   // ✅ MULTI-SELECT DELETE: Delete all locked shapes with OPTIMISTIC updates
   const handleDeleteShape = useCallback(async () => {
     if (!user) return
@@ -762,15 +777,6 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         }} // 🎄 Pass texture change handler
       />
       
-      {/* Debug Info - Moved to left to avoid covering AI chat button */}
-      {import.meta.env.DEV && (
-        <div className="absolute bottom-4 left-4 z-10 bg-black/80 text-white p-2 rounded text-xs max-w-xs">
-          <div>Shape: {currentShapeType} | Color: {currentColor}</div>
-          <div>User: {user?.displayName?.slice(0, 10)} ({user?.uid?.slice(-4)})</div>
-          {isUpdatingState && <div className="text-yellow-400">⏳ Updating...</div>}
-          {lastSelectedShapeId && <div className="text-blue-400">✏️ Editing: {lastSelectedShapeId.slice(-4)}</div>}
-        </div>
-      )}
       
       {/* 🎄 CHRISTMAS: Texture loading indicator */}
       {!texturesLoaded && (

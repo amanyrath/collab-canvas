@@ -299,12 +299,10 @@ export function useSuggestedCommands() {
   const suggestions = [
     '🎄 Create a Christmas tree',
     '🎁 Create 500 festive shapes',
-    '❄️ Make a winter snowflake pattern',
-    '⛄ Create a snowman',
+    'Create a 3x3 grid of ornaments',
+    '❄️ Create a winter scene',
+    '🗑️ Delete all shapes',
     '🎅 Apply Santa\'s magic to everything',
-    '🔔 Create a row of jingle bells',
-    '⭐ Create a 5-pointed star',
-    '🎨 Make a holiday color palette',
   ];
 
   return suggestions;

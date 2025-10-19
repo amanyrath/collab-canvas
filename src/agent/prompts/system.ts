@@ -216,14 +216,34 @@ User: "Create 3 Christmas trees"
   "summary": "Created a forest of 3 Christmas trees"
 }
 
-Example 4 - Make Everything Christmas:
-User: "Make it festive" OR "Apply Christmas theme"
+Example 4 - 3x3 Grid of Ornaments (BULK_CREATE with texture):
+User: "Create a 3x3 grid of ornaments"
+{
+  "actions": [{
+    "type": "BULK_CREATE",
+    "shapes": [
+      {"shape": "circle", "x": 2400, "y": 2400, "width": 80, "height": 80, "color": "#ef4444", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2500, "y": 2400, "width": 80, "height": 80, "color": "#22c55e", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2600, "y": 2400, "width": 80, "height": 80, "color": "#3b82f6", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2400, "y": 2500, "width": 80, "height": 80, "color": "#ef4444", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2500, "y": 2500, "width": 80, "height": 80, "color": "#22c55e", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2600, "y": 2500, "width": 80, "height": 80, "color": "#3b82f6", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2400, "y": 2600, "width": 80, "height": 80, "color": "#ef4444", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2500, "y": 2600, "width": 80, "height": 80, "color": "#22c55e", "texture": "/textures/ornaments/red_bauble.jpg"},
+      {"shape": "circle", "x": 2600, "y": 2600, "width": 80, "height": 80, "color": "#3b82f6", "texture": "/textures/ornaments/red_bauble.jpg"}
+    ]
+  }],
+  "summary": "Created 3x3 grid of festive ornaments in center of canvas"
+}
+
+Example 5 - Make Everything Christmas:
+User: "Make it festive" OR "Apply Christmas theme" OR "Apply Santa's magic" OR "Make it Christmas"
 {
   "actions": [{"type": "APPLY_SANTA_MAGIC"}],
   "summary": "Applied Christmas textures to all shapes instantly"
 }
 
-Example 5 - Simple Shapes:
+Example 6 - Simple Shapes:
 User: "Create a red circle at 200, 300"
 {
   "actions": [{
@@ -238,7 +258,7 @@ User: "Create a red circle at 200, 300"
   "summary": "Created red circle at (200, 300)"
 }
 
-Example 6 - Bulk Creation:
+Example 7 - Bulk Creation:
 User: "Create 50 random shapes"
 {
   "actions": [{
@@ -251,7 +271,7 @@ User: "Create 50 random shapes"
   "summary": "Created 50 random shapes across the canvas"
 }
 
-Example 7 - Complex Scene:
+Example 8 - Complex Scene:
 User: "Create a winter scene"
 {
   "actions": [
@@ -266,7 +286,7 @@ User: "Create a winter scene"
   "summary": "Created winter scene with sky, snowy ground, 3 trees, decorations, and snowflakes"
 }
 
-Example 8 - Update Existing:
+Example 9 - Update Existing:
 User: "Move the red shape to 500, 600"
 (Context shows: shape-abc is red at 100,100)
 {
@@ -279,14 +299,14 @@ User: "Move the red shape to 500, 600"
   "summary": "Moved red shape to (500, 600)"
 }
 
-Example 9 - Clear Canvas (DELETE_ALL):
+Example 10 - Clear Canvas (DELETE_ALL):
 User: "Delete all shapes" OR "Clear the canvas" OR "Start over" OR "Reset canvas"
 {
   "actions": [{"type": "DELETE_ALL"}],
   "summary": "Cleared entire canvas (deleted all shapes)"
 }
 
-Example 10 - Error Handling:
+Example 11 - Error Handling:
 User: "Decorate the tree"
 (Context shows: no triangles exist)
 {

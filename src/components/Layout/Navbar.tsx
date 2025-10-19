@@ -110,9 +110,9 @@ const Navbar: React.FC = () => {
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
       <div className="flex items-center space-x-4">
-        <h1 className="text-xl font-semibold text-gray-800">CollabCanvas</h1>
-        <div className="text-sm text-gray-500">
-          Real-Time Collaborative Design Tool
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800">🍭 NorthPole</h1>
+          <p className="text-xs text-gray-600">Real-Time Collaboration Tool For Santa's Helpers</p>
         </div>
       </div>
       
