@@ -313,13 +313,19 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [isUpdatingState, setIsUpdatingState] = useState(false)
   const [lastSelectedShapeId, setLastSelectedShapeId] = useState<string | null>(null)
   
-  // 💬 Get comment count for selected shape
-  const selectedShapeCommentCount = useCommentCount(lastSelectedShapeId)
+  // 💬 Get comment count for selected shape (DISABLED - was causing too many subscriptions)
+  // const selectedShapeCommentCount = useCommentCount(lastSelectedShapeId)
+  const selectedShapeCommentCount = 0 // Disabled for performance
   
   // 💬 Auto-update comment target when selecting shapes (if sidebar is open)
+  // Add debouncing to prevent rapid subscription changes
   useEffect(() => {
     if (isCommentsSidebarOpen && lastSelectedShapeId) {
-      setCommentShapeId(lastSelectedShapeId)
+      const timeoutId = setTimeout(() => {
+        setCommentShapeId(lastSelectedShapeId)
+      }, 300) // 300ms debounce
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [isCommentsSidebarOpen, lastSelectedShapeId])
   

@@ -17,9 +17,11 @@ export function useComments(shapeId: string | null) {
   useEffect(() => {
     if (!shapeId) {
       setComments([])
+      setLoading(false)
       return
     }
 
+    console.log(`💬 useComments: Setting up subscription for shape ${shapeId.slice(-6)}`)
     setLoading(true)
     setError(null)
 
@@ -36,6 +38,7 @@ export function useComments(shapeId: string | null) {
     )
 
     return () => {
+      console.log(`💬 useComments: Cleaning up subscription for shape ${shapeId.slice(-6)}`)
       unsubscribe()
     }
   }, [shapeId])
