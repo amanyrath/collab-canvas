@@ -45,13 +45,8 @@ const Navbar: React.FC = () => {
     try {
       const result = await clearAllShapes()
       if (result.success) {
-        if (result.message) {
-          // Some shapes were locked and couldn't be deleted
-          alert(`⚠️ ${result.message}`)
-        } else {
-          // All shapes deleted successfully
-          alert(`✅ Successfully deleted ${result.deletedCount} shapes!`)
-        }
+        // All shapes deleted successfully
+        alert(`✅ Successfully deleted ${result.deletedCount} shapes!`)
       } else {
         alert(`❌ Failed to clear shapes: ${result.error}`)
       }

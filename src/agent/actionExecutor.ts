@@ -44,7 +44,7 @@ async function withTimeout<T>(
   timeoutMs: number,
   actionType: string
 ): Promise<T> {
-  let timeoutId: NodeJS.Timeout;
+  let timeoutId: NodeJS.Timeout | undefined;
   
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -55,10 +55,10 @@ async function withTimeout<T>(
 
   try {
     const result = await Promise.race([promise, timeoutPromise]);
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
     return result;
   } catch (error) {
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
     // Log timeout but don't let it crash the app
     console.error(`❌ Action ${actionType} failed:`, error);
     throw error;

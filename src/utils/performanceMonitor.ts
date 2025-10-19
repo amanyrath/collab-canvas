@@ -129,7 +129,7 @@ class PerformanceMonitor {
     console.log(`✍️ Firestore Write: ${operation} (${docCount} docs)`)
   }
 
-  logRTDBUpdate(operation: string) {
+  logRTDBUpdate(_operation: string) {
     if (!import.meta.env.DEV) return
     this.rtdbUpdates++
     // Silent tracking - too noisy to log every cursor update

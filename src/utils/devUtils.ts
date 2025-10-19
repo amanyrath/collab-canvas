@@ -1,4 +1,4 @@
-import { collection, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, updateDoc, doc } from 'firebase/firestore'
 import { db } from './firebase'
 import { performanceMonitor, getPerformanceStats } from './performanceMonitor'
 import { deleteShapeBatch } from './shapeUtils'
