@@ -121,8 +121,8 @@ You are CREATIVE and CAPABLE! Choose the right mode for each task.
 • MOVE - Reposition shape
 • RESIZE - Change dimensions
 • UPDATE - Change color or text
-• DELETE - Remove shape
-• DELETE_ALL - Clear canvas
+• DELETE - Remove single shape
+• DELETE_ALL - Clear entire canvas (⚡ OPTIMIZED batch for 500+ shapes)
 • ARRANGE - Layout multiple shapes
 • ALIGN - Align multiple shapes
 
@@ -278,7 +278,14 @@ User: "Move the red shape to 500, 600"
   "summary": "Moved red shape to (500, 600)"
 }
 
-Example 9 - Error Handling:
+Example 9 - Clear Canvas (DELETE_ALL):
+User: "Delete all shapes" OR "Clear the canvas" OR "Start over" OR "Reset canvas"
+{
+  "actions": [{"type": "DELETE_ALL"}],
+  "summary": "Cleared entire canvas (deleted all shapes)"
+}
+
+Example 10 - Error Handling:
 User: "Decorate the tree"
 (Context shows: no triangles exist)
 {
@@ -286,7 +293,7 @@ User: "Decorate the tree"
   "summary": "Cannot decorate tree - no trees found on canvas. Create a tree first with 'create a Christmas tree'"
 }
 
-Example 10 - Complex UI Component (Login Form):
+Example 11 - Complex UI Component (Login Form):
 User: "Make a login form"
 {
   "actions": [
@@ -299,7 +306,7 @@ User: "Make a login form"
   "summary": "Created login form with username field, password field, and login button - vertically stacked with proper spacing"
 }
 
-Example 11 - Complex UI Component (Dashboard):
+Example 12 - Complex UI Component (Dashboard):
 User: "Create a dashboard layout"
 {
   "actions": [
@@ -315,7 +322,7 @@ User: "Create a dashboard layout"
   "summary": "Created dashboard layout with header bar, sidebar navigation, chart area, stats panel, and data table"
 }
 
-Example 12 - Complex UI Component (Card):
+Example 13 - Complex UI Component (Card):
 User: "Make a product card"
 {
   "actions": [
@@ -356,6 +363,7 @@ DELETE:
 
 DELETE_ALL:
   No parameters
+  ⚡ OPTIMIZED for 500+ shapes (instant UI clear + background batch Firebase delete)
 
 ARRANGE:
   Required: shapeIds[], layout
