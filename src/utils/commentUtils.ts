@@ -135,13 +135,20 @@ export function subscribeToComments(
   onUpdate: (comments: Comment[]) => void,
   onError?: (error: Error) => void
 ): () => void {
+  console.log(`💬 subscribeToComments called for shape ${shapeId.slice(-6)}`)
+  
   try {
-    const commentsRef = collection(db, getCommentsCollectionPath(shapeId))
-    const q = query(commentsRef, orderBy('createdAt', 'asc'))
+    const commentsPath = getCommentsCollectionPath(shapeId)
+    console.log(`💬 Subscribing to path: ${commentsPath}`)
+    
+    const commentsRef = collection(db, commentsPath)
+    // Note: Removed orderBy to avoid index requirement - comments will be sorted client-side if needed
+    // const q = query(commentsRef, orderBy('createdAt', 'asc'))
     
     const unsubscribe = onSnapshot(
-      q,
+      commentsRef,
       (snapshot) => {
+        console.log(`💬 onSnapshot callback fired for shape ${shapeId.slice(-6)}, docs: ${snapshot.docs.length}, metadata:`, snapshot.metadata)
         const comments: Comment[] = snapshot.docs.map(doc => {
           const data = doc.data()
           return {
@@ -156,6 +163,13 @@ export function subscribeToComments(
             isEdited: data.isEdited || false,
             isResolved: data.isResolved || false,
           } as Comment
+        })
+        
+        // Sort comments by createdAt (client-side since we removed orderBy query)
+        comments.sort((a, b) => {
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0
+          return timeA - timeB
         })
         
         console.log(`💬 Received ${comments.length} comments for shape ${shapeId.slice(-6)}`)
