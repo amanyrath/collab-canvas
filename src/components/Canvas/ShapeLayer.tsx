@@ -59,8 +59,6 @@ const SimpleShape: React.FC<{
   onCursorUpdate?: (x: number, y: number) => void  // ⚡ Cursor tracking during drag
   isDraggingRef?: React.MutableRefObject<boolean>  // ⚡ PERFORMANCE: Track drag state
 }> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false, onCursorUpdate, isDraggingRef }) => {
-  // ⚡ PERFORMANCE: Only subscribe to shapes array (not optimistic updates or other store fields)
-  const shapes = useCanvasStore((state) => state.shapes, shallow)
   const { user } = useUserStore()
   
   const isLockedByMe = shape.isLocked && shape.lockedBy === user?.uid
@@ -73,8 +71,9 @@ const SimpleShape: React.FC<{
       const isShiftKey = e.evt?.shiftKey || false
       onSelect(e) // Notify parent of selection with event
       
-      const { updateShapeOptimistic } = useCanvasStore.getState()
-      const userLockedShapes = shapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
+      // ⚡ CRITICAL: Get FRESH state to avoid race conditions on rapid clicks
+      const { updateShapeOptimistic, shapes: freshShapes } = useCanvasStore.getState()
+      const userLockedShapes = freshShapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
       if (isShiftKey) {
         // ✅ MULTI-SELECT: Toggle shape lock
@@ -103,38 +102,40 @@ const SimpleShape: React.FC<{
           return // Already the only selection, no work needed
         }
         
-        // Release ALL previous selections
-      userLockedShapes.forEach(s => {
-        updateShapeOptimistic(s.id, { 
-          isLocked: false, 
-          lockedBy: null, 
-          lockedByName: null, 
-          lockedByColor: null 
-        }, false) // Don't record lock changes in history
-      })
-      
-        // Lock new shape (single selection)
-      updateShapeOptimistic(shape.id, {
-        isLocked: true,
-        lockedBy: user.uid,
-        lockedByName: user.displayName,
-        lockedByColor: user.cursorColor
-      }, false) // Don't record lock changes in history
-      
-      // ✅ BACKGROUND: Firebase operations (non-blocking)
-      if (userLockedShapes.length > 0) {
-        Promise.all(
-          userLockedShapes.map(s => releaseLock(s.id, user.uid, user.displayName))
-        )
-      }
-      
-      // Acquire lock for current shape
+        // ⚡ CRITICAL: Release ALL previous selections FIRST (prevents multi-select on rapid clicks)
+        userLockedShapes.forEach(s => {
+          updateShapeOptimistic(s.id, { 
+            isLocked: false, 
+            lockedBy: null, 
+            lockedByName: null, 
+            lockedByColor: null 
+          }, false) // Don't record lock changes in history
+        })
+        
+        // Lock new shape (single selection) - only if not already locked
         if (!isLockedByMe) {
-      acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
+          updateShapeOptimistic(shape.id, {
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          }, false) // Don't record lock changes in history
+        }
+        
+        // ✅ BACKGROUND: Firebase operations (non-blocking)
+        if (userLockedShapes.length > 0) {
+          Promise.all(
+            userLockedShapes.map(s => releaseLock(s.id, user.uid, user.displayName))
+          )
+        }
+        
+        // Acquire lock for current shape
+        if (!isLockedByMe) {
+          acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
         }
       }
     }
-  }, [shape.id, isLockedByMe, isLockedByOthers, user, shapes, onSelect])
+  }, [shape.id, isLockedByMe, isLockedByOthers, user, onSelect])
 
   // ✅ SIMPLIFIED: Drag handlers for single shapes only (multi-select uses Group)
   const handleDragStart = useCallback((_e: any) => {
@@ -450,7 +451,6 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   // ⚡ PERFORMANCE: Selective subscription - only re-render when shapes array changes
   const shapes = useCanvasStore((state) => state.shapes, shallow)
   const { user } = useUserStore()
-  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([])
   const [isShiftPressed, setIsShiftPressed] = useState(false)
   const [editingShapeId, setEditingShapeId] = useState<string | null>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
@@ -590,6 +590,13 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
     }
   }, [isShiftPressed])
 
+  // ⚡ PERFORMANCE: Derive selected shape IDs directly from locked shapes (no state!)
+  // This eliminates race conditions between local state and Firebase state
+  const selectedShapeIds = useMemo(() => {
+    if (!user) return []
+    return shapes.filter(s => s.lockedBy === user.uid).map(s => s.id)
+  }, [shapes, user])
+
   // ✅ PERFORMANCE: Only update transformer when selection changes, not on every shape change
   // Use RAF to batch transformer updates for smoother visual transitions
   const transformerUpdateRafRef = useRef<number | null>(null)
@@ -631,21 +638,6 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
       }
     }
   }, [selectedShapeIds])
-
-  // Memoize locked shape IDs to avoid expensive filtering
-  const lockedShapeIds = useMemo(() => {
-    if (!user) return []
-    return shapes.filter(s => s.lockedBy === user.uid).map(s => s.id)
-  }, [shapes, user])
-  
-  // Track which shapes are selected (should match locked shapes)
-  useEffect(() => {
-    // Fast array equality check (no JSON.stringify)
-    if (lockedShapeIds.length !== selectedShapeIds.length ||
-        !lockedShapeIds.every(id => selectedShapeIds.includes(id))) {
-      setSelectedShapeIds(lockedShapeIds)
-    }
-  }, [lockedShapeIds, selectedShapeIds])
 
   // ✅ DRAG-TO-SELECT: Handle mouse down on layer (requires Shift key)
   const handleLayerMouseDown = useCallback((e: any) => {
@@ -801,8 +793,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
           console.error('Batch lock failed:', error)
         })
       }
-
-      setSelectedShapeIds(selectedIds)
+      // ✅ Selection updates automatically from locked shapes (no state needed)
     }
 
     // Hide selection rectangle
@@ -879,26 +870,16 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
           e.evt.stopPropagation()
         }
       }
-      
-      setSelectedShapeIds([])
+      // ✅ Selection updates automatically from locked shapes (no state needed)
     }
   }, [user, selectedShapeIds, isDragSelectingRef])
 
   // Handle shape selection with shift+click for multi-select
-  const handleShapeSelect = useCallback((shapeId: string, isShiftKey: boolean) => {
-    if (isShiftKey) {
-      // Toggle shape in selection
-      setSelectedShapeIds(prev => {
-        if (prev.includes(shapeId)) {
-          return prev.filter(id => id !== shapeId)
-        } else {
-          return [...prev, shapeId]
-        }
-      })
-    } else {
-      // Single select (replace selection)
-      setSelectedShapeIds([shapeId])
-    }
+  // ✅ Note: Lock management is handled in SimpleShape.handleClick
+  // This callback is kept for compatibility but selection derives from locks automatically
+  const handleShapeSelect = useCallback((_shapeId: string, _isShiftKey: boolean) => {
+    // No-op: Selection is now derived from locked shapes
+    // Lock acquisition/release happens in SimpleShape component
   }, [])
 
   // ✅ PERFORMANCE: Select all shapes with Cmd/Ctrl+A (optimized for 500+ shapes)
