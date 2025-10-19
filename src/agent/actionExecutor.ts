@@ -37,19 +37,32 @@ export interface ExecutionResult {
 
 /**
  * Timeout wrapper for action execution to prevent hanging on Firebase issues
+ * Includes cleanup to ensure app state remains consistent on timeout
  */
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   actionType: string
 ): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`Action ${actionType} timed out after ${timeoutMs}ms - possible Firebase connection issue`));
+    timeoutId = setTimeout(() => {
+      console.warn(`⏱️ Action ${actionType} timed out after ${timeoutMs}ms - continuing with other operations`);
+      reject(new Error(`Action ${actionType} timed out after ${timeoutMs}ms - possible slow connection or Firebase issue`));
     }, timeoutMs);
   });
 
-  return Promise.race([promise, timeoutPromise]);
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    // Log timeout but don't let it crash the app
+    console.error(`❌ Action ${actionType} failed:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -66,21 +79,27 @@ export async function executeAgentActions(
   console.log(`🤖 Executing ${agentResponse.actions.length} actions from agent`);
 
   // Execute all actions in parallel for faster grid creation
-  const actionPromises = agentResponse.actions.map(action => 
-    withTimeout(
+  // Different timeouts for different action types
+  const actionPromises = agentResponse.actions.map(action => {
+    // Set timeout based on action type
+    const timeout = action.type === 'BULK_CREATE' ? 30000 : 10000;
+    
+    return withTimeout(
       executeAction(action, userContext),
-      3000, // Reduced timeout: shapes create quickly
+      timeout,
       action.type
     ).catch(error => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`❌ Action execution failed:`, error);
+      console.error(`❌ Action ${action.type} failed (continuing with others):`, errorMessage);
+      
+      // Return failed result but don't crash the whole execution
       return {
         success: false,
         action,
         error: errorMessage,
       } as ActionResult;
-    })
-  );
+    });
+  });
 
   // Wait for all actions to complete
   const results = await Promise.all(actionPromises);
