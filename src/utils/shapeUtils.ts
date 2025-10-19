@@ -24,7 +24,7 @@ const SHAPES_COLLECTION = 'canvas/global-canvas-v1/shapes'
 export const createShape = async (
   x: number, 
   y: number, 
-  type: 'rectangle' | 'circle',
+  type: 'rectangle' | 'circle' | 'triangle',
   color: string,
   createdBy: string,
   displayName: string,
@@ -69,7 +69,7 @@ export const createShapeBatch = async (
   shapes: Array<{
     x: number
     y: number
-    type: 'rectangle' | 'circle'
+    type: 'rectangle' | 'circle' | 'triangle'
     color: string
     createdBy: string
   }>
