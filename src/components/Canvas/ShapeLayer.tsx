@@ -591,39 +591,24 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   }, [isShiftPressed])
 
   // ✅ PERFORMANCE: Only update transformer when selection changes, not on every shape change
-  // Use a separate ref to track if we need to update due to shape type changes
-  const lastSelectedShapeTypesRef = useRef<Map<string, string>>(new Map())
+  // Use RAF to batch transformer updates for smoother visual transitions
+  const transformerUpdateRafRef = useRef<number | null>(null)
   
   useEffect(() => {
-    const transformer = transformerRef.current
-    if (!transformer) return
+    // Cancel any pending update
+    if (transformerUpdateRafRef.current) {
+      cancelAnimationFrame(transformerUpdateRafRef.current)
+    }
 
-    if (selectedShapeIds.length > 0) {
-      // Check if any selected shape changed type (rare but needs transformer refresh)
-      const currentShapeTypes = new Map<string, string>()
-      selectedShapeIds.forEach(id => {
-        const shape = shapes.find(s => s.id === id)
-        if (shape) currentShapeTypes.set(id, shape.type)
-      })
-      
-      // Only update if selection changed or a shape type changed
-      let needsUpdate = selectedShapeIds.length !== lastSelectedShapeTypesRef.current.size
-      if (!needsUpdate) {
-        for (const [id, type] of currentShapeTypes.entries()) {
-          if (lastSelectedShapeTypesRef.current.get(id) !== type) {
-            needsUpdate = true
-            break
-          }
-        }
-      }
-      
-      if (needsUpdate) {
-        lastSelectedShapeTypesRef.current = currentShapeTypes
-        
-        // ✅ GET FRESH NODES: Use findOne to get current nodes (handles shape type changes)
-        const layer = transformer.getLayer()
+    // Schedule transformer update in next frame for smooth transition
+    transformerUpdateRafRef.current = requestAnimationFrame(() => {
+      const transformer = transformerRef.current
+      if (!transformer) return
+
+      if (selectedShapeIds.length > 0) {
+        // ⚡ FAST: Use shapeRefs directly instead of expensive findOne() lookup
         const selectedNodes = selectedShapeIds
-          .map(id => layer?.findOne(`#${id}`) as Konva.Shape)
+          .map(id => shapeRefs.current[id])
           .filter(node => node !== undefined && node !== null)
         
         if (selectedNodes.length > 0) {
@@ -633,13 +618,19 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
           transformer.nodes([])
           transformer.getLayer()?.batchDraw()
         }
+      } else {
+        transformer.nodes([])
+        transformer.getLayer()?.batchDraw()
       }
-    } else {
-      lastSelectedShapeTypesRef.current.clear()
-      transformer.nodes([])
-      transformer.getLayer()?.batchDraw()
+    })
+
+    // Cleanup RAF on unmount or dependency change
+    return () => {
+      if (transformerUpdateRafRef.current) {
+        cancelAnimationFrame(transformerUpdateRafRef.current)
+      }
     }
-  }, [selectedShapeIds, shapes])
+  }, [selectedShapeIds])
 
   // Memoize locked shape IDs to avoid expensive filtering
   const lockedShapeIds = useMemo(() => {

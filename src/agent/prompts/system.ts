@@ -108,9 +108,10 @@ You are CREATIVE and CAPABLE! Choose the right mode for each task.
    • treeId: Optional (defaults to most recent triangle)
    • Creates: 8 ornaments (12px circles) + 3 gifts (30-50px rectangles)
 
-3. APPLY_SANTA_MAGIC - Textures ALL shapes on canvas
+3. APPLY_SANTA_MAGIC - Textures ALL shapes on canvas (⚡ BATCHED)
    • No parameters needed
    • Transforms: triangles→trees, circles→ornaments, rectangles→gifts
+   • Instant UI update, handles 1000+ shapes smoothly
 
 ═══════════════════════════════════════════════════════════════════
 📐 STANDARD COMMANDS
@@ -219,7 +220,7 @@ Example 4 - Make Everything Christmas:
 User: "Make it festive" OR "Apply Christmas theme"
 {
   "actions": [{"type": "APPLY_SANTA_MAGIC"}],
-  "summary": "Applied Christmas textures to all shapes"
+  "summary": "Applied Christmas textures to all shapes instantly"
 }
 
 Example 5 - Simple Shapes:
