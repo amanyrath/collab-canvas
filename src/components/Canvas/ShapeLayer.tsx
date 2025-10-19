@@ -40,7 +40,6 @@ const areShapePropsEqual = (
     prev.lockedBy === next.lockedBy &&
     prev.lockedByColor === next.lockedByColor &&
     prev.texture === next.texture && // 🎄 CHRISTMAS: Include texture in comparison
-    prev.isChristmasThemed === next.isChristmasThemed && // 🎄 CHRISTMAS: Include theme flag
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.disableDrag === nextProps.disableDrag
     // Note: We don't compare onSelect or shapeRef as they are stable
@@ -252,9 +251,7 @@ const SimpleShape: React.FC<{
     }
   }, [shape.id])
 
-  // 🎄 Force layer redraw when texture changes
-  const layerRef = React.useRef<any>(null);
-  
+  // 🎄 Force layer redraw when texture changes  
   React.useEffect(() => {
     if (shape.texture) {
       console.log(`🎨 SimpleShape rendering with texture: ${shape.id.slice(-6)}, texture=${shape.texture}`)

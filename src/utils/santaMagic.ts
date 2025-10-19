@@ -83,14 +83,13 @@ export async function removeSantaMagic(
   let unthemedCount = 0;
 
   const updatePromises = shapes
-    .filter(shape => shape.isChristmasThemed)
+    .filter(shape => shape.texture) // Remove textures from shapes that have them
     .map(async (shape) => {
       try {
         await updateShape(
           shape.id,
           {
             texture: undefined,
-            isChristmasThemed: false,
           },
           userId
         );

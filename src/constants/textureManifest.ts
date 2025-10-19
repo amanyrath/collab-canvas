@@ -29,9 +29,6 @@ export const TEXTURES = {
  */
 export function getRandomTexture(category: keyof typeof TEXTURES): string {
   const textures = TEXTURES[category];
-  if (!textures || textures.length === 0) {
-    throw new Error(`No textures available for category: ${category}`);
-  }
   return textures[Math.floor(Math.random() * textures.length)];
 }
 

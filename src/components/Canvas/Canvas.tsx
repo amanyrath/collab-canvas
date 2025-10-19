@@ -17,8 +17,7 @@ import SelectionLayer from './SelectionLayer'
 import SimpleCursorLayer from './SimpleCursorLayer'
 import { ShapeSelector } from './ShapeSelector'
 import AgentChat from '../Chat/AgentChat'
-import { applySantaMagic } from '../../utils/santaMagic'
-import { createClassicTree, findAvailableTreeSpace } from '../../utils/treeTemplates'
+import { createClassicTree } from '../../utils/treeTemplates'
 import { createShape as createShapeFirebase } from '../../utils/shapeUtils'
 import { useTexturePreload } from '../../hooks/useTexturePreload'
 
@@ -35,7 +34,6 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [isAgentChatOpen, setIsAgentChatOpen] = useState(false)
-  const [isApplyingMagic, setIsApplyingMagic] = useState(false)
   const [magicNotification, setMagicNotification] = useState<string | null>(null)
   
   // 🎄 CHRISTMAS MODE: Toggle for texture-based shape creation
@@ -120,7 +118,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const handleQuickTree = useCallback(async () => {
     if (!user || !stageRef.current) return
 
-    const { shapes, addShape } = useCanvasStore.getState()
+    const { addShape } = useCanvasStore.getState()
     
     console.log('🎄 Quick Tree button clicked!')
     

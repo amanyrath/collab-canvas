@@ -14,8 +14,8 @@ interface TextEditorProps {
 export const TextEditor: React.FC<TextEditorProps> = ({
   shape,
   stageScale,
-  stageX,
-  stageY,
+  stageX: _stageX, // Not used - Html component handles transforms
+  stageY: _stageY, // Not used - Html component handles transforms
   onTextChange,
   onClose
 }) => {
