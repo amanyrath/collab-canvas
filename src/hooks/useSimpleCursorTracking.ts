@@ -38,10 +38,10 @@ export const useSimpleCursorTracking = (user: User | null) => {
     const now = Date.now()
     const lastPos = lastPositionRef.current
     
-    // 💰 OPTIMIZATION 1: Distance-based updates (only if moved >5px)
+    // ⚡ OPTIMIZATION 1: Distance-based updates (only if moved >3px) - TUNED for better responsiveness
     const distance = Math.sqrt(Math.pow(x - lastPos.x, 2) + Math.pow(y - lastPos.y, 2))
-    if (distance < 5 && now - lastUpdateRef.current < 1000) {
-      // Don't update if moved <5px and last update was <1s ago
+    if (distance < 3 && now - lastUpdateRef.current < 500) {
+      // Don't update if moved <3px and last update was <500ms ago
       return
     }
     
@@ -57,8 +57,8 @@ export const useSimpleCursorTracking = (user: User | null) => {
     
     const timeElapsed = now - lastUpdateRef.current
     
-    // 💰 OPTIMIZATION 2: 20fps instead of 60fps (50ms intervals)
-    if (timeElapsed >= 50) { // 20fps = 50ms (was 16ms)
+    // ⚡ OPTIMIZATION 2: 30fps instead of 60fps (33ms intervals) - TUNED for smoother cursors
+    if (timeElapsed >= 33) { // 30fps = 33ms (was 50ms at 20fps)
       performCursorUpdate(user, x, y)
       lastUpdateRef.current = now
       lastPositionRef.current = { x, y }
@@ -68,7 +68,7 @@ export const useSimpleCursorTracking = (user: User | null) => {
         performCursorUpdate(user, x, y)
         lastUpdateRef.current = Date.now()
         lastPositionRef.current = { x, y }
-      }, 50 - timeElapsed)
+      }, 33 - timeElapsed)
     }
     
     // 💰 OPTIMIZATION 3: Idle detection - stop updates after 2s of no movement
