@@ -21,6 +21,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onEdit,
   onDelete
 }) => {
+  console.log('💬 Rendering CommentItem:', comment.id.slice(-6), comment)
+  
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(comment.text)
   const isAuthor = comment.authorId === currentUserId

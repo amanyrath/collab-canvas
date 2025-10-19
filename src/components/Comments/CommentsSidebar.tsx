@@ -25,6 +25,11 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
   const { comments, loading, commentCount } = useComments(shapeId)
   const { addNewComment, editComment, removeComment, submitting } = useCommentActions()
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('💬 CommentsSidebar state:', { shapeId, isOpen, loading, commentCount, commentsLength: comments.length })
+  }, [shapeId, isOpen, loading, commentCount, comments.length])
+
   const handleAddComment = async (text: string) => {
     if (!shapeId || !user) return
     
