@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import Auth from './components/Auth/Auth'
 import Canvas from './components/Canvas/Canvas'
 import Navbar from './components/Layout/Navbar'
@@ -7,6 +8,7 @@ import ConnectionBanner from './components/ConnectionBanner'
 import FastPresenceSidebar from './components/Canvas/FastPresenceSidebar'
 import PerformanceDisplay from './components/Debug/PerformanceDisplay'
 import { DevWarningBanner } from './components/DevWarningBanner'
+import { initializeLockCleanup } from './utils/lockCleanup'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -14,6 +16,25 @@ if (import.meta.env.DEV) {
 }
 
 function App() {
+  // Initialize automatic lock cleanup on user disconnect
+  useEffect(() => {
+    console.log('🔧 Initializing lock cleanup system...')
+    let unsubscribe: (() => void) | undefined
+    
+    try {
+      unsubscribe = initializeLockCleanup()
+    } catch (error) {
+      console.error('❌ Failed to initialize lock cleanup:', error)
+    }
+    
+    return () => {
+      if (unsubscribe) {
+        console.log('🔧 Cleaning up lock cleanup system...')
+        unsubscribe()
+      }
+    }
+  }, [])
+
   // Authentication fallback component
   const authFallback = (
     <div className="container mx-auto px-4 py-8">

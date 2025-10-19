@@ -50,8 +50,54 @@ export const clearAllLocks = async () => {
 }
 
 /**
+ * Unlock all shapes locked by a specific user
+ * Used for cleanup when a user signs out
+ */
+export const unlockUserShapes = async (userId: string) => {
+  try {
+    console.log(`🔓 Unlocking shapes for user: ${userId}`)
+    
+    const shapesRef = collection(db, 'canvas/global-canvas-v1/shapes')
+    const snapshot = await getDocs(shapesRef)
+    
+    // Filter to only shapes locked by this user
+    const userLockedShapes = snapshot.docs.filter(doc => {
+      const data = doc.data()
+      return data.isLocked === true && data.lockedBy === userId
+    })
+    
+    if (userLockedShapes.length === 0) {
+      console.log('✅ No locks to clear for this user')
+      return { success: true, clearedCount: 0 }
+    }
+    
+    console.log(`Found ${userLockedShapes.length} shapes locked by this user`)
+    
+    const updatePromises = userLockedShapes.map(async (shapeDoc) => {
+      const shapeRef = doc(db, 'canvas/global-canvas-v1/shapes', shapeDoc.id)
+      await updateDoc(shapeRef, {
+        isLocked: false,
+        lockedBy: null,
+        lockedByName: null,
+        lockedByColor: null
+      })
+      console.log(`🔓 Unlocked shape: ${shapeDoc.id}`)
+    })
+    
+    await Promise.all(updatePromises)
+    
+    console.log(`✅ Unlocked ${userLockedShapes.length} shapes for user: ${userId}`)
+    return { success: true, clearedCount: userLockedShapes.length }
+  } catch (error) {
+    console.error('❌ Error unlocking user shapes:', error)
+    return { success: false, error }
+  }
+}
+
+/**
  * Development utility to delete all shapes and reset canvas
  * Use this for a complete fresh start
+ * Note: Cannot delete shapes locked by other users
  */
 export const clearAllShapes = async () => {
   try {
@@ -60,16 +106,48 @@ export const clearAllShapes = async () => {
     const shapesRef = collection(db, 'canvas/global-canvas-v1/shapes')
     const snapshot = await getDocs(shapesRef)
     
-    const deletePromises = snapshot.docs.map(async (shapeDoc) => {
-      const shapeRef = doc(db, 'canvas/global-canvas-v1/shapes', shapeDoc.id)
-      await deleteDoc(shapeRef)
-      console.log(`🗑️ Deleted shape: ${shapeDoc.id}`)
-    })
+    let deletedCount = 0
+    let lockedCount = 0
+    const lockedByOthers: Array<{ id: string; lockedBy: string; lockedByName?: string }> = []
     
-    await Promise.all(deletePromises)
+    // Delete shapes one by one to handle permission errors gracefully
+    for (const shapeDoc of snapshot.docs) {
+      try {
+        const shapeRef = doc(db, 'canvas/global-canvas-v1/shapes', shapeDoc.id)
+        await deleteDoc(shapeRef)
+        console.log(`🗑️ Deleted shape: ${shapeDoc.id}`)
+        deletedCount++
+      } catch (error: any) {
+        // Permission denied - likely locked by another user
+        if (error?.code === 'permission-denied') {
+          const data = shapeDoc.data()
+          lockedCount++
+          lockedByOthers.push({
+            id: shapeDoc.id,
+            lockedBy: data.lockedBy || 'unknown',
+            lockedByName: data.lockedByName
+          })
+          console.log(`🔒 Cannot delete shape ${shapeDoc.id}: locked by ${data.lockedByName || 'another user'}`)
+        } else {
+          throw error // Re-throw unexpected errors
+        }
+      }
+    }
     
-    console.log(`✅ Deleted ${snapshot.docs.length} shapes successfully!`)
-    return { success: true, deletedCount: snapshot.docs.length }
+    if (lockedCount > 0) {
+      const message = `Deleted ${deletedCount} shapes. ${lockedCount} shape(s) could not be deleted because they are locked by other users.`
+      console.log(`⚠️ ${message}`)
+      return { 
+        success: true, 
+        deletedCount, 
+        lockedCount, 
+        lockedByOthers,
+        message 
+      }
+    }
+    
+    console.log(`✅ Deleted ${deletedCount} shapes successfully!`)
+    return { success: true, deletedCount, lockedCount: 0 }
   } catch (error) {
     console.error('❌ Error clearing shapes:', error)
     return { success: false, error }

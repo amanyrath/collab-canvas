@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../utils/firebase'
 import { useUserStore } from '../../store/userStore'
-import { clearAllShapes, clearAllLocks } from '../../utils/devUtils'
+import { clearAllShapes, clearAllLocks, unlockUserShapes } from '../../utils/devUtils'
 import { createShape } from '../../utils/shapeUtils'
 
 const Navbar: React.FC = () => {
@@ -14,15 +14,23 @@ const Navbar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      // ✅ CRITICAL: Cleanup presence BEFORE signing out
-      // This ensures we have permissions to delete our presence data
       if (user) {
+        // ✅ STEP 1: Unlock all shapes locked by this user
+        try {
+          await unlockUserShapes(user.uid)
+          console.log('🔓 User locks removed before logout')
+        } catch (err) {
+          console.error('Failed to unlock user shapes:', err)
+        }
+        
+        // ✅ STEP 2: Cleanup presence BEFORE signing out
+        // This ensures we have permissions to delete our presence data
         const { cleanupPresence } = await import('../../utils/presenceUtils')
         await cleanupPresence(user.uid)
         console.log('🔴 Presence cleaned up before logout')
       }
       
-      // Then sign out
+      // ✅ STEP 3: Sign out
       await signOut(auth)
       console.log('🚪 User signed out successfully')
     } catch (error) {
@@ -37,7 +45,13 @@ const Navbar: React.FC = () => {
     try {
       const result = await clearAllShapes()
       if (result.success) {
-        alert(`✅ Successfully deleted ${result.deletedCount} shapes!`)
+        if (result.message) {
+          // Some shapes were locked and couldn't be deleted
+          alert(`⚠️ ${result.message}`)
+        } else {
+          // All shapes deleted successfully
+          alert(`✅ Successfully deleted ${result.deletedCount} shapes!`)
+        }
       } else {
         alert(`❌ Failed to clear shapes: ${result.error}`)
       }

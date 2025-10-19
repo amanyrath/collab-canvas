@@ -53,6 +53,9 @@ export const acquireLock = async (
       
       console.log(`🔒 Lock acquired by ${displayName} for shape:`, shapeId)
       
+      // ✅ Auto-unlock on disconnect: handled by lockCleanup.ts monitoring presence
+      // When user disconnects, presence is removed, and lockCleanup unlocks all their shapes
+      
       // ✅ PHASE 8: Update presence to show what user is editing (throttled)
       // Use setTimeout to avoid blocking the lock operation
       setTimeout(() => {
@@ -209,6 +212,8 @@ export const acquireLockBatch = async (
     await batch.commit()
     
     console.log(`🔒 Batch acquired ${validShapeIds.length} locks, ${failedIds.length} failed`)
+    
+    // ✅ Auto-unlock on disconnect: handled by lockCleanup.ts monitoring presence
     
     // Update presence in background (non-blocking)
     if (validShapeIds.length > 0) {
