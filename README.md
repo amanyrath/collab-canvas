@@ -1,6 +1,6 @@
 # 🎨 CollabCanvas
 
-> **Real-Time Collaborative Design Tool** - A modern multiplayer canvas application built with React, Firebase, and Konva.js
+> **Real-Time Collaborative Design Tool** - A modern multiplayer canvas application with AI-powered design assistance built with React, Firebase, and Konva.js
 
 ![CollabCanvas Demo](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![React](https://img.shields.io/badge/React-18.3-blue)
@@ -8,412 +8,182 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+---
+
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Quick Start](#-quick-start)
+- [Installation](#-installation)
+- [Development](#-development)
+- [Architecture](#-architecture)
+- [AI Agent Features](#-ai-agent-features)
+- [Deployment](#-deployment)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
 ## 🎯 Overview
 
-CollabCanvas is a real-time collaborative design tool that allows multiple users to create, edit, and interact with shapes on a shared canvas. Built with modern web technologies, it provides smooth multiplayer experiences with instant synchronization across all connected users.
+CollabCanvas is a real-time collaborative design tool that allows multiple users to create, edit, and interact with shapes on a shared canvas. Built with modern web technologies, it provides smooth multiplayer experiences with instant synchronization across all connected users, enhanced with AI-powered design assistance.
 
-### ✨ Key Features
+### ✨ Features
 
-- **🔥 Real-time Collaboration** - Multiple users can work simultaneously with <100ms sync latency
-- **🎨 Interactive Canvas** - Create rectangles and circles with customizable colors
+#### Real-time Collaboration
+- **🔥 Real-time Sync** - Multiple users work simultaneously with <100ms sync latency
 - **👥 Multiplayer Cursors** - See where other users are working with colorblind-friendly colors
 - **🔒 Smart Locking** - Prevent conflicts with automatic shape locking using Firestore transactions
+- **🎭 Presence Awareness** - See who's online and what they're editing in real-time
+
+#### Canvas Features
+- **🎨 Interactive Shapes** - Create rectangles, circles, and triangles with customizable colors
+- **🎄 Christmas Textures** - Apply festive textures with Santa's Magic button
 - **🎯 Multi-Select** - Select and move multiple shapes together (Shift+Click or drag-select)
 - **📐 Boundary Constraints** - Shapes stay within canvas bounds during drag and resize
 - **🚀 Optimistic Updates** - Instant UI feedback with background Firebase synchronization
 - **⌨️ Keyboard Shortcuts** - Power-user features for efficient workflow
-- **🎭 Presence Awareness** - See who's online and what they're editing in real-time
+
+#### AI-Powered Features
+- **🤖 AI Design Assistant** - Natural language commands to create and manipulate shapes
+- **💬 Intelligent Chat** - LangChain-powered agent with ReAct reasoning
+- **🔍 Web Search** - Agent can research design patterns and best practices via Tavily
+- **🎨 Complex Layouts** - Create login forms, navigation bars, and UI components with simple commands
+
+#### Developer Experience
 - **♿ Accessibility** - Colorblind-friendly palette for user cursors
 - **🛠️ Admin Tools** - Create random shapes for testing, clear locks, and manage canvas
+- **📊 Performance Monitor** - Real-time FPS and performance metrics
+- **🔧 Debug Tools** - Browser console commands for testing and debugging
+
+---
 
 ## 🛠 Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Vite
-- **Canvas**: Konva.js + React-Konva for high-performance 2D graphics
-- **Backend**: Firebase (Authentication, Firestore, Real-time Database)
-- **State Management**: Zustand for lightweight state management
-- **Styling**: Tailwind CSS for modern, responsive UI
-- **Build**: Vite for fast development and optimized builds
+### Frontend
+- **React 18** - Modern UI with hooks and functional components
+- **TypeScript** - Type-safe development
+- **Vite** - Lightning-fast development and optimized builds
+- **Konva.js + React-Konva** - High-performance 2D canvas graphics
+- **Tailwind CSS** - Utility-first styling for responsive UI
+
+### Backend & Services
+- **Firebase Authentication** - Secure user authentication
+- **Firestore** - Real-time NoSQL database for shapes and persistent data
+- **Realtime Database** - Ultra-fast presence and cursor tracking
+- **Vercel Functions** - Serverless API for secure AI integration
+
+### AI & Intelligence
+- **LangChain** - AI agent framework with ReAct pattern
+- **OpenAI GPT-4** - Natural language understanding and generation
+- **Tavily API** - Web search integration for contextual design assistance
+
+### State Management
+- **Zustand** - Lightweight, performant state management
+
+---
 
 ## 🚀 Quick Start
 
+Get up and running in 5 minutes:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/amanyrath/collabcanvas-fresh.git
+cd collabcanvas-fresh
+
+# 2. Install dependencies
+npm install
+
+# 3. Copy environment template
+cp env.example .env
+
+# 4. Start Firebase emulators (in one terminal)
+firebase emulators:start
+
+# 5. Start dev server (in another terminal)
+npm run dev
+
+# 6. Open http://localhost:5173 in your browser
+```
+
+That's it! You're now running CollabCanvas locally with Firebase emulators.
+
+---
+
+## 📦 Installation
+
 ### Prerequisites
 
-- Node.js 18+ and npm
-- Firebase CLI (`npm install -g firebase-tools`)
-- A Firebase project (or use local emulators for development)
+Before you begin, ensure you have the following installed:
 
-### Installation
+- **Node.js** 18.x or higher ([Download](https://nodejs.org/))
+- **npm** (comes with Node.js)
+- **Firebase CLI** (optional, for emulators)
+  ```bash
+  npm install -g firebase-tools
+  ```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/amanyrath/collab-canvas.git
-   cd collabcanvas2
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   
-   Create a `.env` file in the project root:
-   
-   **Option A: Production Firebase**
-   ```bash
-   VITE_USE_EMULATOR=false
-   VITE_FIREBASE_API_KEY=your-api-key
-   VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=your-project-id
-   VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-   VITE_FIREBASE_APP_ID=your-app-id
-   VITE_FIREBASE_DATABASE_URL=https://your-project-default-rtdb.firebaseio.com
-   ```
-   
-   **Option B: Local Emulators (Recommended for Development)**
-   ```bash
-   VITE_USE_EMULATOR=true
-   VITE_FIREBASE_API_KEY=demo-api-key
-   VITE_FIREBASE_AUTH_DOMAIN=demo-project.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=demo-project
-   VITE_FIREBASE_STORAGE_BUCKET=demo-project.appspot.com
-   VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-   VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
-   VITE_FIREBASE_DATABASE_URL=http://localhost:9000/?ns=demo-project
-   ```
-
-4. **Start Firebase Emulators** (if using emulators)
-   ```bash
-   # Terminal 1
-   firebase emulators:start
-   ```
-
-5. **Start development server**
-   ```bash
-   # Terminal 2
-   npm run dev
-   ```
-
-6. **Open your browser**
-   - Navigate to `http://localhost:5173`
-   - Sign up/login to start collaborating!
-   - Open multiple browser windows to test multi-user features
-
-### Production Build
+### Step 1: Clone the Repository
 
 ```bash
-npm run build
-npm run preview
+git clone https://github.com/amanyrath/collabcanvas-fresh.git
+cd collabcanvas-fresh
 ```
 
-## 🚀 Deployment
-
-### Deploy to Vercel (Recommended)
-
-CollabCanvas includes serverless backend support for secure API key management:
+### Step 2: Install Dependencies
 
 ```bash
-# Quick deploy
-vercel
-
-# Or connect to GitHub for automatic deployments
-# See VERCEL_DEPLOYMENT.md for complete guide
+npm install
 ```
 
-**Key Features:**
-- ✅ Serverless functions keep API keys secure
-- ✅ Automatic builds on push
-- ✅ Preview deployments for pull requests
-- ✅ Zero-config deployment
+This will install all required packages including:
+- React and related libraries
+- Firebase SDK
+- Konva.js for canvas rendering
+- LangChain and AI dependencies
+- Development tools
 
-**Setup Guide:** See [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md) for complete instructions
+### Step 3: Configure Environment Variables
 
-**Security:** See [SECURITY.md](./SECURITY.md) for API key management best practices
-
-### Deploy to Other Platforms
-
-The app can be deployed to any static hosting service (Netlify, GitHub Pages, etc.), but you'll need to implement a backend for secure API key management. See `SECURITY.md` for implementation options.
-
-## 🎮 How to Use
-
-### Canvas Controls
-
-- **Create Shapes**: 
-  - Click `R` for rectangle tool, `C` for circle tool
-  - Click on canvas to create shape at that position
-- **Select Shapes**: 
-  - Single select: Click on any shape
-  - Multi-select: Shift+Click on multiple shapes OR drag-select box around shapes
-- **Move Shapes**: 
-  - Drag selected shapes to reposition them
-  - Multi-select moves all shapes together as a group
-- **Resize Shapes**: 
-  - Drag corner or edge handles to resize
-  - Hold Shift to maintain aspect ratio
-- **Change Colors**: 
-  - Use color picker in sidebar OR press `1-4` for quick colors
-- **Change Shape Type**: 
-  - With shape(s) selected, click rectangle or circle button to convert
-- **Delete Shapes**: 
-  - Press `Delete` or `Backspace` to remove selected shapes
-
-### Navigation
-
-- **Pan Canvas**: 
-  - Trackpad: Two-finger scroll (Figma-style)
-  - Mouse: Space + drag
-- **Zoom**: 
-  - Mouse wheel: Scroll to zoom
-  - Trackpad: Pinch gesture
-  - Keyboard: Cmd/Ctrl + Scroll
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `V` | Select/Move tool |
-| `R` | Rectangle tool |
-| `C` | Circle tool |
-| `1` | Grey color |
-| `2` | Red color |
-| `3` | Green color |
-| `4` | Blue color |
-| `Shift + Click` | Add/remove shape from selection |
-| `Delete/Backspace` | Delete selected shapes |
-| `Space + Drag` | Pan canvas |
-| `?` | Show help modal with all shortcuts |
-
-### Admin Panel (Testing & Debug)
-
-Access via the 🛠️ button in the navbar:
-
-- **Create Random Shapes**: Generate 1-500 random shapes for testing
-- **Clear All Locks**: Remove stuck locks from shapes
-- **Delete All Shapes**: Nuclear option - clears entire canvas
-
-## 🏗 Architecture
-
-> **📖 For detailed architecture documentation, see [ARCHITECTURE.md](./ARCHITECTURE.md)**
-
-### High-Level Overview
-
-CollabCanvas uses a **lock-based collaboration model** where selection equals locking. This prevents race conditions and ensures data consistency across multiple users.
-
-**Key Architectural Decisions:**
-
-1. **Optimistic Updates**: UI updates instantly, Firebase syncs in background
-2. **Two-Database Strategy**: 
-   - Firestore for persistent data (shapes)
-   - Realtime Database for transient data (cursors, presence)
-3. **Virtual Group Multi-Select**: Shapes move together without actual Konva Groups
-4. **Presence-Based Lock Cleanup**: Auto-release locks when users disconnect
-
-### Core Components
-
-- **Canvas.tsx**: Main canvas, tool selection, keyboard shortcuts, zoom/pan
-- **ShapeLayer.tsx**: Shape rendering, selection, dragging, resizing (most complex!)
-- **SimpleCursorLayer.tsx**: Real-time multiplayer cursors
-- **FastPresenceSidebar.tsx**: Online users list with status indicators
-- **Navbar.tsx**: User info, admin tools, logout with presence cleanup
-
-### State Management (Zustand)
-
-- **canvasStore**: Shapes, selection, optimistic updates
-- **userStore**: Authentication, user profile, cursor color
-
-### Utils
-
-- **shapeUtils.ts**: CRUD operations for shapes (Firestore)
-- **lockUtils.ts**: Lock management with Firestore transactions
-- **presenceUtils.ts**: Real-time presence (RTDB)
-- **firebase.ts**: Firebase initialization and emulator config
-
-## 📁 Project Structure
-
-```
-collabcanvas2/
-├── src/
-│   ├── components/
-│   │   ├── Canvas/       # Canvas, shapes, cursors, presence
-│   │   ├── Auth/         # Login, register, auth flow
-│   │   ├── Layout/       # Navbar with admin tools
-│   │   └── Debug/        # Performance display
-│   ├── hooks/            # Custom React hooks (auth, sync, presence)
-│   ├── store/            # Zustand state management
-│   ├── utils/            # Firebase, shapes, locks, presence
-│   └── main.tsx          # Entry point
-├── ai-process/           # Development documentation
-├── ARCHITECTURE.md       # 📖 Comprehensive architecture guide
-├── README.md             # This file
-├── firebase.json         # Firebase config & emulator setup
-├── firestore.rules       # Firestore security rules
-└── database.rules.json   # RTDB security rules
-```
-
-## 🔧 Development
-
-### Available Scripts
-
-- `npm run dev` - Start Vite development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
-- `npm run lint` - Run ESLint
-- `firebase emulators:start` - Start Firebase emulators (separate command)
-
-### Testing Multi-User Locally
-
-**Method 1: Multiple Browser Types**
-```bash
-# Best for testing - fully isolated sessions
-1. Chrome → Sign in as User A
-2. Firefox → Sign in as User B
-3. Safari → Sign in as User C
-```
-
-**Method 2: Incognito Windows**
-```bash
-# Quick testing
-1. Regular Chrome → User A
-2. Chrome Incognito (Cmd+Shift+N) → User B
-3. Another Chrome Incognito → User C
-```
-
-**Method 3: Browser Profiles**
-```bash
-# Convenient for frequent testing
-1. Create Chrome profiles (User A, User B, User C)
-2. Each profile maintains separate auth session
-3. Open localhost:5173 in each profile
-```
-
-### Firebase Setup (Production)
-
-1. **Create Firebase Project**:
-   - Go to [Firebase Console](https://console.firebase.google.com)
-   - Create new project
-   - Enable billing (Blaze plan) for production use
-
-2. **Enable Services**:
-   - Authentication: Email/Password provider
-   - Firestore Database: Start in production mode
-   - Realtime Database: Start in locked mode
-
-3. **Security Rules**:
-   
-   **Firestore** (`firestore.rules`):
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /canvas/{canvasId}/shapes/{shapeId} {
-         allow read: if true;
-         allow create, update, delete: if request.auth != null;
-       }
-     }
-   }
-   ```
-   
-   **Realtime Database** (`database.rules.json`):
-   ```json
-   {
-     "rules": {
-       "sessions": {
-         "$canvasId": {
-           "$userId": {
-             ".write": "$userId === auth.uid",
-             ".read": true
-           }
-         }
-       }
-     }
-   }
-   ```
-
-### Development Tools
-
-**Browser Console Commands** (Dev mode only):
-```javascript
-clearAllLocks()          // Clear stuck locks
-clearAllShapes()         // Delete all shapes
-getPerformanceStats()    // View FPS and performance metrics
-logMemoryUsage()         // Check memory consumption
-```
-
-**Performance Monitoring**:
-```javascript
-// Check Firestore quota usage
-console.log('Firestore Reads:', localStorage.getItem('firestoreReads'))
-console.log('Firestore Writes:', localStorage.getItem('firestoreWrites'))
-```
-
-## 🤖 AI-Assisted Development
-
-This project was built with AI assistance (Claude by Anthropic). All documentation was maintained throughout development:
-
-**Key Documentation:**
-- `ARCHITECTURE.md` - Comprehensive technical guide (start here!)
-- `README.md` - User guide and quick start (this file)
-- `ai-process/` - Development process documentation
-  - Product requirements
-  - Task checklists  
-  - Optimization plans
-  - Debug logs
-  - Improvement summaries
-
-**Development Approach:**
-- Iterative refinement with real-time bug fixing
-- Performance optimization throughout
-- Accessibility considerations (colorblind-friendly colors)
-- Comprehensive testing of multi-user scenarios
-- Documentation-first mindset
-
-## 🚀 Deployment
-
-### Option 1: Vercel (Recommended)
-
-**Automatic Deployment:**
-1. Push to GitHub
-2. Connect repository to Vercel
-3. Add environment variables:
-   ```
-   VITE_USE_EMULATOR=false
-   VITE_FIREBASE_API_KEY=xxx
-   VITE_FIREBASE_AUTH_DOMAIN=xxx
-   VITE_FIREBASE_PROJECT_ID=xxx
-   VITE_FIREBASE_STORAGE_BUCKET=xxx
-   VITE_FIREBASE_MESSAGING_SENDER_ID=xxx
-   VITE_FIREBASE_APP_ID=xxx
-   VITE_FIREBASE_DATABASE_URL=xxx
-   ```
-4. Deploy! (Auto-deploys on every push to main)
-
-### Option 2: Firebase Hosting
+Create a `.env` file in the project root:
 
 ```bash
-# Build
-npm run build
-
-# Deploy
-firebase deploy --only hosting
-
-# Custom domain
-firebase hosting:channel:deploy production
+cp env.example .env
 ```
 
-### Option 3: Netlify
+#### Option A: Local Development with Emulators (Recommended)
 
-```bash
-# Build command: npm run build
-# Publish directory: dist
-# Add same environment variables as Vercel
+For local development without Firebase costs:
+
+```env
+# Firebase Configuration
+VITE_FIREBASE_API_KEY=demo-api-key
+VITE_FIREBASE_AUTH_DOMAIN=demo-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=demo-project
+VITE_FIREBASE_STORAGE_BUCKET=demo-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
+VITE_FIREBASE_DATABASE_URL=http://localhost:9000/?ns=demo-project
+
+# Use emulators
+VITE_USE_EMULATOR=true
+
+# AI Features (optional for basic canvas features)
+VITE_USE_BACKEND_API=false
+VITE_OPENAI_API_KEY=your_openai_api_key_here
+VITE_TAVILY_API_KEY=your_tavily_api_key_here
 ```
 
-### Environment Variables (All Platforms)
+#### Option B: Production Firebase
 
-```bash
-VITE_USE_EMULATOR=false  # Set to true only for local dev
+For production deployment or testing with real Firebase:
+
+```env
+# Firebase Configuration (get these from Firebase Console)
 VITE_FIREBASE_API_KEY=your-api-key
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
@@ -421,59 +191,168 @@ VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
 VITE_FIREBASE_DATABASE_URL=https://your-project-default-rtdb.firebaseio.com
+
+# Disable emulators
+VITE_USE_EMULATOR=false
+
+# For production, use backend API
+VITE_USE_BACKEND_API=true
 ```
 
-## 🐛 Troubleshooting
+> **🔒 Security Note**: Never commit your `.env` file. API keys prefixed with `VITE_` are exposed to the browser. For production, use serverless functions to keep AI API keys secure.
 
-### Common Issues
+### Step 4: Start Firebase Emulators (Local Development)
 
-**Canvas not loading**
+If using emulators, start them in a separate terminal:
+
 ```bash
-# Check browser console for errors
-# Verify .env file exists and has correct values
-# For emulators: ensure firebase emulators are running
 firebase emulators:start
 ```
 
-**Shapes not syncing between users**
+The Firebase Emulator UI will be available at http://localhost:4000
+
+Services running:
+- **Authentication**: localhost:9099
+- **Firestore**: localhost:8080
+- **Realtime Database**: localhost:9000
+
+### Step 5: Start Development Server
+
+In a new terminal window:
+
 ```bash
-# Symptom: User A creates shape, User B doesn't see it
-# Check: Firestore emulator connection
-# Fix: Look for ERR_CONNECTION_RESET in console
-#      Ensure emulators use 127.0.0.1 not localhost
+npm run dev
 ```
 
-**Cursors not appearing**
-```bash
-# Symptom: Can't see other users' cursors
-# Check: Realtime Database connection
-# Fix: Verify RTDB rules allow reads
-#      Check presence data in Firebase console
+The application will start at **http://localhost:5173**
+
+### Step 6: Create Your First Account
+
+1. Open http://localhost:5173 in your browser
+2. Click "Register" or "Sign Up"
+3. Create a test account with any email/password
+4. Start collaborating!
+
+### Testing Multi-User Features
+
+To test real-time collaboration, open the app in multiple browsers:
+
+**Method 1: Different Browsers**
+```
+Chrome → http://localhost:5173 (User A)
+Firefox → http://localhost:5173 (User B)
+Safari → http://localhost:5173 (User C)
 ```
 
-**Users not disappearing from sidebar on logout**
-```bash
-# Symptom: Logged out users still show as "online"
-# Check: Presence cleanup happens BEFORE signOut
-# Fix: This is already fixed in latest version
-#      Presence data is completely removed on disconnect
+**Method 2: Incognito Windows**
+```
+Regular Chrome → User A
+Chrome Incognito (⌘+Shift+N / Ctrl+Shift+N) → User B
+Another Chrome Incognito → User C
 ```
 
-**Orphaned locks (shapes stuck as locked)**
-```bash
-# Symptom: Shape locked but user is offline
-# Check: usePresenceMonitor is cleaning up locks
-# Fix: Use admin panel → Clear All Locks
-#      Or wait for automatic cleanup on disconnect
+**Method 3: Browser Profiles**
+```
+Create separate Chrome profiles for each test user
 ```
 
-**Multi-select acting weird**
-```bash
-# Symptom: Shapes jump or don't move together
-# Check: Browser console for "stale reference" errors
-# Fix: This should be fixed in latest version
-#      Uses fresh node references via findOne()
+---
+
+## 🔧 Development
+
+### Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite development server at http://localhost:5173 |
+| `npm run build` | Build optimized production bundle |
+| `npm run preview` | Preview production build locally |
+| `npm run lint` | Run ESLint to check code quality |
+| `firebase emulators:start` | Start Firebase emulators (separate terminal) |
+
+### Project Structure
+
 ```
+collabcanvas-fresh/
+├── src/
+│   ├── agent/              # AI agent implementation
+│   │   ├── executor.ts     # Command executor
+│   │   ├── llm.ts          # LangChain LLM setup
+│   │   ├── prompts/        # System prompts
+│   │   └── tools/          # LangChain tools
+│   ├── api/                # API integration
+│   │   └── agentApi.ts     # Vercel function API client
+│   ├── components/
+│   │   ├── Auth/           # Authentication components
+│   │   ├── Canvas/         # Canvas, shapes, cursors, presence
+│   │   ├── Chat/           # AI chat interface
+│   │   ├── Comments/       # Commenting system
+│   │   ├── Debug/          # Performance monitoring
+│   │   └── Layout/         # Navbar and layout
+│   ├── constants/          # Texture manifests and constants
+│   ├── hooks/              # Custom React hooks
+│   │   ├── useAuth.ts      # Authentication hook
+│   │   ├── useShapeSync.ts # Shape synchronization
+│   │   ├── useAgent.ts     # AI agent hook
+│   │   └── ...             # Other hooks
+│   ├── store/              # Zustand state management
+│   │   ├── canvasStore.ts  # Canvas state
+│   │   └── userStore.ts    # User state
+│   ├── utils/              # Utility functions
+│   │   ├── firebase.ts     # Firebase initialization
+│   │   ├── shapeUtils.ts   # Shape CRUD operations
+│   │   ├── lockUtils.ts    # Lock management
+│   │   ├── presenceUtils.ts# Presence tracking
+│   │   └── ...             # Other utilities
+│   ├── App.tsx             # Main application component
+│   └── main.tsx            # Application entry point
+├── api/                    # Vercel serverless functions
+│   └── agent/
+│       └── chat.ts         # AI agent API endpoint
+├── public/
+│   └── textures/           # Christmas texture assets
+├── scripts/                # Development scripts
+│   ├── test-agent-setup.js # Verify AI agent setup
+│   ├── test-llm.js         # Test LLM connection
+│   └── validate-build.js   # Build security validation
+├── ai-process/             # Development documentation
+├── ARCHITECTURE.md         # Detailed architecture guide
+├── CONTRIBUTING.md         # Contribution guidelines
+├── firebase.json           # Firebase configuration
+├── firestore.rules         # Firestore security rules
+├── database.rules.json     # Realtime Database rules
+└── vercel.json             # Vercel deployment config
+```
+
+### Development Workflow
+
+1. **Feature Development**
+   ```bash
+   # Create a feature branch
+   git checkout -b feature/your-feature-name
+   
+   # Make changes
+   # Test locally with emulators
+   npm run dev
+   
+   # Lint your code
+   npm run lint
+   
+   # Build to check for issues
+   npm run build
+   ```
+
+2. **Testing**
+   - Test with Firebase emulators first
+   - Open multiple browsers to test collaboration
+   - Use the Debug panel to monitor performance
+   - Check browser console for errors
+
+3. **Code Quality**
+   - Follow TypeScript best practices
+   - Use ESLint to catch issues
+   - Keep components small and focused
+   - Add comments for complex logic
 
 ### Debug Tools
 
@@ -484,55 +363,322 @@ firebase emulators:start
 
 **Browser Console Commands** (Dev mode):
 ```javascript
-clearAllLocks()          // Emergency lock cleanup
-clearAllShapes()         // Reset entire canvas
-getPerformanceStats()    // Check FPS and performance
+clearAllLocks()          // Clear stuck locks
+clearAllShapes()         // Delete all shapes
+getPerformanceStats()    // View FPS and metrics
 ```
 
-**Firebase Emulator UI**:
+---
+
+## 🏗 Architecture
+
+CollabCanvas uses a **lock-based collaboration model** where selection equals locking. This prevents race conditions and ensures data consistency across multiple users.
+
+### Key Architectural Decisions
+
+1. **Optimistic Updates**: UI updates instantly, Firebase syncs in background
+2. **Two-Database Strategy**: 
+   - Firestore for persistent data (shapes, comments)
+   - Realtime Database for transient data (cursors, presence)
+3. **Virtual Group Multi-Select**: Shapes move together without actual Konva Groups
+4. **Presence-Based Lock Cleanup**: Auto-release locks when users disconnect
+5. **ReAct Agent Pattern**: AI agent uses reasoning and action cycles
+
+### Core Components
+
+| Component | Purpose |
+|-----------|---------|
+| `Canvas.tsx` | Main canvas, tool selection, keyboard shortcuts, zoom/pan |
+| `ShapeLayer.tsx` | Shape rendering, selection, dragging, resizing (most complex!) |
+| `SimpleCursorLayer.tsx` | Real-time multiplayer cursors |
+| `FastPresenceSidebar.tsx` | Online users list with status indicators |
+| `AgentChat.tsx` | AI chat interface with LangChain integration |
+| `Navbar.tsx` | User info, admin tools, logout with presence cleanup |
+
+### State Management
+
+**Zustand Stores:**
+- `canvasStore`: Shapes, selection, optimistic updates
+- `userStore`: Authentication, user profile, cursor color
+
+**Key Utils:**
+- `shapeUtils.ts`: CRUD operations for shapes (Firestore)
+- `lockUtils.ts`: Lock management with Firestore transactions
+- `presenceUtils.ts`: Real-time presence (RTDB)
+- `firebase.ts`: Firebase initialization and emulator config
+
+For detailed architecture documentation, see [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+---
+
+## 🤖 AI Agent Features
+
+CollabCanvas includes an AI-powered design assistant built with LangChain.
+
+### Capabilities
+
+The AI agent can understand natural language commands like:
+
+**Creation Commands:**
+- "Create a red circle at 200, 300"
+- "Make a blue rectangle 150x200 at 500, 400"
+- "Create 10 random colored shapes"
+- "Build a login form"
+- "Design a navigation bar with 4 menu items"
+
+**Manipulation Commands:**
+- "Move the selected shape to 600, 700"
+- "Make it twice as big"
+- "Change the color to green"
+- "Delete that shape"
+- "Arrange all shapes horizontally"
+
+**Complex Commands:**
+- "Create a card layout with title and button"
+- "Design a Christmas tree"
+- "Build a color palette with 5 colors"
+
+### Setup AI Features
+
+1. **Get API Keys**
+   - OpenAI API Key: https://platform.openai.com/api-keys
+   - Tavily API Key: https://tavily.com/ (for web search)
+
+2. **Configure Environment**
+   ```env
+   VITE_OPENAI_API_KEY=sk-...
+   VITE_TAVILY_API_KEY=tvly-...
+   VITE_USE_BACKEND_API=false
+   ```
+
+3. **Test Setup**
+   ```bash
+   node scripts/test-agent-setup.js
+   ```
+
+4. **Use AI Chat**
+   - Open the chat panel in the app
+   - Type natural language commands
+   - Watch the AI create and manipulate shapes!
+
+> **🔒 Production**: For production deployments, set `VITE_USE_BACKEND_API=true` and configure serverless functions to keep API keys secure.
+
+For detailed AI documentation, see [src/agent/README.md](./src/agent/README.md)
+
+---
+
+## 🚀 Deployment
+
+### Deploy to Vercel (Recommended)
+
+Vercel provides the best experience with zero-config deployment and serverless functions for AI features.
+
+**Quick Deploy:**
+
+1. **Push to GitHub**
+   ```bash
+   git push origin main
+   ```
+
+2. **Connect to Vercel**
+   - Go to [vercel.com](https://vercel.com)
+   - Import your GitHub repository
+   - Vercel auto-detects Vite configuration
+
+3. **Configure Environment Variables**
+   
+   Add these in Vercel Dashboard → Settings → Environment Variables:
+   ```
+   VITE_USE_EMULATOR=false
+   VITE_FIREBASE_API_KEY=your-api-key
+   VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your-project-id
+   VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+   VITE_FIREBASE_APP_ID=your-app-id
+   VITE_FIREBASE_DATABASE_URL=https://your-project-default-rtdb.firebaseio.com
+   
+   # For AI features
+   VITE_USE_BACKEND_API=true
+   OPENAI_API_KEY=sk-...
+   TAVILY_API_KEY=tvly-...
+   ```
+
+4. **Deploy**
+   - Click "Deploy"
+   - Vercel builds and deploys automatically
+   - Get your production URL!
+
+**Automatic Deployments:**
+- Every push to `main` → Production deployment
+- Every PR → Preview deployment
+
+For detailed deployment guide, see [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+
+### Deploy to Firebase Hosting
+
 ```bash
-# Access at http://localhost:4000
-# View Firestore data, RTDB data, Auth users
-# Useful for debugging sync issues
+# Build the app
+npm run build
+
+# Deploy to Firebase
+firebase deploy --only hosting
 ```
+
+### Deploy to Netlify
+
+```bash
+# Build command: npm run build
+# Publish directory: dist
+# Add same environment variables as Vercel
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Canvas Not Loading
+
+**Symptom**: Blank screen or loading indefinitely
+
+**Solution**:
+1. Check browser console for errors
+2. Verify `.env` file exists and has correct values
+3. If using emulators, ensure they're running:
+   ```bash
+   firebase emulators:start
+   ```
+4. Clear browser cache and hard reload (Ctrl+Shift+R)
+
+### Shapes Not Syncing
+
+**Symptom**: User A creates shape, User B doesn't see it
+
+**Solution**:
+1. Check Firestore emulator connection at http://localhost:4000
+2. Look for `ERR_CONNECTION_RESET` in console
+3. Ensure emulators use `127.0.0.1` not `localhost` in connection strings
+4. Verify Firestore rules allow reads/writes
+
+### Cursors Not Appearing
+
+**Symptom**: Can't see other users' cursors
+
+**Solution**:
+1. Check Realtime Database connection
+2. Verify RTDB rules allow reads
+3. Check presence data in Firebase console
+4. Ensure `VITE_FIREBASE_DATABASE_URL` is correct
+
+### Orphaned Locks
+
+**Symptom**: Shape locked but user is offline
+
+**Solution**:
+1. Use Admin Panel → Clear All Locks
+2. Wait for automatic cleanup on disconnect
+3. Check `usePresenceMonitor` is running
+
+### AI Agent Not Responding
+
+**Symptom**: AI chat doesn't respond to commands
+
+**Solution**:
+1. Verify API keys are set in `.env`
+2. Run: `node scripts/test-agent-setup.js`
+3. Check OpenAI billing and quota
+4. Look for error messages in browser console
+5. Ensure network connectivity
+
+### Build Errors
+
+**Symptom**: `npm run build` fails
+
+**Solution**:
+1. Check for TypeScript errors: `npx tsc --noEmit`
+2. Run linter: `npm run lint`
+3. Clear node_modules and reinstall:
+   ```bash
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+### Performance Issues
+
+**Symptom**: Slow rendering or laggy interactions
+
+**Solution**:
+1. Check Performance Display (top-right corner)
+2. Limit shapes on canvas (admin tools)
+3. Reduce number of concurrent users
+4. Check browser console for warnings
+5. Close other tabs and applications
+
+For more troubleshooting, see [ARCHITECTURE.md](./ARCHITECTURE.md) or open an issue on GitHub.
+
+---
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and commit: `git commit -m 'Add feature'`
-4. Push to branch: `git push origin feature-name`
-5. Submit a pull request
+We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+
+### Quick Contributing Guide
+
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Make your changes**
+   - Follow existing code style
+   - Add comments for complex logic
+   - Test thoroughly
+4. **Commit your changes**
+   ```bash
+   git commit -m 'Add amazing feature'
+   ```
+5. **Push to your fork**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+6. **Open a Pull Request**
+
+---
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+---
+
 ## 🙏 Acknowledgments
 
-**Built With:**
+### Built With
 - [React](https://react.dev/) - UI framework
 - [Konva.js](https://konvajs.org/) - High-performance 2D canvas library
 - [Firebase](https://firebase.google.com/) - Backend and real-time infrastructure
+- [LangChain](https://www.langchain.com/) - AI agent framework
+- [OpenAI](https://openai.com/) - GPT-4 language model
 - [Zustand](https://github.com/pmndrs/zustand) - Lightweight state management
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first styling
 - [Vite](https://vitejs.dev/) - Lightning-fast build tool
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
 
-**Inspiration:**
+### Inspiration
 - [Figma](https://www.figma.com/) - Multiplayer interactions and UX patterns
 - [Excalidraw](https://excalidraw.com/) - Collaborative whiteboard simplicity
 - [tldraw](https://tldraw.com/) - Canvas performance optimizations
 
-**AI Development:**
+### AI Development
 - Built with assistance from [Claude](https://anthropic.com/claude) (Anthropic)
 - Documentation-first approach throughout development
 - Iterative refinement based on real-world testing
 
-**Special Thanks:**
+### Special Thanks
 - Paul Tol for colorblind-friendly color schemes
 - Firebase team for excellent real-time infrastructure
 - Konva.js community for canvas rendering solutions
+- LangChain team for AI agent framework
 
 ---
 
@@ -540,16 +686,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Documentation:**
 - 📖 [ARCHITECTURE.md](./ARCHITECTURE.md) - Technical deep dive
-- 📋 [ai-process/](./ai-process/) - Development documentation
+- 📋 [CONTRIBUTING.md](./CONTRIBUTING.md) - How to contribute
+- 🤖 [AI Agent Guide](./src/agent/README.md) - AI features documentation
+- 📁 [Development Docs](./ai-process/) - Process documentation
 
 **Repository:**
-- 🔗 [GitHub](https://github.com/amanyrath/collab-canvas)
-- 🐛 [Report Issues](https://github.com/amanyrath/collab-canvas/issues)
-- 💡 [Feature Requests](https://github.com/amanyrath/collab-canvas/issues/new)
+- 🔗 [GitHub](https://github.com/amanyrath/collabcanvas-fresh)
+- 🐛 [Report Issues](https://github.com/amanyrath/collabcanvas-fresh/issues)
+- 💡 [Feature Requests](https://github.com/amanyrath/collabcanvas-fresh/issues/new)
 
 **Connect:**
 - 💼 [LinkedIn](https://linkedin.com/in/alexismanyrath)
-- 🐦 [Twitter/X](https://twitter.com/alexismanyrath)
 
 ---
 
@@ -558,5 +705,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Made with ❤️ using AI-assisted development**
 
 *CollabCanvas © 2025 | MIT License*
+
+[⬆ Back to Top](#-collabcanvas)
 
 </div>
