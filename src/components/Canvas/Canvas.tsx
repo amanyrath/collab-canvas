@@ -118,17 +118,31 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
   // 🎄 QUICK TREE: Create a Christmas tree template
   const handleQuickTree = useCallback(async () => {
-    if (!user) return
+    if (!user || !stageRef.current) return
 
     const { shapes, addShape } = useCanvasStore.getState()
     
     console.log('🎄 Quick Tree button clicked!')
     
-    // Find available space
-    const { x, y } = findAvailableTreeSpace(shapes, 200, 400)
+    // Get center of current viewport
+    const stage = stageRef.current
+    const scale = stage.scaleX()
+    const stageX = stage.x()
+    const stageY = stage.y()
     
-    // Generate tree shapes
-    const treeShapes = createClassicTree(x, y, 'medium', user.uid)
+    // Calculate center of visible area in canvas coordinates
+    const viewportCenterX = (width / 2 - stageX) / scale
+    const viewportCenterY = (height / 2 - stageY) / scale
+    
+    console.log(`🎄 Creating tree at viewport center: (${viewportCenterX.toFixed(0)}, ${viewportCenterY.toFixed(0)})`)
+    
+    // Tree dimensions for 'large' size (1.5x multiplier)
+    // Layers overlap at 70%, total triangles height ≈ 430px * 1.5 = 645px
+    const treeHeight = 645
+    const centerY = viewportCenterY + treeHeight / 2 // Center of tree at viewport center
+    
+    // Generate large tree shapes (centered in viewport)
+    const treeShapes = createClassicTree(viewportCenterX, centerY, 'large', user.uid)
     
     // Add shapes to canvas (locally first for instant feedback)
     treeShapes.forEach(shape => {
@@ -161,7 +175,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       setMagicNotification('❌ Tree creation failed!')
       setTimeout(() => setMagicNotification(null), 2000)
     }
-  }, [user])
+  }, [user, stageRef, width, height])
 
   // ✅ COMBINED: Space key + Delete key + Undo/Redo handling
   useEffect(() => {
@@ -756,7 +770,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         <button
           onClick={handleQuickTree}
           className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-lg flex items-center gap-2 transition-all font-semibold"
-          title="Create a Christmas tree"
+          title="Create a large Christmas tree in your current view"
           aria-label="Quick Tree"
         >
           <span className="text-2xl">🎄</span>
