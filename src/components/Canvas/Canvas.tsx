@@ -20,6 +20,7 @@ import AgentChat from '../Chat/AgentChat'
 import { createClassicTree } from '../../utils/treeTemplates'
 import { createShape as createShapeFirebase } from '../../utils/shapeUtils'
 import { useTexturePreload } from '../../hooks/useTexturePreload'
+import { CommentsSidebar } from '../Comments/CommentsSidebar'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -39,6 +40,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   // 🎄 CHRISTMAS MODE: Toggle for texture-based shape creation
   const [isChristmasMode, setIsChristmasMode] = useState(false)
   const [selectedTexture, setSelectedTexture] = useState<string | null>(null)
+  
+  // 💬 COMMENTS: Sidebar state
+  const [isCommentsSidebarOpen, setIsCommentsSidebarOpen] = useState(false)
+  const [commentShapeId, setCommentShapeId] = useState<string | null>(null)
   
   const { user } = useUserStore()
   
@@ -799,6 +804,38 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
       {/* AI Agent Chat */}
       <AgentChat isOpen={isAgentChatOpen} onClose={() => setIsAgentChatOpen(false)} />
+
+      {/* 💬 Comments Toggle Button (top-right) */}
+      {!isCommentsSidebarOpen && (
+        <button
+          onClick={() => {
+            setIsCommentsSidebarOpen(true)
+            // If a shape is selected, set it as the comment target
+            const selectedShape = shapes.find(s => s.lockedBy === user?.uid)
+            if (selectedShape) {
+              setCommentShapeId(selectedShape.id)
+            }
+          }}
+          className="fixed top-4 right-4 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg shadow-md flex items-center gap-2 transition-colors z-30"
+          title="Open Comments"
+          aria-label="Open Comments"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+          </svg>
+          <span className="text-sm font-medium">Comments</span>
+        </button>
+      )}
+
+      {/* 💬 Comments Sidebar */}
+      <CommentsSidebar
+        shapeId={commentShapeId}
+        isOpen={isCommentsSidebarOpen}
+        onClose={() => {
+          setIsCommentsSidebarOpen(false)
+          setCommentShapeId(null)
+        }}
+      />
     </div>
   )
 }
