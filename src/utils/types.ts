@@ -31,6 +31,18 @@ export interface Shape {
   // 🎄 CHRISTMAS: Texture overlay (like a visual skin, synced to Firebase)
   texture?: string              // Path to texture file (e.g., '/textures/trees/pine1.png')
   treeLayer?: number            // For stacking tree triangles (0 = bottom)
+  
+  // 💬 COMMENTS: Stored directly on the shape
+  comments?: Array<{
+    id: string
+    text: string
+    authorId: string
+    authorName: string
+    authorColor?: string
+    createdAt: any              // Firestore timestamp
+    updatedAt?: any             // Firestore timestamp
+    isEdited?: boolean
+  }>
 }
 
 export interface CursorPosition {

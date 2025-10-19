@@ -4,11 +4,12 @@
  * Sliding sidebar panel for shape comments (Google Docs style)
  */
 
-import React from 'react'
-import { useComments, useCommentActions } from '../../hooks/useComments'
+import React, { useState } from 'react'
 import { CommentItem } from './CommentItem'
 import { CommentInput } from './CommentInput'
 import { useUserStore } from '../../store/userStore'
+import { useCanvasStore } from '../../store/canvasStore'
+import { addCommentToShape, editCommentOnShape, deleteCommentFromShape } from '../../utils/commentUtils.simple'
 
 interface CommentsSidebarProps {
   shapeId: string | null
@@ -22,40 +23,65 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
   isOpen
 }) => {
   const { user } = useUserStore()
-  const { comments, loading, commentCount } = useComments(shapeId)
-  const { addNewComment, editComment, removeComment, submitting } = useCommentActions()
+  const { shapes } = useCanvasStore()
+  const [submitting, setSubmitting] = useState(false)
+  
+  // Get the selected shape from the store
+  const selectedShape = shapes.find(s => s.id === shapeId)
+  const comments = selectedShape?.comments || []
+  const commentCount = comments.length
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('💬 CommentsSidebar: shapeId=' + (shapeId?.slice(-6) || 'null') + ', isOpen=' + isOpen + ', loading=' + loading + ', comments=' + comments.length + ', submitting=' + submitting)
-  }, [shapeId, isOpen, loading, commentCount, comments.length, submitting])
+  console.log('💬 CommentsSidebar:', {
+    shapeId: shapeId?.slice(-6) || 'null',
+    isOpen,
+    commentCount,
+    hasShape: !!selectedShape
+  })
 
   const handleAddComment = async (text: string) => {
-    if (!shapeId || !user) return
+    if (!selectedShape || !user) return
     
+    setSubmitting(true)
     try {
-      console.log('💬 Adding comment:', { shapeId: shapeId.slice(-6), text, userId: user.uid, userName: user.displayName })
-      await addNewComment(
-        shapeId,
+      await addCommentToShape(
+        selectedShape,
         text,
         user.uid,
         user.displayName || 'Anonymous',
         user.cursorColor
       )
-      console.log('✅ Comment added successfully')
     } catch (error) {
       console.error('❌ Failed to add comment:', error)
-      alert('Failed to add comment. Check console for details.')
+      alert('Failed to add comment')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleEditComment = async (commentId: string, newText: string) => {
-    await editComment(commentId, newText)
+    if (!selectedShape || !user) return
+    
+    setSubmitting(true)
+    try {
+      await editCommentOnShape(selectedShape, commentId, newText, user.uid)
+    } catch (error) {
+      console.error('❌ Failed to edit comment:', error)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleDeleteComment = async (commentId: string) => {
-    if (window.confirm('Delete this comment?')) {
-      await removeComment(commentId)
+    if (!selectedShape || !user) return
+    if (!window.confirm('Delete this comment?')) return
+    
+    setSubmitting(true)
+    try {
+      await deleteCommentFromShape(selectedShape, commentId, user.uid)
+    } catch (error) {
+      console.error('❌ Failed to delete comment:', error)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -105,13 +131,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
 
         {/* Comments list */}
         <div className="flex-1 overflow-y-auto">
-          {loading && shapeId && (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-            </div>
-          )}
-
-          {!loading && !shapeId && (
+          {!shapeId && (
             <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
               <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -122,7 +142,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
             </div>
           )}
 
-          {!loading && shapeId && commentCount === 0 && (
+          {shapeId && commentCount === 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
               <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -136,7 +156,7 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
             </div>
           )}
 
-          {!loading && comments.length > 0 && (
+          {comments.length > 0 && (
             <div className="divide-y divide-gray-100">
               {comments.map(comment => (
                 <CommentItem
