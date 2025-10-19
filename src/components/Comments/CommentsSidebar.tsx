@@ -9,7 +9,7 @@ import { CommentItem } from './CommentItem'
 import { CommentInput } from './CommentInput'
 import { useUserStore } from '../../store/userStore'
 import { useCanvasStore } from '../../store/canvasStore'
-import { addCommentToShape, editCommentOnShape, deleteCommentFromShape } from '../../utils/commentUtils.simple'
+import { addCommentToShape, editCommentOnShape, deleteCommentFromShape } from '../../utils/commentUtils'
 
 interface CommentsSidebarProps {
   shapeId: string | null
@@ -37,14 +37,6 @@ export const CommentsSidebar: React.FC<CommentsSidebarProps> = ({
       setSubmitting(false)
     }
   }, [isOpen])
-
-  console.log('💬 CommentsSidebar:', {
-    shapeId: shapeId?.slice(-6) || 'null',
-    isOpen,
-    commentCount,
-    hasShape: !!selectedShape,
-    submitting
-  })
 
   const handleAddComment = async (text: string) => {
     if (!selectedShape || !user) return

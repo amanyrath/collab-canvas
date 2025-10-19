@@ -21,7 +21,6 @@ import { createClassicTree } from '../../utils/treeTemplates'
 import { createShape as createShapeFirebase } from '../../utils/shapeUtils'
 import { useTexturePreload } from '../../hooks/useTexturePreload'
 import { CommentsSidebar } from '../Comments/CommentsSidebar'
-import { useCommentCount } from '../../hooks/useCommentCount'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -320,14 +319,15 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   // 💬 Auto-update comment target when selecting shapes (if sidebar is open)
   // Add debouncing to prevent rapid subscription changes
   useEffect(() => {
-    if (isCommentsSidebarOpen && lastSelectedShapeId) {
-      const timeoutId = setTimeout(() => {
-        console.log(`💬 Canvas: Switching to shape ${lastSelectedShapeId.slice(-6)}`)
-        setCommentShapeId(lastSelectedShapeId)
-      }, 500) // 500ms debounce (increased for stability)
-      
-      return () => clearTimeout(timeoutId)
+    if (!isCommentsSidebarOpen || !lastSelectedShapeId) {
+      return
     }
+    
+    const timeoutId = setTimeout(() => {
+      setCommentShapeId(lastSelectedShapeId)
+    }, 500) // 500ms debounce (increased for stability)
+    
+    return () => clearTimeout(timeoutId)
   }, [isCommentsSidebarOpen, lastSelectedShapeId])
   
   // ✅ Track user's creation preferences (separate from current picker display)

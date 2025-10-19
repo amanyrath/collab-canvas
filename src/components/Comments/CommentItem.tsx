@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react'
-import { ShapeComment } from '../../utils/commentUtils.simple'
+import { ShapeComment } from '../../utils/commentUtils'
 import { Timestamp } from 'firebase/firestore'
 
 function formatCommentTime(timestamp: any): string {
@@ -39,8 +39,6 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onEdit,
   onDelete
 }) => {
-  console.log('💬 Rendering CommentItem:', comment.id.slice(-6), comment)
-  
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(comment.text)
   const isAuthor = comment.authorId === currentUserId
