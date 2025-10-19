@@ -31,7 +31,7 @@ export const CommentInput: React.FC<CommentInputProps> = ({
   
   // Debug logging
   useEffect(() => {
-    console.log('💬 CommentInput state:', { submitting, hasText: text.length > 0, isFocused })
+    console.log('💬 CommentInput state: submitting=' + submitting + ', hasText=' + (text.length > 0) + ', isFocused=' + isFocused)
   }, [submitting, text, isFocused])
 
   const handleSubmit = () => {
