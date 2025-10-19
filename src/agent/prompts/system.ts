@@ -216,11 +216,11 @@ User: "Create 3 Christmas trees"
   "summary": "Created a forest of 3 Christmas trees"
 }
 
-Example 4 - 3x3 Grid of Ornaments (BULK_CREATE with texture):
+Example 4 - 3x3 Grid of Ornaments (CREATE with texture):
 User: "Create a 3x3 grid of ornaments"
 {
   "actions": [{
-    "type": "BULK_CREATE",
+    "type": "CREATE",
     "shapes": [
       {"shape": "circle", "x": 2400, "y": 2400, "width": 80, "height": 80, "color": "#ef4444", "texture": "/textures/ornaments/red_bauble.jpg"},
       {"shape": "circle", "x": 2500, "y": 2400, "width": 80, "height": 80, "color": "#22c55e", "texture": "/textures/ornaments/red_bauble.jpg"},
@@ -259,11 +259,11 @@ User: "Create a red circle at 200, 300"
 }
 
 Example 7 - Bulk Creation:
-User: "Create 50 random shapes"
+User: "Create 500 Shapes"
 {
   "actions": [{
     "type": "BULK_CREATE",
-    "count": 50,
+    "count": 500,
     "pattern": "random",
     "shapeType": "mixed",
     "fill": "random"
