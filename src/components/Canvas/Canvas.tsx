@@ -21,6 +21,7 @@ import { createClassicTree } from '../../utils/treeTemplates'
 import { createShape as createShapeFirebase } from '../../utils/shapeUtils'
 import { useTexturePreload } from '../../hooks/useTexturePreload'
 import { CommentsSidebar } from '../Comments/CommentsSidebar'
+import { applySantaMagic } from '../../utils/santaMagic'
 
 const CANVAS_WIDTH = 5000
 const CANVAS_HEIGHT = 5000
@@ -118,6 +119,36 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     
     setTimeout(() => setMagicNotification(null), 2500)
   }, [isChristmasMode])
+
+  // 🎅 MAKE EVERYTHING CHRISTMAS: Transform ALL existing shapes
+  const handleMakeEverythingChristmas = useCallback(async () => {
+    if (!user) return
+
+    const { shapes } = useCanvasStore.getState()
+    
+    if (shapes.length === 0) {
+      setMagicNotification('❌ No shapes on canvas to transform!')
+      setTimeout(() => setMagicNotification(null), 2000)
+      return
+    }
+
+    console.log(`🎅 Transforming ${shapes.length} shapes to Christmas theme...`)
+    setMagicNotification('🎅 Applying Santa\'s Magic...')
+
+    try {
+      const result = await applySantaMagic(shapes, user.uid)
+      
+      setMagicNotification(
+        `✨ Santa's Magic complete! Transformed ${result.transformedCount} shapes! 🎄🎁⭐`
+      )
+      console.log(`✅ Successfully transformed ${result.transformedCount} shapes`)
+    } catch (error) {
+      console.error('❌ Failed to apply Santa\'s Magic:', error)
+      setMagicNotification('❌ Santa\'s Magic failed! Check console for details.')
+    }
+
+    setTimeout(() => setMagicNotification(null), 4000)
+  }, [user])
 
   // 🎄 QUICK TREE: Create a Christmas tree template
   const handleQuickTree = useCallback(async () => {
@@ -785,6 +816,17 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         >
           <span className="text-2xl">{isChristmasMode ? '🎅' : '🎄'}</span>
           <span>{isChristmasMode ? 'Christmas Mode ON' : 'Christmas Mode'}</span>
+        </button>
+
+        {/* Make Everything Christmas Button */}
+        <button
+          onClick={handleMakeEverythingChristmas}
+          className="px-6 py-3 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-lg flex items-center gap-2 transition-all font-semibold"
+          title="Apply Christmas textures to ALL shapes on canvas - rectangles become gifts, triangles become trees, circles become ornaments!"
+          aria-label="Make Everything Christmas"
+        >
+          <span className="text-2xl">🎅</span>
+          <span>Santa's Magic</span>
         </button>
 
         {/* Quick Tree Button */}

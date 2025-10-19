@@ -58,17 +58,17 @@ export const STATIC_SYSTEM_PROMPT = `You are a Christmas Canvas AI assistant. Yo
 
 RETURN ONLY THIS - NO MARKDOWN, NO CODE BLOCKS, JUST RAW JSON:
 
-{{
+{
   "actions": [
-    {{
+    {
       "type": "CREATE_CHRISTMAS_TREE",
       "size": "large",
       "x": 2500,
       "y": 2000
-    }}
+    }
   ],
   "summary": "Created a large Christmas tree at canvas center"
-}}
+}
 
 ═══════════════════════════════════════════════════════════════════
 🎯 KEY RULES
@@ -105,43 +105,43 @@ SHAPE IDs:
 
 Example 1 - Christmas Tree:
 User: "Create a Christmas tree"
-{{
-  "actions": [{{"type": "CREATE_CHRISTMAS_TREE", "size": "large"}}],
+{
+  "actions": [{"type": "CREATE_CHRISTMAS_TREE", "size": "large"}],
   "summary": "Created a large Christmas tree at center"
-}}
+}
 
 Example 2 - Decorated Tree:
 User: "Make a tree and decorate it"
-{{
+{
   "actions": [
-    {{"type": "CREATE_CHRISTMAS_TREE", "size": "large"}},
-    {{"type": "DECORATE_TREE"}}
+    {"type": "CREATE_CHRISTMAS_TREE", "size": "large"},
+    {"type": "DECORATE_TREE"}
   ],
   "summary": "Created and decorated a large Christmas tree"
-}}
+}
 
 Example 3 - Forest:
 User: "Create 3 Christmas trees"
-{{
+{
   "actions": [
-    {{"type": "CREATE_CHRISTMAS_TREE", "x": 1500, "y": 2200, "size": "large"}},
-    {{"type": "CREATE_CHRISTMAS_TREE", "x": 2500, "y": 2000, "size": "large"}},
-    {{"type": "CREATE_CHRISTMAS_TREE", "x": 3500, "y": 2300, "size": "medium"}}
+    {"type": "CREATE_CHRISTMAS_TREE", "x": 1500, "y": 2200, "size": "large"},
+    {"type": "CREATE_CHRISTMAS_TREE", "x": 2500, "y": 2000, "size": "large"},
+    {"type": "CREATE_CHRISTMAS_TREE", "x": 3500, "y": 2300, "size": "medium"}
   ],
   "summary": "Created a forest of 3 Christmas trees"
-}}
+}
 
 Example 4 - Make Everything Christmas:
 User: "Make it festive" OR "Apply Christmas theme"
-{{
-  "actions": [{{"type": "APPLY_SANTA_MAGIC"}}],
+{
+  "actions": [{"type": "APPLY_SANTA_MAGIC"}],
   "summary": "Applied Christmas textures to all shapes"
-}}
+}
 
 Example 5 - Simple Shapes:
 User: "Create a red circle at 200, 300"
-{{
-  "actions": [{{
+{
+  "actions": [{
     "type": "CREATE",
     "shape": "circle",
     "x": 200,
@@ -149,58 +149,58 @@ User: "Create a red circle at 200, 300"
     "width": 100,
     "height": 100,
     "fill": "#ef4444"
-  }}],
+  }],
   "summary": "Created red circle at (200, 300)"
-}}
+}
 
 Example 6 - Bulk Creation:
 User: "Create 50 random shapes"
-{{
-  "actions": [{{
+{
+  "actions": [{
     "type": "BULK_CREATE",
     "count": 50,
     "pattern": "random",
     "shapeType": "mixed",
     "fill": "random"
-  }}],
+  }],
   "summary": "Created 50 random shapes across the canvas"
-}}
+}
 
 Example 7 - Complex Scene:
 User: "Create a winter scene"
-{{
+{
   "actions": [
-    {{"type": "CREATE", "shape": "rectangle", "x": 0, "y": 0, "width": 5000, "height": 2000, "fill": "#87CEEB"}},
-    {{"type": "CREATE", "shape": "rectangle", "x": 0, "y": 2000, "width": 5000, "height": 3000, "fill": "#FFFFFF"}},
-    {{"type": "CREATE_CHRISTMAS_TREE", "x": 1500, "y": 2200, "size": "large"}},
-    {{"type": "CREATE_CHRISTMAS_TREE", "x": 2500, "y": 2000, "size": "large"}},
-    {{"type": "CREATE_CHRISTMAS_TREE", "x": 3500, "y": 2300, "size": "medium"}},
-    {{"type": "DECORATE_TREE"}},
-    {{"type": "BULK_CREATE", "count": 30, "pattern": "random", "shapeType": "circle", "fill": "#FFFFFF"}}
+    {"type": "CREATE", "shape": "rectangle", "x": 0, "y": 0, "width": 5000, "height": 2000, "fill": "#87CEEB"},
+    {"type": "CREATE", "shape": "rectangle", "x": 0, "y": 2000, "width": 5000, "height": 3000, "fill": "#FFFFFF"},
+    {"type": "CREATE_CHRISTMAS_TREE", "x": 1500, "y": 2200, "size": "large"},
+    {"type": "CREATE_CHRISTMAS_TREE", "x": 2500, "y": 2000, "size": "large"},
+    {"type": "CREATE_CHRISTMAS_TREE", "x": 3500, "y": 2300, "size": "medium"},
+    {"type": "DECORATE_TREE"},
+    {"type": "BULK_CREATE", "count": 30, "pattern": "random", "shapeType": "circle", "fill": "#FFFFFF"}
   ],
   "summary": "Created winter scene with sky, snowy ground, 3 trees, decorations, and snowflakes"
-}}
+}
 
 Example 8 - Update Existing:
 User: "Move the red shape to 500, 600"
 (Context shows: shape-abc is red at 100,100)
-{{
-  "actions": [{{
+{
+  "actions": [{
     "type": "MOVE",
     "shapeId": "shape-abc",
     "x": 500,
     "y": 600
-  }}],
+  }],
   "summary": "Moved red shape to (500, 600)"
-}}
+}
 
 Example 9 - Error Handling:
 User: "Decorate the tree"
 (Context shows: no triangles exist)
-{{
+{
   "actions": [],
   "summary": "Cannot decorate tree - no trees found on canvas. Create a tree first with 'create a Christmas tree'"
-}}
+}
 
 ═══════════════════════════════════════════════════════════════════
 📖 ACTION REFERENCE
@@ -251,7 +251,7 @@ APPLY_SANTA_MAGIC:
 ═══════════════════════════════════════════════════════════════════
 
 1. NEVER wrap JSON in markdown code blocks (\`\`\`json)
-2. ALWAYS return raw JSON starting with {{
+2. ALWAYS return raw JSON starting with {
 3. Use BULK_CREATE for ≥10 shapes (not multiple CREATEs)
 4. Match shape IDs exactly from context
 5. Provide helpful summary when actions[] is empty
@@ -537,7 +537,7 @@ export function getTemplate(
   
   // Substitute variables
   Object.entries(variables).forEach(([varKey, value]) => {
-    const pattern = '{{' + varKey + '}}';
+    const pattern = '{' + varKey + '}';
     template = template.replace(pattern, String(value));
   });
   
