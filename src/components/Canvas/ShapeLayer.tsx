@@ -659,13 +659,26 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   // ✅ DRAG-TO-SELECT: Handle mouse down on layer (requires Shift key)
   const handleLayerMouseDown = useCallback((e: any) => {
     const isShiftKey = e.evt?.shiftKey || false
-    if (!isShiftKey) return
+    const targetName = e.target.name?.() || 'no-name'
+    const targetType = e.target.getType() || 'no-type'
+    
+    console.log('[DEBUG] Layer mousedown:', { isShiftKey, targetName, targetType, listening })
+    
+    if (!isShiftKey) {
+      console.log('[DEBUG] No shift key, skipping')
+      return
+    }
     
     // Only start selection if clicking on background (not a shape)
     const isBackgroundRect = e.target.name && e.target.name() === 'background-rect'
-    const targetType = e.target.getType()
     const isBackgroundClick = targetType === 'Stage' || targetType === 'Layer' || isBackgroundRect
-    if (!isBackgroundClick) return
+    
+    console.log('[DEBUG] Background check:', { isBackgroundClick, isBackgroundRect })
+    
+    if (!isBackgroundClick) {
+      console.log('[DEBUG] Not background, skipping')
+      return
+    }
 
     const stage = e.target.getStage()
     // Use getRelativePointerPosition to account for pan/zoom

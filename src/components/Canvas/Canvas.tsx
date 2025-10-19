@@ -724,6 +724,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     // ⚡ PERFORMANCE: Skip cursor updates during drag operations
     if (isDraggingShape.current) return
     
+    // ⚡ PERFORMANCE: Skip cursor updates during marquee selection
+    if (isDragSelecting.current) return
+    
     // ✅ FIX CONFLICT: Don't update cursor during navigation (pan/zoom)
     if (isNavigating || isSpacePressed) return
     
