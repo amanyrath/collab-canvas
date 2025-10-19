@@ -142,11 +142,10 @@ export function subscribeToComments(
     console.log(`💬 Subscribing to path: ${commentsPath}`)
     
     const commentsRef = collection(db, commentsPath)
-    // Note: Removed orderBy to avoid index requirement - comments will be sorted client-side if needed
-    // const q = query(commentsRef, orderBy('createdAt', 'asc'))
+    const q = query(commentsRef, orderBy('createdAt', 'asc'))
     
     const unsubscribe = onSnapshot(
-      commentsRef,
+      q,
       (snapshot) => {
         console.log(`💬 onSnapshot callback fired for shape ${shapeId.slice(-6)}, docs: ${snapshot.docs.length}, metadata:`, snapshot.metadata)
         const comments: Comment[] = snapshot.docs.map(doc => {
