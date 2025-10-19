@@ -609,15 +609,15 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
 
   // Get editing shape and stage transform for TextEditor
   const editingShape = editingShapeId ? shapes.find(s => s.id === editingShapeId) : null
-  const stageTransform = useMemo(() => {
-    if (!stageRef?.current) return { scale: 1, x: 0, y: 0 }
-    const stage = stageRef.current
-    return {
-      scale: stage.scaleX(),
-      x: stage.x(),
-      y: stage.y()
-    }
-  }, [stageRef, editingShapeId])
+  
+  // Calculate stage transform on every render so text editor tracks zoom/pan
+  const stageTransform = !stageRef?.current 
+    ? { scale: 1, x: 0, y: 0 }
+    : {
+        scale: stageRef.current.scaleX(),
+        x: stageRef.current.x(),
+        y: stageRef.current.y()
+      }
 
   // Update text in shape
   const handleTextChange = useCallback((shapeId: string, newText: string) => {

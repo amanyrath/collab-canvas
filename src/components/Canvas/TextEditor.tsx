@@ -45,21 +45,17 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     }
   }
 
-  // Calculate screen position from canvas coordinates
-  const screenX = shape.x * stageScale + stageX
-  const screenY = shape.y * stageScale + stageY
-  const screenWidth = shape.width * stageScale
-  const screenHeight = shape.height * stageScale
-
+  // Html component automatically handles stage transforms (zoom/pan)
+  // Just use raw canvas coordinates - no manual transform needed
   return (
     <Html>
       <div
         style={{
           position: 'absolute',
-          left: `${screenX}px`,
-          top: `${screenY}px`,
-          width: `${screenWidth}px`,
-          height: `${screenHeight}px`,
+          left: `${shape.x}px`,
+          top: `${shape.y}px`,
+          width: `${shape.width}px`,
+          height: `${shape.height}px`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
