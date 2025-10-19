@@ -134,9 +134,12 @@ export function subscribeToComments(
   onError?: (error: Error) => void
 ): () => void {
   console.log(`💬 subscribeToComments called for shape ${shapeId.slice(-6)}`)
+  console.log(`💬 Full shapeId:`, shapeId)
   
   try {
     const commentsRef = collection(db, COMMENTS_COLLECTION)
+    console.log(`💬 Collection ref:`, commentsRef.path)
+    
     // Simple query: get all comments where shapeId matches
     // NOTE: Removed orderBy to avoid requiring a composite index - we'll sort client-side
     const q = query(
@@ -144,43 +147,49 @@ export function subscribeToComments(
       where('shapeId', '==', shapeId)
     )
     
-    console.log(`💬 Subscribing to comments for shape ${shapeId.slice(-6)}`)
+    console.log(`💬 Query created, setting up onSnapshot...`)
     
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        console.log(`💬 onSnapshot fired: ${snapshot.docs.length} comments for shape ${shapeId.slice(-6)}`)
-        const comments: Comment[] = snapshot.docs.map(doc => {
-          const data = doc.data()
-          return {
-            id: doc.id,
-            shapeId: data.shapeId,
-            text: data.text,
-            authorId: data.authorId,
-            authorName: data.authorName,
-            authorColor: data.authorColor,
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-            isEdited: data.isEdited || false,
-            isResolved: data.isResolved || false,
-          } as Comment
-        })
-        
-        // Sort comments by createdAt (client-side since orderBy would require a composite index)
-        comments.sort((a, b) => {
-          if (!a.createdAt) return 1
-          if (!b.createdAt) return -1
-          const timeA = a.createdAt.toMillis ? a.createdAt.toMillis() : 0
-          const timeB = b.createdAt.toMillis ? b.createdAt.toMillis() : 0
-          return timeA - timeB
-        })
-        
-        console.log(`✅ Loaded ${comments.length} comments for shape ${shapeId.slice(-6)}`)
-        onUpdate(comments)
-      },
-      (error) => {
-        console.error(`❌ Error subscribing to comments for shape ${shapeId}:`, error)
-        if (onError) onError(error)
+      {
+        next: (snapshot) => {
+          console.log(`✅ onSnapshot SUCCESS: ${snapshot.docs.length} comments`)
+          console.log(`   Metadata:`, { fromCache: snapshot.metadata.fromCache, hasPendingWrites: snapshot.metadata.hasPendingWrites })
+          
+          const comments: Comment[] = snapshot.docs.map(doc => {
+            const data = doc.data()
+            return {
+              id: doc.id,
+              shapeId: data.shapeId,
+              text: data.text,
+              authorId: data.authorId,
+              authorName: data.authorName,
+              authorColor: data.authorColor,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              isEdited: data.isEdited || false,
+              isResolved: data.isResolved || false,
+            } as Comment
+          })
+          
+          // Sort comments by createdAt (client-side since orderBy would require a composite index)
+          comments.sort((a, b) => {
+            if (!a.createdAt) return 1
+            if (!b.createdAt) return -1
+            const timeA = a.createdAt.toMillis ? a.createdAt.toMillis() : 0
+            const timeB = b.createdAt.toMillis ? b.createdAt.toMillis() : 0
+            return timeA - timeB
+          })
+          
+          console.log(`✅ Returning ${comments.length} sorted comments`)
+          onUpdate(comments)
+        },
+        error: (error) => {
+          console.error(`❌ onSnapshot ERROR for shape ${shapeId.slice(-6)}:`, error)
+          console.error(`   Error code:`, error.code)
+          console.error(`   Error message:`, error.message)
+          if (onError) onError(error)
+        }
       }
     )
     
