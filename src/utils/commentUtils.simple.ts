@@ -4,7 +4,7 @@
  * Comments are stored directly on Shape objects, not in a separate collection
  */
 
-import { serverTimestamp } from 'firebase/firestore'
+import { Timestamp } from 'firebase/firestore'
 import { updateShape } from './shapeUtils'
 import { Shape } from './types'
 import { v4 as uuidv4 } from 'uuid'
@@ -36,7 +36,7 @@ export async function addCommentToShape(
     authorId,
     authorName,
     authorColor,
-    createdAt: serverTimestamp(),
+    createdAt: Timestamp.now(),
     isEdited: false,
   }
 
@@ -62,7 +62,7 @@ export async function editCommentOnShape(
       ? {
           ...comment,
           text: newText,
-          updatedAt: serverTimestamp(),
+          updatedAt: Timestamp.now(),
           isEdited: true,
         }
       : comment
