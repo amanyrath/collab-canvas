@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 import { ShapeType } from '../../utils/types'
+import { TEXTURES } from '../../constants/textureManifest'
 
 interface ShapeSelectorProps {
   currentShapeType: ShapeType
@@ -9,6 +10,9 @@ interface ShapeSelectorProps {
   onColorChange: (color: string) => void
   customColor: string
   onCustomColorChange: (color: string) => void
+  isChristmasMode?: boolean // 🎄 Whether Christmas Mode is active
+  selectedTexture?: string | null // 🎄 Currently selected texture
+  onTextureChange?: (texture: string) => void // 🎄 Texture selection handler
 }
 
 const colorOptions = [
@@ -24,7 +28,10 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   currentColor,
   onColorChange,
   customColor,
-  onCustomColorChange
+  onCustomColorChange,
+  isChristmasMode = false,
+  selectedTexture = null,
+  onTextureChange
 }) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [tempColor, setTempColor] = useState(customColor)
@@ -91,10 +98,12 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
     <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg border border-gray-200 p-3">
       {/* Shape Type Selector */}
       <div className="flex gap-2 mb-3">
-        <div className="text-xs text-gray-500 font-medium mb-1 w-full">Shape</div>
+        <div className="text-xs text-gray-500 font-medium mb-1 w-full">
+          {isChristmasMode ? '🎄 Festive Shapes' : 'Shape'}
+        </div>
       </div>
       <div className="flex gap-2 mb-4">
-        {/* Rectangle Button */}
+        {/* Rectangle Button (Gift Box in Christmas Mode) */}
         <button
           onClick={() => onShapeTypeChange('rectangle')}
           className={`
@@ -104,12 +113,16 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
               : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50'
             }
           `}
-          title="Rectangle (R)"
+          title={isChristmasMode ? "Gift Box (R)" : "Rectangle (R)"}
         >
-          <div className="w-6 h-4 border-2 border-current rounded-sm"></div>
+          {isChristmasMode ? (
+            <span className="text-2xl">🎁</span>
+          ) : (
+            <div className="w-6 h-4 border-2 border-current rounded-sm"></div>
+          )}
         </button>
 
-        {/* Circle Button */}
+        {/* Circle Button (Ornament in Christmas Mode) */}
         <button
           onClick={() => onShapeTypeChange('circle')}
           className={`
@@ -119,12 +132,16 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
               : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50'
             }
           `}
-          title="Circle (C)"
+          title={isChristmasMode ? "Ornament (C)" : "Circle (C)"}
         >
-          <div className="w-6 h-6 border-2 border-current rounded-full"></div>
+          {isChristmasMode ? (
+            <span className="text-2xl">🔴</span>
+          ) : (
+            <div className="w-6 h-6 border-2 border-current rounded-full"></div>
+          )}
         </button>
 
-        {/* Triangle Button */}
+        {/* Triangle Button (Tree in Christmas Mode) */}
         <button
           onClick={() => onShapeTypeChange('triangle')}
           className={`
@@ -134,19 +151,64 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
               : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50'
             }
           `}
-          title="Triangle (T)"
+          title={isChristmasMode ? "Pine Tree (T)" : "Triangle (T)"}
         >
-          <div 
-            className="w-0 h-0 border-l-[12px] border-r-[12px] border-b-[20px] border-l-transparent border-r-transparent border-b-current"
-            style={{ borderBottomColor: 'currentColor' }}
-          ></div>
+          {isChristmasMode ? (
+            <span className="text-2xl">🌲</span>
+          ) : (
+            <div 
+              className="w-0 h-0 border-l-[12px] border-r-[12px] border-b-[20px] border-l-transparent border-r-transparent border-b-current"
+              style={{ borderBottomColor: 'currentColor' }}
+            ></div>
+          )}
         </button>
       </div>
 
-      {/* Color Selector */}
+      {/* Color/Texture Selector */}
       <div className="border-t border-gray-200 pt-3">
-        <div className="text-xs text-gray-500 font-medium mb-2">Color</div>
-        <div className="flex gap-2">
+        <div className="text-xs text-gray-500 font-medium mb-2">
+          {isChristmasMode ? '🎄 Texture' : 'Color'}
+        </div>
+        
+        {/* 🎄 CHRISTMAS MODE: Texture Picker */}
+        {isChristmasMode && onTextureChange ? (
+          <div className="flex gap-2 flex-wrap">
+            {(() => {
+              // Get textures based on current shape type
+              let textures: readonly string[] = []
+              if (currentShapeType === 'rectangle') {
+                textures = [...TEXTURES.gifts, ...TEXTURES.trunks]
+              } else if (currentShapeType === 'circle') {
+                textures = TEXTURES.ornaments
+              } else if (currentShapeType === 'triangle') {
+                textures = TEXTURES.trees
+              }
+              
+              return textures.map((texturePath) => (
+                <button
+                  key={texturePath}
+                  onClick={() => onTextureChange(texturePath)}
+                  className={`
+                    w-12 h-12 rounded-lg border-2 transition-all duration-200 overflow-hidden bg-gray-100
+                    ${selectedTexture === texturePath 
+                      ? 'border-blue-500 scale-110 ring-2 ring-blue-200' 
+                      : 'border-gray-300 hover:border-gray-400'
+                    }
+                  `}
+                  title={texturePath.split('/').pop()?.replace(/\.\w+$/, '')}
+                >
+                  <img 
+                    src={texturePath} 
+                    alt="texture" 
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))
+            })()}
+          </div>
+        ) : (
+          // NORMAL MODE: Color Picker
+          <div className="flex gap-2">
           {colorOptions.map((color) => (
             <button
               key={color.value}
@@ -239,7 +301,8 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
               </div>
             )}
           </div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

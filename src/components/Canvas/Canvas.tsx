@@ -38,6 +38,10 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [isApplyingMagic, setIsApplyingMagic] = useState(false)
   const [magicNotification, setMagicNotification] = useState<string | null>(null)
   
+  // 🎄 CHRISTMAS MODE: Toggle for texture-based shape creation
+  const [isChristmasMode, setIsChristmasMode] = useState(false)
+  const [selectedTexture, setSelectedTexture] = useState<string | null>(null)
+  
   const { user } = useUserStore()
   
   // 🎄 CHRISTMAS: Preload textures and track loading state
@@ -90,40 +94,27 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     await Promise.all(deletionPromises)
   }, [user])
 
-  // 🎄 SANTA'S MAGIC: Apply Christmas textures to all shapes
-  const handleSantaMagic = useCallback(async () => {
-    if (!user || isApplyingMagic) return
-
-    const { shapes } = useCanvasStore.getState()
-
-    if (shapes.length === 0) {
-      setMagicNotification('❄️ No shapes to transform!')
-      setTimeout(() => setMagicNotification(null), 2000)
-      return
+  // 🎄 TOGGLE CHRISTMAS MODE: Switch between normal and festive mode
+  const toggleChristmasMode = useCallback(async () => {
+    const newMode = !isChristmasMode
+    setIsChristmasMode(newMode)
+    
+    if (newMode) {
+      // Auto-select rectangle (gift box) when entering Christmas Mode
+      setCurrentShapeType('rectangle')
+      // Set default texture (first gift texture)
+      const { TEXTURES } = await import('../../constants/textureManifest')
+      setSelectedTexture(TEXTURES.gifts[0])
+      setMagicNotification('🎄 Christmas Mode ON! Creating gift boxes 🎁')
+      console.log('🎅 Christmas Mode activated - switched to rectangle (gift box)')
+    } else {
+      setSelectedTexture(null)
+      setMagicNotification('👋 Christmas Mode OFF')
+      console.log('👋 Christmas Mode deactivated')
     }
-
-    setIsApplyingMagic(true)
-    console.log('🎅 Santa\'s Magic button clicked! Warming up...')
-
-    // 🎄 1-SECOND WARMUP: Wait for any pending shapes to sync from Firebase
-    setMagicNotification('⏳ Gathering the reindeer...')
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    try {
-      // Get fresh shapes after warmup
-      const freshShapes = useCanvasStore.getState().shapes
-      const result = await applySantaMagic(freshShapes, user.uid)
-      
-      setMagicNotification(`✨ Christmas magic applied to ${result.transformedCount} shapes!`)
-      setTimeout(() => setMagicNotification(null), 3000)
-    } catch (error) {
-      console.error('❌ Santa\'s Magic failed:', error)
-      setMagicNotification('❌ Magic failed - try again!')
-      setTimeout(() => setMagicNotification(null), 2000)
-    } finally {
-      setIsApplyingMagic(false)
-    }
-  }, [user, isApplyingMagic])
+    
+    setTimeout(() => setMagicNotification(null), 2500)
+  }, [isChristmasMode])
 
   // 🎄 QUICK TREE: Create a Christmas tree template
   const handleQuickTree = useCallback(async () => {
@@ -309,13 +300,25 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [creationColor, setCreationColor] = useState<string>('#CCCCCC')
   
   // Shape and color change handlers
-  const handleShapeTypeChange = useCallback((shapeType: ShapeType) => {
+  const handleShapeTypeChange = useCallback(async (shapeType: ShapeType) => {
     setIsUpdatingState(true)
     setCurrentShapeType(shapeType)
     
     // Update creation preferences when not editing a selected shape
     if (!lastSelectedShapeId) {
       setCreationShapeType(shapeType)
+    }
+    
+    // 🎄 Update selected texture when changing shape type in Christmas Mode
+    if (isChristmasMode) {
+      const { TEXTURES } = await import('../../constants/textureManifest')
+      if (shapeType === 'rectangle') {
+        setSelectedTexture(TEXTURES.gifts[0])
+      } else if (shapeType === 'circle') {
+        setSelectedTexture(TEXTURES.ornaments[0])
+      } else if (shapeType === 'triangle') {
+        setSelectedTexture(TEXTURES.trees[0])
+      }
     }
     
     // Update selected shapes' type
@@ -393,7 +396,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     setTimeout(() => {
       setIsUpdatingState(false)
     }, 100)
-  }, [user, lastSelectedShapeId])
+  }, [user, lastSelectedShapeId, isChristmasMode])
   
   // Preset color values for comparison
   const presetColors = ['#ef4444', '#22c55e', '#3b82f6', '#CCCCCC']
@@ -527,6 +530,21 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
     const x = Math.max(0, Math.min(CANVAS_WIDTH - 100, canvasPos.x))
     const y = Math.max(0, Math.min(CANVAS_HEIGHT - 100, canvasPos.y))
     
+    // 🎄 Apply texture if Christmas Mode is ON
+    let texture: string | undefined
+    if (isChristmasMode) {
+      // Use selected texture if available, otherwise pick random
+      if (selectedTexture) {
+        texture = selectedTexture
+        console.log(`🎄 Christmas Mode: Using selected texture for ${creationShapeType}: ${texture}`)
+      } else {
+        const { getTextureCategoryForShape, getRandomTexture } = await import('../../constants/textureManifest')
+        const category = getTextureCategoryForShape(creationShapeType)
+        texture = getRandomTexture(category)
+        console.log(`🎄 Christmas Mode: Using random ${category} texture for ${creationShapeType}`)
+      }
+    }
+
     const optimisticShape: Shape = {
       id: shapeId,
       type: creationShapeType,
@@ -544,7 +562,8 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       isLocked: false,
       lockedBy: null,
       lockedByName: null,
-      lockedByColor: null
+      lockedByColor: null,
+      ...(texture && { texture }) // 🎄 Add texture if in Christmas Mode
     }
     
     // ✅ FASTEST: Direct store update without validation delays
@@ -588,8 +607,19 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
                 displayName: user.displayName
               })
               
-              // Create real shape in Firebase
-              const realShapeId = await createShape(tempShape.x, tempShape.y, tempShape.type, tempShape.fill, user.uid, user.displayName)
+              // Create real shape in Firebase (including texture if present)
+              const realShapeId = await createShape(
+                tempShape.x, 
+                tempShape.y, 
+                tempShape.type, 
+                tempShape.fill, 
+                user.uid, 
+                user.displayName,
+                tempShape.width,
+                tempShape.height,
+                tempShape.text || '',
+                tempShape.texture // 🎄 Pass texture to Firebase
+              )
           
           // ✅ Replace the temp shape with the real Firebase ID
           const { shapes, setShapes } = useCanvasStore.getState()
@@ -618,7 +648,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
       await Promise.allSettled(syncPromises)
     }, 50) // 50ms debounce - good balance of responsiveness and performance
     
-  }, [isSpacePressed, user, isUpdatingState])
+  }, [isSpacePressed, user, isUpdatingState, isChristmasMode, selectedTexture])
 
   // ✅ PHASE 8: Handle mouse move for cursor tracking (with navigation conflict prevention)
   const handleMouseMove = useCallback((e: any) => {
@@ -649,6 +679,12 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         onColorChange={handleColorChange}
         customColor={customColor}
         onCustomColorChange={setCustomColor}
+        isChristmasMode={isChristmasMode} // 🎄 Pass Christmas Mode state
+        selectedTexture={selectedTexture} // 🎄 Pass selected texture
+        onTextureChange={(texture) => {
+          console.log('🎄 Texture selected:', texture)
+          setSelectedTexture(texture)
+        }} // 🎄 Pass texture change handler
       />
       
       {/* Debug Info - Moved to left to avoid covering AI chat button */}
@@ -701,16 +737,19 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
       {/* 🎄 Christmas Buttons */}
       <div className="fixed bottom-4 left-4 flex gap-2">
-        {/* Santa's Magic Button */}
+        {/* Christmas Mode Toggle */}
         <button
-          onClick={handleSantaMagic}
-          disabled={isApplyingMagic}
-          className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg shadow-lg flex items-center gap-2 transition-all font-semibold"
-          title="Apply Christmas textures to all shapes"
-          aria-label="Santa's Magic"
+          onClick={toggleChristmasMode}
+          className={`px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all font-semibold ${
+            isChristmasMode
+              ? 'bg-red-600 hover:bg-red-700 text-white ring-4 ring-yellow-300'
+              : 'bg-gray-600 hover:bg-gray-700 text-white'
+          }`}
+          title={isChristmasMode ? "Christmas Mode ON - New shapes will be festive!" : "Click to enable Christmas Mode"}
+          aria-label="Christmas Mode Toggle"
         >
-          <span className="text-2xl">🎅</span>
-          <span>{isApplyingMagic ? 'Applying...' : "Santa's Magic"}</span>
+          <span className="text-2xl">{isChristmasMode ? '🎅' : '🎄'}</span>
+          <span>{isChristmasMode ? 'Christmas Mode ON' : 'Christmas Mode'}</span>
         </button>
 
         {/* Quick Tree Button */}
