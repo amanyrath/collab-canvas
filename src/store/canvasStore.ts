@@ -166,23 +166,32 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
 
   // ✅ SMART: Only accept Firestore updates if no recent optimistic update from current user
   setShapes: (shapes) => set((state) => {
+    // ⚡ PERFORMANCE: Early return if no optimistic updates
+    if (state.optimisticUpdates.size === 0) {
+      return { shapes }
+    }
+    
     const now = Date.now()
     const protectedShapes = shapes.map(shape => {
+      // ⚡ PERFORMANCE: Early return if no optimistic update for this shape
       const optimistic = state.optimisticUpdates.get(shape.id)
+      if (!optimistic || now - optimistic.timestamp >= OPTIMISTIC_TIMEOUT) {
+        return shape
+      }
+      
+      // ⚡ PERFORMANCE: Only lookup current shape if needed
       const currentShape = state.shapes.find(s => s.id === shape.id)
       
       // ✅ MULTIPLAYER FIX: Don't block updates from other users
       // Only protect our own optimistic updates while we're actively editing
-      if (optimistic && now - optimistic.timestamp < OPTIMISTIC_TIMEOUT) {
-        // Check if this shape is locked by the current user
-        const isLockedByCurrentUser = currentShape?.isLocked && 
-                                       optimistic.updates.lockedBy && 
-                                       currentShape?.lockedBy === optimistic.updates.lockedBy
-        
-        // Only protect if shape is being actively edited by current user
-        if (isLockedByCurrentUser) {
-          return { ...shape, ...optimistic.updates }
-        }
+      // Check if this shape is locked by the current user
+      const isLockedByCurrentUser = currentShape?.isLocked && 
+                                     optimistic.updates.lockedBy && 
+                                     currentShape?.lockedBy === optimistic.updates.lockedBy
+      
+      // Only protect if shape is being actively edited by current user
+      if (isLockedByCurrentUser) {
+        return { ...shape, ...optimistic.updates }
       }
       
       return shape

@@ -13,14 +13,15 @@ import { getTexture } from '../../utils/textureLoader'
 interface ShapeLayerProps {
   listening: boolean
   isDragSelectingRef?: React.MutableRefObject<boolean>
+  isDraggingRef?: React.MutableRefObject<boolean>  // ⚡ PERFORMANCE: Track drag state to skip cursor updates
   stageRef?: React.RefObject<Konva.Stage>
   onCursorUpdate?: (x: number, y: number) => void
 }
 
 // ✅ PERFORMANCE: Custom comparison for React.memo to prevent unnecessary re-renders
 const areShapePropsEqual = (
-  prevProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void },
-  nextProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void }
+  prevProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void; isDraggingRef?: React.MutableRefObject<boolean> },
+  nextProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void; isDraggingRef?: React.MutableRefObject<boolean> }
 ) => {
   // Only re-render if shape properties that affect rendering changed
   const prev = prevProps.shape
@@ -43,7 +44,7 @@ const areShapePropsEqual = (
     prev.texture === next.texture && // 🎄 CHRISTMAS: Include texture in comparison
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.disableDrag === nextProps.disableDrag
-    // Note: We don't compare onSelect, onCursorUpdate, or shapeRef as they are stable
+    // Note: We don't compare onSelect, onCursorUpdate, isDraggingRef, or shapeRef as they are stable/refs
   )
 }
 
@@ -56,7 +57,8 @@ const SimpleShape: React.FC<{
   shapeRef: React.RefObject<Konva.Shape>
   disableDrag?: boolean  // Disable dragging when inside a Group
   onCursorUpdate?: (x: number, y: number) => void  // ⚡ Cursor tracking during drag
-}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false, onCursorUpdate }) => {
+  isDraggingRef?: React.MutableRefObject<boolean>  // ⚡ PERFORMANCE: Track drag state
+}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false, onCursorUpdate, isDraggingRef }) => {
   // ⚡ PERFORMANCE: Only subscribe to shapes array (not optimistic updates or other store fields)
   const shapes = useCanvasStore((state) => state.shapes, shallow)
   const { user } = useUserStore()
@@ -136,6 +138,11 @@ const SimpleShape: React.FC<{
 
   // ✅ SIMPLIFIED: Drag handlers for single shapes only (multi-select uses Group)
   const handleDragStart = useCallback((_e: any) => {
+    // ⚡ PERFORMANCE: Signal that we're dragging to skip cursor updates
+    if (isDraggingRef) {
+      isDraggingRef.current = true
+    }
+    
     // Auto-select and lock this shape when drag starts
     if (!isLockedByMe && user) {
       onSelect({ evt: { shiftKey: false } })
@@ -163,7 +170,7 @@ const SimpleShape: React.FC<{
       }, false) // Don't record lock changes in history
       acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
     }
-  }, [shape.id, isLockedByMe, user, onSelect])
+  }, [shape.id, isLockedByMe, user, onSelect, isDraggingRef])
 
   // ⚡ PERFORMANCE: Throttle cursor updates during drag (10fps instead of 60fps)
   const lastDragUpdateRef = useRef<number>(0)
@@ -186,6 +193,11 @@ const SimpleShape: React.FC<{
   }, [onCursorUpdate])
 
   const handleDragEnd = useCallback((e: any) => {
+    // ⚡ PERFORMANCE: Clear dragging flag to resume cursor updates
+    if (isDraggingRef) {
+      isDraggingRef.current = false
+    }
+    
     if (!user) return
     
     const finalX = Math.round(e.target.x())
@@ -194,7 +206,7 @@ const SimpleShape: React.FC<{
     const { updateShapeOptimistic } = useCanvasStore.getState()
     updateShapeOptimistic(shape.id, { x: finalX, y: finalY })
     updateShape(shape.id, { x: finalX, y: finalY }, user.uid)
-  }, [shape.id, user])
+  }, [shape.id, user, isDraggingRef])
 
   // ✅ RESIZE HANDLER: Update shape dimensions after transform
   const handleTransformEnd = useCallback((_e: any) => {
@@ -434,7 +446,7 @@ const SimpleShape: React.FC<{
 SimpleShape.displayName = 'SimpleShape'
 
 // ✅ PERFORMANCE: Memoize shape layer to prevent unnecessary re-renders
-const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, stageRef, onCursorUpdate }) => {
+const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, isDraggingRef, stageRef, onCursorUpdate }) => {
   // ⚡ PERFORMANCE: Selective subscription - only re-render when shapes array changes
   const shapes = useCanvasStore((state) => state.shapes, shallow)
   const { user } = useUserStore()
@@ -443,6 +455,91 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   const [editingShapeId, setEditingShapeId] = useState<string | null>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const shapeRefs = useRef<{ [key: string]: Konva.Shape }>({})
+  
+  // ⚡ VIEWPORT CULLING: Track viewport bounds for rendering only visible shapes
+  const [viewportBounds, setViewportBounds] = useState<{
+    x: number
+    y: number
+    width: number
+    height: number
+  } | null>(null)
+  
+  // ⚡ VIEWPORT CULLING: Update viewport bounds when stage transforms
+  useEffect(() => {
+    const updateViewport = () => {
+      if (!stageRef?.current) return
+      
+      const stage = stageRef.current
+      const scale = stage.scaleX()
+      const stageX = stage.x()
+      const stageY = stage.y()
+      const stageWidth = stage.width()
+      const stageHeight = stage.height()
+      
+      // Calculate viewport in canvas coordinates
+      const x = -stageX / scale
+      const y = -stageY / scale
+      const width = stageWidth / scale
+      const height = stageHeight / scale
+      
+      setViewportBounds({ x, y, width, height })
+    }
+    
+    // Initial viewport
+    updateViewport()
+    
+    // Update viewport on stage transform
+    const stage = stageRef?.current
+    if (stage) {
+      stage.on('transform', updateViewport)
+      stage.on('dragmove', updateViewport)
+      stage.on('wheel', updateViewport)
+      
+      return () => {
+        stage.off('transform', updateViewport)
+        stage.off('dragmove', updateViewport)
+        stage.off('wheel', updateViewport)
+      }
+    }
+    
+    return undefined
+  }, [stageRef])
+  
+  // ⚡ VIEWPORT CULLING: Filter shapes to only visible ones (70-90% reduction)
+  const visibleShapes = useMemo(() => {
+    if (!viewportBounds) return shapes
+    
+    // Buffer zone: 20% extra on each side for smooth panning
+    const buffer = 0.2
+    const bufferX = viewportBounds.width * buffer
+    const bufferY = viewportBounds.height * buffer
+    
+    const minX = viewportBounds.x - bufferX
+    const maxX = viewportBounds.x + viewportBounds.width + bufferX
+    const minY = viewportBounds.y - bufferY
+    const maxY = viewportBounds.y + viewportBounds.height + bufferY
+    
+    const filtered = shapes.filter(shape => {
+      // Always render locked shapes (user is interacting with them)
+      if (shape.isLocked) return true
+      
+      // AABB (Axis-Aligned Bounding Box) intersection test
+      // Return false if shape is completely outside viewport + buffer
+      if (shape.x + shape.width < minX) return false
+      if (shape.x > maxX) return false
+      if (shape.y + shape.height < minY) return false
+      if (shape.y > maxY) return false
+      
+      return true
+    })
+    
+    // Log culling stats in dev mode
+    if (import.meta.env.DEV && shapes.length > 0) {
+      console.log(`⚡ Viewport culling: ${filtered.length}/${shapes.length} shapes (${((filtered.length / shapes.length) * 100).toFixed(1)}%)`)
+    }
+    
+    return filtered
+  }, [shapes, viewportBounds])
   
   // ✅ DRAG-TO-SELECT: Selection rectangle state
   const [selectionRect, setSelectionRect] = useState<{
@@ -864,16 +961,17 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   }), [selectionRect])
 
   // ✅ KONVA GROUP: Separate shapes into multi-select group and individual shapes
+  // ⚡ VIEWPORT CULLING: Use visibleShapes instead of all shapes
   const multiSelectShapes = useMemo(() => {
     if (!user || selectedShapeIds.length <= 1) return []
-    return shapes.filter(s => selectedShapeIds.includes(s.id))
-  }, [shapes, selectedShapeIds, user])
+    return visibleShapes.filter(s => selectedShapeIds.includes(s.id))
+  }, [visibleShapes, selectedShapeIds, user])
 
   const singleShapes = useMemo(() => {
-    if (multiSelectShapes.length === 0) return shapes
+    if (multiSelectShapes.length === 0) return visibleShapes
     const multiSelectIds = new Set(multiSelectShapes.map(s => s.id))
-    return shapes.filter(s => !multiSelectIds.has(s.id))
-  }, [shapes, multiSelectShapes])
+    return visibleShapes.filter(s => !multiSelectIds.has(s.id))
+  }, [visibleShapes, multiSelectShapes])
 
   // ✅ GROUP DRAG: Handle group drag with proper boundary constraints
   const groupRef = useRef<Konva.Group>(null)
@@ -886,12 +984,17 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   }, [multiSelectShapes.length])
   
   const handleGroupDragStart = useCallback(() => {
+    // ⚡ PERFORMANCE: Signal that we're dragging to skip cursor updates
+    if (isDraggingRef) {
+      isDraggingRef.current = true
+    }
+    
     // Ensure group starts at (0, 0) for consistent boundary calculations
     const group = groupRef.current
     if (group) {
       group.position({ x: 0, y: 0 })
     }
-  }, [])
+  }, [isDraggingRef])
 
   // ⚡ PERFORMANCE: Throttle cursor updates during group drag
   const lastGroupDragUpdateRef = useRef<number>(0)
@@ -969,6 +1072,11 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   }, [user])
   
   const handleGroupDragEnd = useCallback((e: any) => {
+    // ⚡ PERFORMANCE: Clear dragging flag to resume cursor updates
+    if (isDraggingRef) {
+      isDraggingRef.current = false
+    }
+    
     if (!user) return
     
     const group = e.target
@@ -988,7 +1096,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
     
     // Reset group position after updating shapes
     group.position({ x: 0, y: 0 })
-  }, [user, multiSelectShapes])
+  }, [user, multiSelectShapes, isDraggingRef])
 
   const groupDragBoundFunc = useCallback((pos: { x: number, y: number }) => {
     // Get fresh shapes from store to avoid stale closure
@@ -1091,6 +1199,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
                 shapeRef={{ current: null, callback: handleRef } as any}
                 disableDrag={true}
                 onCursorUpdate={onCursorUpdate}
+                isDraggingRef={isDraggingRef}
               />
             )
           })}
@@ -1114,6 +1223,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
             onDoubleClick={handleDoubleClick}
             shapeRef={{ current: null, callback: handleRef } as any}
             onCursorUpdate={onCursorUpdate}
+            isDraggingRef={isDraggingRef}
           />
         )
       })}

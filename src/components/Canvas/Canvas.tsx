@@ -46,6 +46,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
   const [isCommentsSidebarOpen, setIsCommentsSidebarOpen] = useState(false)
   const [commentShapeId, setCommentShapeId] = useState<string | null>(null)
   
+  // ⚡ PERFORMANCE: Track if we're currently dragging to skip cursor updates
+  const isDraggingShape = useRef(false)
+  
   const { user } = useUserStore()
   
   // 🎄 CHRISTMAS: Preload textures and track loading state
@@ -718,6 +721,9 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
 
   // ✅ PHASE 8: Handle mouse move for cursor tracking (with navigation conflict prevention)
   const handleMouseMove = useCallback((e: any) => {
+    // ⚡ PERFORMANCE: Skip cursor updates during drag operations
+    if (isDraggingShape.current) return
+    
     // ✅ FIX CONFLICT: Don't update cursor during navigation (pan/zoom)
     if (isNavigating || isSpacePressed) return
     
@@ -786,7 +792,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         key={texturesLoaded ? 'loaded' : 'loading'} // Force re-render when textures load
       >
         <GridLayer width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
-        <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} stageRef={stageRef} onCursorUpdate={updateCursor} />
+        <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} stageRef={stageRef} onCursorUpdate={updateCursor} isDraggingRef={isDraggingShape} />
         <SelectionLayer listening={false} />
         <SimpleCursorLayer />
       </Stage>

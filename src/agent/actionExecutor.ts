@@ -797,7 +797,7 @@ async function executeBulkCreate(
     // Use batch API for performance
     const shapeIds = await withTimeout(
       createShapeBatch(shapes),
-      10000, // 10 second timeout for bulk operations
+      30000, // 30 second timeout for bulk operations (handles 1000+ shapes)
       'BULK_CREATE'
     );
     
