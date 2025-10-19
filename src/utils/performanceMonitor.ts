@@ -132,7 +132,7 @@ class PerformanceMonitor {
   logRTDBUpdate(operation: string) {
     if (!import.meta.env.DEV) return
     this.rtdbUpdates++
-    console.log(`🔄 Realtime DB Update: ${operation}`)
+    // Silent tracking - too noisy to log every cursor update
   }
 
   // Get current performance stats

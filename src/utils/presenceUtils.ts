@@ -118,7 +118,7 @@ export const subscribeToPresence = (
   const unsubscribe = onValue(presenceRef, 
     (snapshot) => {
       const data = snapshot.val() || {}
-      console.log('📡 Presence update received:', Object.keys(data).length, 'users')
+      // Silent updates - too noisy to log
       callback(data)
     },
     (error) => {
