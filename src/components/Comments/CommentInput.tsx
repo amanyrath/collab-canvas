@@ -28,13 +28,22 @@ export const CommentInput: React.FC<CommentInputProps> = ({
       textareaRef.current.focus()
     }
   }, [autoFocus])
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('💬 CommentInput state:', { submitting, hasText: text.length > 0, isFocused })
+  }, [submitting, text, isFocused])
 
   const handleSubmit = () => {
     const trimmedText = text.trim()
+    console.log('💬 CommentInput handleSubmit:', { trimmedText, submitting, canSubmit: trimmedText && !submitting })
     if (trimmedText && !submitting) {
+      console.log('💬 CommentInput: Calling onSubmit')
       onSubmit(trimmedText)
       setText('')
       setIsFocused(false)
+    } else {
+      console.log('💬 CommentInput: Submit blocked', { hasText: !!trimmedText, notSubmitting: !submitting })
     }
   }
 

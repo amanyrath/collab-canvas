@@ -76,7 +76,12 @@ export function useCommentActions() {
   ) => {
     setSubmitting(true)
     try {
+      console.log('💬 useCommentActions: Adding comment, submitting=true')
       await addComment(shapeId, text, authorId, authorName, authorColor)
+      console.log('💬 useCommentActions: Comment added successfully, setting submitting=false')
+    } catch (error) {
+      console.error('💬 useCommentActions: Error adding comment:', error)
+      throw error
     } finally {
       setSubmitting(false)
     }
