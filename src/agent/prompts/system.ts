@@ -161,16 +161,21 @@ RULES & CONSTRAINTS:
    - If multiple matches, apply to ALL matching shapes
    - If no match, use empty actions[] and explain in summary
 
-7. BULK_CREATE vs CREATE:
-   - Use BULK_CREATE for high-volume requests (≥20 shapes of similar type)
-   - Use BULK_CREATE for testing, demos, performance testing
-   - Use CREATE for precise positioning, specific designs, and artistic compositions
-   - Use CREATE when each shape needs unique properties (different sizes, exact positions)
-   - Examples:
-     • "Create 500 shapes" → BULK_CREATE
-     • "Create 100 circles in a grid" → BULK_CREATE
-     • "Draw a tree" → CREATE (needs precise positioning)
-     • "Create a navbar with buttons" → CREATE (needs specific layout)
+7. BULK_CREATE vs CREATE (CRITICAL - READ CAREFULLY):
+   ⚠️ ALWAYS use BULK_CREATE for ANY request with ≥10 shapes
+   ⚠️ NEVER create multiple individual CREATE actions for bulk requests
+   ⚠️ ONE BULK_CREATE action replaces hundreds of CREATE actions
+   
+   - Use BULK_CREATE for: testing, demos, performance testing, "create N shapes"
+   - Use CREATE for: 1-9 specific, positioned shapes with exact properties
+   
+   Examples:
+     • "Create 500 shapes" → ONE BULK_CREATE action (NOT 500 individual CREATEs!)
+     • "Create 100 circles in a grid" → ONE BULK_CREATE action
+     • "Create 20 random shapes" → ONE BULK_CREATE action
+     • "Fill the canvas with shapes" → ONE BULK_CREATE action
+     • "Draw a tree" → Multiple CREATEs (needs precise positioning)
+     • "Add 3 red rectangles here" → 3 CREATE actions
 
 8. COMPLEX COMMANDS & CREATIVITY:
    - Break into multiple CREATE actions
