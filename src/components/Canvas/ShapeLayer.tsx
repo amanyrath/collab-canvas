@@ -73,11 +73,15 @@ const SimpleShape: React.FC<{
       
       // ⚡ CRITICAL: Get FRESH state to avoid race conditions on rapid clicks
       const { batchUpdateShapesOptimistic, shapes: freshShapes } = useCanvasStore.getState()
+      
+      // ⚡ CRITICAL: Check lock status from FRESH state, not stale props!
+      const freshThisShape = freshShapes.find(s => s.id === shape.id)
+      const isFreshLockedByMe = freshThisShape?.lockedBy === user.uid
       const userLockedShapes = freshShapes.filter(s => s.lockedBy === user.uid && s.id !== shape.id)
       
       if (isShiftKey) {
-        // ✅ MULTI-SELECT: Toggle shape lock
-        if (isLockedByMe) {
+        // ✅ MULTI-SELECT: Toggle shape lock based on FRESH state
+        if (isFreshLockedByMe) {
           // Release this shape (atomic update)
           batchUpdateShapesOptimistic([{
             shapeId: shape.id,
@@ -104,14 +108,15 @@ const SimpleShape: React.FC<{
         }
       } else {
         // ✅ SINGLE SELECT: Release others and lock this one
-        if (isLockedByMe && userLockedShapes.length === 0) {
+        // Check fresh state to avoid redundant work
+        if (isFreshLockedByMe && userLockedShapes.length === 0) {
           return // Already the only selection, no work needed
         }
         
         // ⚡ ATOMIC: All lock changes in a SINGLE state update (prevents ghost selections)
         const batchUpdates: Array<{ shapeId: string; updates: Partial<Shape> }> = []
         
-        // Add unlock updates for all previously locked shapes
+        // Add unlock updates for all previously locked shapes (including this one if needed)
         userLockedShapes.forEach(s => {
           batchUpdates.push({
             shapeId: s.id,
@@ -124,23 +129,19 @@ const SimpleShape: React.FC<{
           })
         })
         
-        // Add lock update for current shape (if not already locked)
-        if (!isLockedByMe) {
-          batchUpdates.push({
-            shapeId: shape.id,
-            updates: {
-              isLocked: true,
-              lockedBy: user.uid,
-              lockedByName: user.displayName,
-              lockedByColor: user.cursorColor
-            }
-          })
-        }
+        // Always lock current shape (even if already locked, for consistency)
+        batchUpdates.push({
+          shapeId: shape.id,
+          updates: {
+            isLocked: true,
+            lockedBy: user.uid,
+            lockedByName: user.displayName,
+            lockedByColor: user.cursorColor
+          }
+        })
         
         // ⚡ CRITICAL: Single atomic state update - no intermediate states!
-        if (batchUpdates.length > 0) {
-          batchUpdateShapesOptimistic(batchUpdates)
-        }
+        batchUpdateShapesOptimistic(batchUpdates)
         
         // ✅ BACKGROUND: Firebase operations (non-blocking)
         if (userLockedShapes.length > 0) {
@@ -149,13 +150,13 @@ const SimpleShape: React.FC<{
           )
         }
         
-        // Acquire lock for current shape
-        if (!isLockedByMe) {
+        // Acquire lock for current shape (only if not already locked)
+        if (!isFreshLockedByMe) {
           acquireLock(shape.id, user.uid, user.displayName, user.cursorColor)
         }
       }
     }
-  }, [shape.id, isLockedByMe, isLockedByOthers, user, onSelect])
+  }, [shape.id, isLockedByOthers, user, onSelect])
 
   // ✅ SIMPLIFIED: Drag handlers for single shapes only (multi-select uses Group)
   const handleDragStart = useCallback((_e: any) => {
