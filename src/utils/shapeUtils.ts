@@ -55,6 +55,7 @@ export const createShape = async (
       lastModifiedAt: serverTimestamp(),
       isLocked: false,
       lockedBy: null,
+      zIndex: 0, // 📐 LAYERS: All shapes start on base layer (Layer 1)
       ...(texture && { texture }) // 🎄 Add texture if provided
     }
     
@@ -108,7 +109,8 @@ export const createShapeBatch = async (
         lastModifiedBy: shapeData.createdBy,
         lastModifiedAt: serverTimestamp(),
         isLocked: false,
-        lockedBy: null
+        lockedBy: null,
+        zIndex: 0 // 📐 LAYERS: All shapes start on base layer (Layer 1)
       }
       
       const shapeRef = doc(db, SHAPES_COLLECTION, shapeId)

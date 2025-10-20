@@ -527,8 +527,18 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
   }, [stageRef])
   
   // ⚡ VIEWPORT CULLING: Filter shapes to only visible ones (70-90% reduction)
+  // 📐 LAYERS: Sort by zIndex for proper rendering order
   const visibleShapes = useMemo(() => {
-    if (!viewportBounds) return shapes
+    // First, sort all shapes by zIndex (lower numbers render first, on bottom)
+    const sortedShapes = [...shapes].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+    
+    // 📐 LAYERS: Filter out hidden shapes before viewport culling
+    const nonHiddenShapes = sortedShapes.filter(shape => !shape.hidden)
+    
+    // If no viewport bounds yet, show all non-hidden shapes
+    if (!viewportBounds) {
+      return nonHiddenShapes
+    }
     
     // Buffer zone: 20% extra on each side for smooth panning
     const buffer = 0.2
@@ -540,7 +550,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
     const minY = viewportBounds.y - bufferY
     const maxY = viewportBounds.y + viewportBounds.height + bufferY
     
-    const filtered = shapes.filter(shape => {
+    const filtered = nonHiddenShapes.filter(shape => {
       // Always render locked shapes (user is interacting with them)
       if (shape.isLocked) return true
       
@@ -554,10 +564,10 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
       return true
     })
     
-    // Log culling stats in dev mode
-    if (import.meta.env.DEV && shapes.length > 0) {
-      console.log(`⚡ Viewport culling: ${filtered.length}/${shapes.length} shapes (${((filtered.length / shapes.length) * 100).toFixed(1)}%)`)
-    }
+    // Log culling stats in dev mode (disabled by default - uncomment to debug)
+    // if (import.meta.env.DEV && shapes.length > 0) {
+    //   console.log('⚡ Viewport culling: ' + filtered.length + '/' + shapes.length + ' shapes visible')
+    // }
     
     return filtered
   }, [shapes, viewportBounds])

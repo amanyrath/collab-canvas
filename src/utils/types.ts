@@ -32,6 +32,12 @@ export interface Shape {
   texture?: string              // Path to texture file (e.g., '/textures/trees/pine1.png')
   treeLayer?: number            // For stacking tree triangles (0 = bottom)
   
+  // 📐 LAYERS: z-index for layer ordering (higher = on top)
+  zIndex?: number
+  
+  // 📐 LAYERS: visibility toggle (hidden shapes are not rendered)
+  hidden?: boolean
+  
   // 💬 COMMENTS: Stored directly on the shape
   comments?: Array<{
     id: string

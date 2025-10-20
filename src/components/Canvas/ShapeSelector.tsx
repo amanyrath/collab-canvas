@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 import { ShapeType } from '../../utils/types'
 import { TEXTURES } from '../../constants/textureManifest'
+import { useColorHistory } from '../../hooks/useColorHistory'
 
 interface ShapeSelectorProps {
   currentShapeType: ShapeType
@@ -36,7 +37,11 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [tempColor, setTempColor] = useState(customColor)
   const [colorBeforePickerOpen, setColorBeforePickerOpen] = useState(customColor)
+  const [showPalettes, setShowPalettes] = useState(false)
+  const [savePaletteName, setSavePaletteName] = useState('')
   const pickerRef = useRef<HTMLDivElement>(null)
+  
+  const { recentColors, savedPalettes, addRecentColor, savePalette, deletePalette } = useColorHistory()
   
   const handleCustomColorClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -64,12 +69,33 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
     e.preventDefault()
     e.stopPropagation()
     console.log('Custom color accepted:', tempColor)
+    // Add to recent colors
+    addRecentColor(tempColor)
     // Update the custom color slot
     onCustomColorChange(tempColor)
     // Apply to selected shapes
     onColorChange(tempColor)
     // Close the picker
     setIsPickerOpen(false)
+  }
+  
+  const handleColorSelect = (color: string) => {
+    addRecentColor(color)
+    onColorChange(color)
+  }
+  
+  const handleSavePalette = () => {
+    if (!savePaletteName.trim()) return
+    
+    const colorsToSave = [
+      ...colorOptions.map(c => c.value),
+      customColor,
+      ...recentColors.slice(0, 4)
+    ].filter((c, i, arr) => arr.indexOf(c) === i).slice(0, 8)
+    
+    savePalette(savePaletteName, colorsToSave)
+    setSavePaletteName('')
+    alert(`Palette "${savePaletteName}" saved!`)
   }
   
   const handleCancelPicker = (e: React.MouseEvent) => {
@@ -208,11 +234,13 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
           </div>
         ) : (
           // NORMAL MODE: Color Picker
-          <div className="flex gap-2">
+          <div className="space-y-3">
+            {/* Main color palette */}
+            <div className="flex gap-2">
           {colorOptions.map((color) => (
             <button
               key={color.value}
-              onClick={() => onColorChange(color.value)}
+              onClick={() => handleColorSelect(color.value)}
               className={`
                 w-8 h-8 rounded-lg border-2 transition-all duration-200 relative
                 ${currentColor === color.value 
@@ -301,6 +329,104 @@ export const ShapeSelector: React.FC<ShapeSelectorProps> = ({
               </div>
             )}
           </div>
+          </div>
+            
+            {/* Recent Colors */}
+            {recentColors.length > 0 && (
+              <div>
+                <div className="text-xs text-gray-500 font-medium mb-1.5">Recent</div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {recentColors.map((color, index) => (
+                    <button
+                      key={`${color}-${index}`}
+                      onClick={() => handleColorSelect(color)}
+                      className={`
+                        w-6 h-6 rounded border transition-all duration-200
+                        ${currentColor === color 
+                          ? 'border-gray-800 ring-2 ring-gray-300' 
+                          : 'border-gray-200 hover:border-gray-400'
+                        }
+                      `}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Saved Palettes */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-xs text-gray-500 font-medium">Palettes</div>
+                <button
+                  onClick={() => setShowPalettes(!showPalettes)}
+                  className="text-xs text-blue-600 hover:text-blue-700"
+                >
+                  {showPalettes ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              
+              {showPalettes && (
+                <div className="space-y-2">
+                  {/* Save current palette */}
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      value={savePaletteName}
+                      onChange={(e) => setSavePaletteName(e.target.value)}
+                      placeholder="Palette name..."
+                      className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
+                      onKeyDown={(e) => e.key === 'Enter' && handleSavePalette()}
+                    />
+                    <button
+                      onClick={handleSavePalette}
+                      disabled={!savePaletteName.trim()}
+                      className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Save
+                    </button>
+                  </div>
+                  
+                  {/* Saved palettes list */}
+                  {savedPalettes.length > 0 ? (
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                      {savedPalettes.map((palette) => (
+                        <div key={palette.id} className="bg-gray-50 rounded p-1.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-gray-700 truncate">
+                              {palette.name}
+                            </span>
+                            <button
+                              onClick={() => deletePalette(palette.id)}
+                              className="text-xs text-red-600 hover:text-red-700"
+                              title="Delete palette"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <div className="flex gap-1">
+                            {palette.colors.map((color, idx) => (
+                              <button
+                                key={`${palette.id}-${idx}`}
+                                onClick={() => handleColorSelect(color)}
+                                className="w-5 h-5 rounded border border-gray-200 hover:border-gray-400"
+                                style={{ backgroundColor: color }}
+                                title={color}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-400 italic py-1">
+                      No saved palettes yet
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

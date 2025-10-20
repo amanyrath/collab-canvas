@@ -29,10 +29,12 @@ const CANVAS_HEIGHT = 5000
 interface CanvasProps {
   width: number
   height: number
+  stageRef?: React.MutableRefObject<Konva.Stage | null>
 }
 
-const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
-  const stageRef = useRef<Konva.Stage>(null)
+const Canvas: React.FC<CanvasProps> = ({ width, height, stageRef: externalStageRef }) => {
+  const internalStageRef = useRef<Konva.Stage>(null)
+  const stageRef = externalStageRef || internalStageRef
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [isAgentChatOpen, setIsAgentChatOpen] = useState(false)
@@ -260,6 +262,48 @@ const Canvas: React.FC<CanvasProps> = ({ width, height }) => {
         }
         e.preventDefault()
         handleDeleteShape()
+        return
+      }
+      
+      // 📐 LAYERS: Handle Cmd+] = Move Up One Layer
+      if ((e.metaKey || e.ctrlKey) && e.key === ']' && !e.repeat) {
+        if (isTyping) return
+        e.preventDefault()
+        
+        if (!user) return
+        const { shapes, bringToFront } = useCanvasStore.getState()
+        const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+        
+        if (userLockedShapes.length > 0) {
+          // Move all locked shapes up one layer
+          userLockedShapes.forEach(shape => {
+            const newZIndex = (shape.zIndex ?? 0) + 1
+            bringToFront(shape.id)
+            updateShape(shape.id, { zIndex: newZIndex }, user.uid)
+          })
+          console.log(`⬆️ Moved ${userLockedShapes.length} shape(s) up one layer`)
+        }
+        return
+      }
+      
+      // 📐 LAYERS: Handle Cmd+[ = Move Down One Layer
+      if ((e.metaKey || e.ctrlKey) && e.key === '[' && !e.repeat) {
+        if (isTyping) return
+        e.preventDefault()
+        
+        if (!user) return
+        const { shapes, sendToBack } = useCanvasStore.getState()
+        const userLockedShapes = shapes.filter(shape => shape.lockedBy === user.uid)
+        
+        if (userLockedShapes.length > 0) {
+          // Move all locked shapes down one layer
+          userLockedShapes.forEach(shape => {
+            const newZIndex = (shape.zIndex ?? 0) - 1
+            sendToBack(shape.id)
+            updateShape(shape.id, { zIndex: newZIndex }, user.uid)
+          })
+          console.log(`⬇️ Moved ${userLockedShapes.length} shape(s) down one layer`)
+        }
         return
       }
       

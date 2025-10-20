@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
+import Konva from 'konva'
 import Auth from './components/Auth/Auth'
 import Canvas from './components/Canvas/Canvas'
 import Navbar from './components/Layout/Navbar'
@@ -6,10 +7,12 @@ import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import ConnectionBanner from './components/ConnectionBanner'
 import FastPresenceSidebar from './components/Canvas/FastPresenceSidebar'
+import LayersPanel from './components/Canvas/LayersPanel'
 import PerformanceDisplay from './components/Debug/PerformanceDisplay'
 import { DevWarningBanner } from './components/DevWarningBanner'
 import { initializeLockCleanup } from './utils/lockCleanup'
 import { preloadTextures } from './utils/textureLoader'
+import { exportCanvasAsPNG, exportVisibleArea, copyCanvasToClipboard } from './utils/canvasExport'
 
 // Load dev utils in development mode
 if (import.meta.env.DEV) {
@@ -17,6 +20,36 @@ if (import.meta.env.DEV) {
 }
 
 function App() {
+  // Ref to access the canvas stage for exporting
+  const canvasStageRef = useRef<Konva.Stage | null>(null)
+
+  // Export handlers
+  const handleExportCanvas = useCallback(() => {
+    if (canvasStageRef.current) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      exportCanvasAsPNG(canvasStageRef.current, `canvas-${timestamp}.png`)
+    } else {
+      alert('Canvas not ready. Please try again.')
+    }
+  }, [])
+
+  const handleExportVisible = useCallback(() => {
+    if (canvasStageRef.current) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      exportVisibleArea(canvasStageRef.current, `canvas-${timestamp}.png`)
+    } else {
+      alert('Canvas not ready. Please try again.')
+    }
+  }, [])
+
+  const handleCopyToClipboard = useCallback(() => {
+    if (canvasStageRef.current) {
+      copyCanvasToClipboard(canvasStageRef.current)
+    } else {
+      alert('Canvas not ready. Please try again.')
+    }
+  }, [])
+
   // Initialize automatic lock cleanup on user disconnect
   useEffect(() => {
     console.log('🔧 Initializing lock cleanup system...')
@@ -87,14 +120,18 @@ function App() {
           {/* Authenticated user interface */}
           <div className="h-screen flex flex-col">
             {/* Header */}
-            <Navbar />
+            <Navbar 
+              onExportCanvas={handleExportCanvas}
+              onExportVisible={handleExportVisible}
+              onCopyToClipboard={handleCopyToClipboard}
+            />
 
             {/* Canvas Area */}
             <main className="flex-1 p-4">
-              <div className="h-full flex">
+              <div className="h-full flex gap-4">
                 {/* Main Canvas - Wrapped in additional Error Boundary for canvas-specific errors */}
                 <ErrorBoundary fallback={
-                  <div className="flex-1 mr-4 bg-white rounded-lg border border-red-200 p-8 text-center">
+                  <div className="flex-1 bg-white rounded-lg border border-red-200 p-8 text-center">
                     <div className="text-4xl mb-4">🎨</div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Canvas Error</h3>
                     <p className="text-gray-600 mb-4">The canvas encountered an error. Try refreshing the page.</p>
@@ -106,12 +143,17 @@ function App() {
                     </button>
                   </div>
                 }>
-                  <div className="flex-1 mr-4">
-                    <Canvas width={1000} height={600} />
+                  <div className="flex-1">
+                    <Canvas width={1000} height={600} stageRef={canvasStageRef} />
                   </div>
                 </ErrorBoundary>
               
-              {/* Sidebar */}
+              {/* Left Sidebar - Layers */}
+              <div className="w-80" style={{ height: 'calc(100vh - 140px)' }}>
+                <LayersPanel />
+              </div>
+
+              {/* Right Sidebar */}
               <div className="w-64 space-y-4">
                 {/* ⚡ Presence sidebar */}
                 <FastPresenceSidebar />
@@ -125,6 +167,10 @@ function App() {
                     <div><strong>Shift+Click</strong> → Multi-select</div>
                     <div><strong>⌘/Ctrl+A</strong> → Select all</div>
                     <div><strong>Delete</strong> → Delete selected</div>
+                    <div><strong>⌘/Ctrl+]</strong> → Move up layer</div>
+                    <div><strong>⌘/Ctrl+[</strong> → Move down layer</div>
+                    <div><strong>⌘/Ctrl+Z</strong> → Undo</div>
+                    <div><strong>⌘/Ctrl+⇧+Z</strong> → Redo</div>
                     <div><strong>Space+Drag</strong> → Pan canvas</div>
                     <div><strong>Scroll</strong> → Zoom/Pan</div>
                   </div>

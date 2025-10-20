@@ -16,6 +16,11 @@ interface CanvasStore {
   deleteShape: (shapeId: string, recordHistory?: boolean) => void
   setShapes: (shapes: Shape[]) => void
   
+  // 📐 LAYERS: Layer ordering
+  reorderShapes: (shapeIds: string[]) => void
+  bringToFront: (shapeId: string) => void
+  sendToBack: (shapeId: string) => void
+  
   // Undo/Redo
   undo: () => Promise<void>
   redo: () => Promise<void>
@@ -198,6 +203,47 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
     })
     
     return { shapes: protectedShapes }
+  }),
+
+  // 📐 LAYERS: Reorder shapes by updating their zIndex
+  reorderShapes: (shapeIds) => set((state) => {
+    // Create a map of shape ID to new zIndex
+    const zIndexMap = new Map<string, number>()
+    shapeIds.forEach((id, index) => {
+      zIndexMap.set(id, index)
+    })
+    
+    // Update shapes with new zIndex
+    const updatedShapes = state.shapes.map(shape => {
+      const newZIndex = zIndexMap.get(shape.id)
+      if (newZIndex !== undefined) {
+        return { ...shape, zIndex: newZIndex }
+      }
+      return shape
+    })
+    
+    // Sort by zIndex
+    updatedShapes.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+    
+    return { shapes: updatedShapes }
+  }),
+
+  // 📐 LAYERS: Bring shape up one layer
+  bringToFront: (shapeId) => set((state) => {
+    return {
+      shapes: state.shapes.map(shape =>
+        shape.id === shapeId ? { ...shape, zIndex: (shape.zIndex ?? 0) + 1 } : shape
+      ).sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+    }
+  }),
+
+  // 📐 LAYERS: Send shape down one layer
+  sendToBack: (shapeId) => set((state) => {
+    return {
+      shapes: state.shapes.map(shape =>
+        shape.id === shapeId ? { ...shape, zIndex: (shape.zIndex ?? 0) - 1 } : shape
+      ).sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+    }
   }),
 
   // Undo/Redo operations

@@ -2,15 +2,31 @@ import React, { useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../utils/firebase'
 import { useUserStore } from '../../store/userStore'
+import { useCanvasStore } from '../../store/canvasStore'
 import { clearAllShapes, clearAllLocks, unlockUserShapes } from '../../utils/devUtils'
-import { createShape } from '../../utils/shapeUtils'
+import { createShape, updateShape } from '../../utils/shapeUtils'
 
-const Navbar: React.FC = () => {
+// Export canvas functionality will be passed as a prop
+interface NavbarProps {
+  onExportCanvas?: () => void
+  onExportVisible?: () => void
+  onCopyToClipboard?: () => void
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onExportCanvas, onExportVisible, onCopyToClipboard }) => {
   const { user, isAuthenticated } = useUserStore()
+  const shapes = useCanvasStore((state) => state.shapes)
+  const bringToFront = useCanvasStore((state) => state.bringToFront)
+  const sendToBack = useCanvasStore((state) => state.sendToBack)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [numShapes, setNumShapes] = useState(10)
   const [isCreating, setIsCreating] = useState(false)
+  
+  // 📐 LAYERS: Get selected (locked) shapes
+  const selectedShapes = user ? shapes.filter(s => s.lockedBy === user.uid) : []
+  const hasSelection = selectedShapes.length > 0
 
   const handleLogout = async () => {
     try {
@@ -104,6 +120,30 @@ const Navbar: React.FC = () => {
       setShowAdminPanel(false)
     }
   }
+  
+  // 📐 LAYERS: Move selected shapes up one layer
+  const handleBringToFront = async () => {
+    if (!user || !hasSelection) return
+    
+    selectedShapes.forEach(shape => {
+      const newZIndex = (shape.zIndex ?? 0) + 1
+      bringToFront(shape.id)
+      updateShape(shape.id, { zIndex: newZIndex }, user.uid)
+    })
+    console.log(`⬆️ Moved ${selectedShapes.length} shape(s) up one layer`)
+  }
+  
+  // 📐 LAYERS: Move selected shapes down one layer
+  const handleSendToBack = async () => {
+    if (!user || !hasSelection) return
+    
+    selectedShapes.forEach(shape => {
+      const newZIndex = (shape.zIndex ?? 0) - 1
+      sendToBack(shape.id)
+      updateShape(shape.id, { zIndex: newZIndex }, user.uid)
+    })
+    console.log(`⬇️ Moved ${selectedShapes.length} shape(s) down one layer`)
+  }
 
   if (!isAuthenticated) return null
 
@@ -117,6 +157,89 @@ const Navbar: React.FC = () => {
       </div>
       
       <div className="flex items-center space-x-4">
+        {/* Export Menu */}
+        <div className="relative">
+          <button
+            onClick={() => setShowExportMenu(!showExportMenu)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded transition-colors text-sm font-medium"
+            title="Export Canvas"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export
+          </button>
+          
+          {showExportMenu && (
+            <div className="absolute right-0 top-10 bg-white border border-gray-300 rounded shadow-lg p-2 z-50 min-w-[200px]">
+              <button
+                onClick={() => {
+                  onExportCanvas?.()
+                  setShowExportMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+              >
+                <span>📥</span>
+                <div>
+                  <div className="font-medium">Full Canvas</div>
+                  <div className="text-xs text-gray-500">Export entire canvas</div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  onExportVisible?.()
+                  setShowExportMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+              >
+                <span>✂️</span>
+                <div>
+                  <div className="font-medium">Visible Area</div>
+                  <div className="text-xs text-gray-500">Export trimmed to shapes</div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  onCopyToClipboard?.()
+                  setShowExportMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+              >
+                <span>📋</span>
+                <div>
+                  <div className="font-medium">Copy to Clipboard</div>
+                  <div className="text-xs text-gray-500">Copy as image</div>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+      
+        {/* 📐 LAYERS: Z-index controls */}
+        {hasSelection && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded">
+            <span className="text-xs text-blue-700 font-medium">
+              {selectedShapes.length} selected
+            </span>
+            <div className="flex gap-1">
+              <button
+                onClick={handleBringToFront}
+                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 border border-blue-300 rounded transition-colors"
+                title="Move Up One Layer (⌘])"
+              >
+                ⬆️ Up
+              </button>
+              <button
+                onClick={handleSendToBack}
+                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 border border-blue-300 rounded transition-colors"
+                title="Move Down One Layer (⌘[)"
+              >
+                ⬇️ Down
+              </button>
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center space-x-2">
           <div 
             className="w-3 h-3 rounded-full"
@@ -201,3 +324,10 @@ const Navbar: React.FC = () => {
 }
 
 export default Navbar
+
+// Default props
+Navbar.defaultProps = {
+  onExportCanvas: undefined,
+  onExportVisible: undefined,
+  onCopyToClipboard: undefined
+}
