@@ -68,10 +68,9 @@ service cloud.firestore {
       let existing = resource.data;
       let updated = request.resource.data;
       // Protect immutable fields from being changed
-      return updated.type == existing.type &&
-             updated.createdBy == existing.createdBy &&
+      return updated.createdBy == existing.createdBy &&
              updated.createdAt == existing.createdAt;
-      // Allow all other fields to be updated (x, y, width, height, fill, text, isLocked, comments, etc.)
+      // Allow all other fields to be updated (x, y, width, height, fill, text, type, isLocked, comments, etc.)
     }
   }
 }
