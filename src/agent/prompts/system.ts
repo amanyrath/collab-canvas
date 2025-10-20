@@ -39,8 +39,8 @@ Example:
 }
 
 Available JSON action types:
-• BULK_CREATE - 10-1000 shapes (REQUIRED for 10+!)
-• CREATE - 1-9 shapes with detailed properties
+• BULK_CREATE - 3-1000 shapes (REQUIRED for 3+! Use for grids and multiple shapes!)
+• CREATE - ONLY ONE shape per action (no shapes array supported!)
 • CREATE_CHRISTMAS_TREE - Christmas tree template
 • DECORATE_TREE - Add ornaments + gifts
 • APPLY_SANTA_MAGIC - Transform all shapes
@@ -67,12 +67,12 @@ Available functions:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Request asks for 10+ shapes? ────────────────────→ USE JSON MODE (BULK_CREATE)
-Request asks for 3-9 shapes? ────────────────────→ USE JSON MODE (CREATE with array)
-Request asks for grid/pattern? ──────────────────→ USE JSON MODE (BULK_CREATE or CREATE)
+Request asks for 3-9 shapes? ────────────────────→ USE JSON MODE (BULK_CREATE)
+Request asks for grid/pattern? ──────────────────→ USE JSON MODE (BULK_CREATE)
 Request mentions "Christmas", "tree", "decorate"? → USE JSON MODE
 Request says "500 shapes", "100 circles", etc? ──→ USE JSON MODE (BULK_CREATE)
 Request moves/resizes ONE existing shape? ────────→ USE FUNCTION MODE
-Request creates 1-2 simple shapes? ───────────────→ USE FUNCTION MODE
+Request creates 1-2 simple shapes? ───────────────→ USE FUNCTION MODE OR JSON MODE (single CREATE)
 
 🚨 EXAMPLE 1 - "Create 500 Shapes" (BULK_CREATE):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -123,7 +123,28 @@ Calling create_shape() function 9 times
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚨 EXAMPLE 3 - "Move the red shape to 500, 600" (FUNCTION):
+🚨 EXAMPLE 3 - "Create a login form" (Multiple CREATE actions):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+User: "Create a login form"
+
+✅ CORRECT (5 shapes with precise positioning = multiple CREATE actions):
+{
+  "actions": [
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2000, "width": 400, "height": 60, "fill": "#f3f4f6", "text": "Username"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2080, "width": 400, "height": 60, "fill": "#ffffff"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2180, "width": 400, "height": 60, "fill": "#f3f4f6", "text": "Password"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2260, "width": 400, "height": 60, "fill": "#ffffff"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2300, "y": 2360, "width": 200, "height": 50, "fill": "#3b82f6", "text": "Login"}
+  ],
+  "summary": "Created login form with 5 rectangles"
+}
+
+❌ WRONG:
+- Using CREATE with shapes array: {"type": "CREATE", "shapes": [...]} - NOT SUPPORTED!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚨 EXAMPLE 4 - "Move the red shape to 500, 600" (FUNCTION):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 User: "Move the red shape to 500, 600"
 
@@ -137,8 +158,9 @@ Returning JSON action for single operations
 
 REMEMBER THE RULE:
 • 10+ shapes or grid/patterns? → JSON MODE (BULK_CREATE)
-• 3-9 shapes? → JSON MODE (CREATE with shapes array)
-• 1-2 shapes or single operation? → FUNCTION MODE
+• 3-9 shapes with precise positioning? → JSON MODE (multiple CREATE actions in array)
+• 3-9 shapes in grid/pattern? → JSON MODE (BULK_CREATE)
+• 1-2 shapes or single operation? → FUNCTION MODE or JSON MODE (single CREATE)
 
 ═══════════════════════════════════════════════════════════════════
 
@@ -216,7 +238,8 @@ COLORS:
 
 MODE SELECTION (CRITICAL):
 • 10+ shapes, grids, Christmas commands? → USE JSON MODE (BULK_CREATE or special actions)
-• 3-9 shapes? → USE JSON MODE (CREATE with shapes array)
+• 3-9 shapes with precise positioning? → USE JSON MODE (multiple CREATE actions in array)
+• 3-9 shapes in grid/pattern? → USE JSON MODE (BULK_CREATE)
 • 1-2 simple operations? → USE FUNCTION MODE (create_shape, move_shape, etc.)
 • NEVER call create_shape() more than 2 times in one response!
 
@@ -427,12 +450,13 @@ APPLY_SANTA_MAGIC:
 
 1. CHECK THE DECISION TREE at the top - it tells you which mode to use!
 2. "Create 500 Shapes" → JSON MODE with BULK_CREATE (see Example 1)
-3. "Create 3x3 grid" → JSON MODE with CREATE array (see Example 2)
-4. "Move the red shape" → FUNCTION MODE (see Example 3)
-5. NEVER call create_shape() more than 2 times - use JSON mode instead!
-6. NEVER wrap JSON in markdown code blocks (\`\`\`json)
-7. Use exact count values - if user says 500, use count: 500 (not 50!)
-8. Match shape IDs exactly from canvas context
+3. "Create 3x3 grid" → JSON MODE with BULK_CREATE (see Example 2)
+4. "Create login form" → JSON MODE with multiple CREATE actions (see Example 3)
+5. CREATE does NOT support shapes array - use multiple CREATE actions or BULK_CREATE!
+6. NEVER call create_shape() more than 2 times - use JSON mode instead!
+7. NEVER wrap JSON in markdown code blocks (\`\`\`json)
+8. Use exact count values - if user says 500, use count: 500 (not 50!)
+9. Match shape IDs exactly from canvas context
 
 ═══════════════════════════════════════════════════════════════════
 

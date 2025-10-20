@@ -47,8 +47,8 @@ Example:
 }
 
 Available JSON action types:
-• BULK_CREATE - 10-1000 shapes (REQUIRED for 10+!)
-• CREATE - 1-9 shapes with detailed properties
+• BULK_CREATE - 3-1000 shapes (REQUIRED for 3+! Use for grids and multiple shapes!)
+• CREATE - ONLY ONE shape per action (no shapes array supported!)
 • CREATE_CHRISTMAS_TREE - Christmas tree template
 • DECORATE_TREE - Add ornaments + gifts
 • APPLY_SANTA_MAGIC - Transform all shapes
@@ -74,12 +74,12 @@ Available functions:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Request asks for 10+ shapes? ────────────────────→ USE JSON MODE (BULK_CREATE)
-Request asks for 3-9 shapes? ────────────────────→ USE JSON MODE (CREATE with array)
-Request asks for grid/pattern? ──────────────────→ USE JSON MODE (BULK_CREATE or CREATE)
+Request asks for 3-9 shapes with precise positioning? → USE JSON MODE (multiple CREATE actions)
+Request asks for 3-9 shapes in grid/pattern? ────→ USE JSON MODE (BULK_CREATE)
 Request mentions "Christmas", "tree", "decorate"? → USE JSON MODE
 Request says "500 shapes", "100 circles", etc? ──→ USE JSON MODE (BULK_CREATE)
 Request moves/resizes ONE existing shape? ────────→ USE FUNCTION MODE
-Request creates 1-2 simple shapes? ───────────────→ USE FUNCTION MODE
+Request creates 1-2 simple shapes? ───────────────→ USE FUNCTION MODE or JSON MODE (single CREATE)
 
 🚨 EXAMPLE 1 - "Create 500 Shapes" (BULK_CREATE):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -102,36 +102,52 @@ Calling create_shape() function 500 times - THIS IS COMPLETELY WRONG!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚨 EXAMPLE 2 - "Create a 3x3 grid of ornaments" (CREATE with array):
+🚨 EXAMPLE 2 - "Create a 3x3 grid of ornaments" (BULK_CREATE):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 User: "Create a 3x3 grid of ornaments"
 
-✅ CORRECT (9 shapes = use JSON mode with CREATE):
+✅ CORRECT (9 shapes in grid = use BULK_CREATE):
 {
   "actions": [{
-    "type": "CREATE",
-    "shapes": [
-      {"shape": "circle", "x": 2400, "y": 2400, "width": 80, "height": 80, "fill": "#ef4444"},
-      {"shape": "circle", "x": 2500, "y": 2400, "width": 80, "height": 80, "fill": "#22c55e"},
-      {"shape": "circle", "x": 2600, "y": 2400, "width": 80, "height": 80, "fill": "#3b82f6"},
-      {"shape": "circle", "x": 2400, "y": 2500, "width": 80, "height": 80, "fill": "#ef4444"},
-      {"shape": "circle", "x": 2500, "y": 2500, "width": 80, "height": 80, "fill": "#22c55e"},
-      {"shape": "circle", "x": 2600, "y": 2500, "width": 80, "height": 80, "fill": "#3b82f6"},
-      {"shape": "circle", "x": 2400, "y": 2600, "width": 80, "height": 80, "fill": "#ef4444"},
-      {"shape": "circle", "x": 2500, "y": 2600, "width": 80, "height": 80, "fill": "#22c55e"},
-      {"shape": "circle", "x": 2600, "y": 2600, "width": 80, "height": 80, "fill": "#3b82f6"}
-    ]
+    "type": "BULK_CREATE",
+    "count": 9,
+    "pattern": "grid",
+    "shapeType": "circle",
+    "fill": "#ef4444"
   }],
-  "summary": "Created 3x3 grid of ornaments in center of canvas"
+  "summary": "Created 3x3 grid of 9 circles"
 }
 
 ❌ WRONG - DO NOT DO THIS:
-Calling create_shape() function 9 times
+- Using CREATE with shapes array (not supported!)
+- Calling create_shape() function 9 times
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚨 EXAMPLE 3 - "Create a login form" (Multiple CREATE actions):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+User: "Create a login form"
+
+✅ CORRECT (5 shapes with precise positioning = multiple CREATE actions):
+{
+  "actions": [
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2000, "width": 400, "height": 60, "fill": "#f3f4f6", "text": "Username"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2080, "width": 400, "height": 60, "fill": "#ffffff"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2180, "width": 400, "height": 60, "fill": "#f3f4f6", "text": "Password"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2200, "y": 2260, "width": 400, "height": 60, "fill": "#ffffff"},
+    {"type": "CREATE", "shape": "rectangle", "x": 2300, "y": 2360, "width": 200, "height": 50, "fill": "#3b82f6", "text": "Login"}
+  ],
+  "summary": "Created login form with 5 rectangles"
+}
+
+❌ WRONG:
+- Using CREATE with shapes array: {"type": "CREATE", "shapes": [...]} - NOT SUPPORTED!
 
 REMEMBER THE RULE:
 • 10+ shapes or grid/patterns? → JSON MODE (BULK_CREATE)
-• 3-9 shapes? → JSON MODE (CREATE with shapes array)
-• 1-2 shapes or single operation? → FUNCTION MODE
+• 3-9 shapes with precise positioning? → JSON MODE (multiple CREATE actions in array)
+• 3-9 shapes in grid/pattern? → JSON MODE (BULK_CREATE)
+• 1-2 shapes or single operation? → FUNCTION MODE or JSON MODE (single CREATE)
 
 COORDINATES: Canvas 0-5000 for x and y
 SIZES: tiny (20-50px), small (50-100px), medium (100-300px), large (300-600px)
@@ -139,11 +155,13 @@ COLORS: Use hex codes: "#ef4444" "#22c55e" "#3b82f6"
 
 ⚠️ FINAL CRITICAL REMINDERS:
 1. CHECK THE DECISION TREE - it tells you which mode to use!
-2. "Create 500 Shapes" → JSON MODE with BULK_CREATE
-3. "Create 3x3 grid" → JSON MODE with CREATE array
-4. NEVER call create_shape() more than 2 times
-5. NEVER wrap JSON in markdown code blocks
-6. Use exact count values - if user says 500, use count: 500
+2. "Create 500 Shapes" → JSON MODE with BULK_CREATE (see Example 1)
+3. "Create 3x3 grid" → JSON MODE with BULK_CREATE (see Example 2)
+4. "Create login form" → JSON MODE with multiple CREATE actions (see Example 3)
+5. CREATE does NOT support shapes array - use multiple CREATE actions or BULK_CREATE!
+6. NEVER call create_shape() more than 2 times
+7. NEVER wrap JSON in markdown code blocks
+8. Use exact count values - if user says 500, use count: 500
 
 READY. Awaiting canvas context and user command.`;
 
