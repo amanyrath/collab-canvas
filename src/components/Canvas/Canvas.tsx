@@ -935,7 +935,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height, stageRef: externalStageR
               setCommentShapeId(selectedShape.id)
             }
           }}
-          className="fixed top-[320px] left-4 w-[216px] px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-lg flex items-center justify-center gap-2 transition-colors z-20"
+          className="fixed top-[480px] left-4 w-[216px] px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-lg flex items-center justify-center gap-2 transition-colors z-20"
           title={lastSelectedShapeId ? `Open Comments${selectedShapeCommentCount > 0 ? ` (${selectedShapeCommentCount})` : ''}` : "Open Comments"}
           aria-label="Open Comments"
         >
