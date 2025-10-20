@@ -16,6 +16,7 @@ interface ShapeLayerProps {
   isDraggingRef?: React.MutableRefObject<boolean>  // ⚡ PERFORMANCE: Track drag state to skip cursor updates
   stageRef?: React.RefObject<Konva.Stage>
   onCursorUpdate?: (x: number, y: number) => void
+  snapToGrid?: boolean  // 📐 SNAP: Enable snap-to-grid on drag
 }
 
 // ✅ PERFORMANCE: Custom comparison for React.memo to prevent unnecessary re-renders
@@ -58,7 +59,8 @@ const SimpleShape: React.FC<{
   disableDrag?: boolean  // Disable dragging when inside a Group
   onCursorUpdate?: (x: number, y: number) => void  // ⚡ Cursor tracking during drag
   isDraggingRef?: React.MutableRefObject<boolean>  // ⚡ PERFORMANCE: Track drag state
-}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false, onCursorUpdate, isDraggingRef }) => {
+  snapToGrid?: boolean  // 📐 SNAP: Enable snap-to-grid on drag
+}> = React.memo(({ shape, isSelected: _isSelected, onSelect, onDoubleClick, shapeRef, disableDrag = false, onCursorUpdate, isDraggingRef, snapToGrid = false }) => {
   const { user } = useUserStore()
   
   const isLockedByMe = shape.isLocked && shape.lockedBy === user?.uid
@@ -293,8 +295,8 @@ const SimpleShape: React.FC<{
     const shapeWidth = Math.max(1, currentShape.width)
     const shapeHeight = Math.max(1, currentShape.height)
     
-    // Snap to grid
-    const gridSize = 1
+    // 📐 SNAP: Use 50px grid when snap is enabled, otherwise 1px (no snap)
+    const gridSize = snapToGrid ? 50 : 1
     const x = Math.round(pos.x / gridSize) * gridSize
     const y = Math.round(pos.y / gridSize) * gridSize
     
@@ -306,7 +308,7 @@ const SimpleShape: React.FC<{
       x: Math.max(0, Math.min(maxX, x)),
       y: Math.max(0, Math.min(maxY, y))
     }
-  }, [shape.id])
+  }, [shape.id, snapToGrid])
 
   // ⚡ PERFORMANCE: Cache textured shapes for faster rendering
   React.useEffect(() => {
@@ -468,7 +470,7 @@ const SimpleShape: React.FC<{
 SimpleShape.displayName = 'SimpleShape'
 
 // ✅ PERFORMANCE: Memoize shape layer to prevent unnecessary re-renders
-const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, isDraggingRef, stageRef, onCursorUpdate }) => {
+const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, isDraggingRef, stageRef, onCursorUpdate, snapToGrid = false }) => {
   // ⚡ PERFORMANCE: Selective subscription - only re-render when shapes array changes
   const shapes = useCanvasStore((state) => state.shapes, shallow)
   const { user } = useUserStore()
@@ -1109,6 +1111,11 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
     
     if (lockedShapes.length <= 1) return pos
     
+    // 📐 SNAP: Apply grid snapping to group position
+    const gridSize = snapToGrid ? 50 : 1
+    let snappedX = Math.round(pos.x / gridSize) * gridSize
+    let snappedY = Math.round(pos.y / gridSize) * gridSize
+    
     // Calculate group bounding box
     let minX = Infinity
     let minY = Infinity
@@ -1122,15 +1129,15 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
       maxY = Math.max(maxY, shape.y + shape.height)
     })
     
-    // Apply delta to bounding box
-    const newMinX = minX + pos.x
-    const newMinY = minY + pos.y
-    const newMaxX = maxX + pos.x
-    const newMaxY = maxY + pos.y
+    // Apply delta to bounding box (with snapped position)
+    const newMinX = minX + snappedX
+    const newMinY = minY + snappedY
+    const newMaxX = maxX + snappedX
+    const newMaxY = maxY + snappedY
     
     // Constrain to canvas bounds (check ALL boundaries, not else-if)
-    let constrainedX = pos.x
-    let constrainedY = pos.y
+    let constrainedX = snappedX
+    let constrainedY = snappedY
     
     // Check left boundary
     if (newMinX < 0) {
@@ -1151,7 +1158,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
     }
     
     return { x: constrainedX, y: constrainedY }
-  }, [user])
+  }, [user, snapToGrid])
 
   return (
     <Layer 
@@ -1204,6 +1211,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
                 disableDrag={true}
                 onCursorUpdate={onCursorUpdate}
                 isDraggingRef={isDraggingRef}
+                snapToGrid={snapToGrid}
               />
             )
           })}
@@ -1228,6 +1236,7 @@ const ShapeLayer: React.FC<ShapeLayerProps> = ({ listening, isDragSelectingRef, 
             shapeRef={{ current: null, callback: handleRef } as any}
             onCursorUpdate={onCursorUpdate}
             isDraggingRef={isDraggingRef}
+            snapToGrid={snapToGrid}
           />
         )
       })}

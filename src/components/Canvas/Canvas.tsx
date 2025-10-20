@@ -39,6 +39,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height, stageRef: externalStageR
   const [isNavigating, setIsNavigating] = useState(false)
   const [isAgentChatOpen, setIsAgentChatOpen] = useState(false)
   const [magicNotification, setMagicNotification] = useState<string | null>(null)
+  const [snapToGrid, setSnapToGrid] = useState(false) // 📐 Snap-to-grid state
   
   // 🎄 CHRISTMAS MODE: Toggle for texture-based shape creation
   const [isChristmasMode, setIsChristmasMode] = useState(false)
@@ -304,6 +305,19 @@ const Canvas: React.FC<CanvasProps> = ({ width, height, stageRef: externalStageR
           })
           console.log(`⬇️ Moved ${userLockedShapes.length} shape(s) down one layer`)
         }
+        return
+      }
+      
+      // 📐 SNAP: Handle Cmd+' = Toggle Snap to Grid (like Figma)
+      if ((e.metaKey || e.ctrlKey) && e.key === "'" && !e.repeat) {
+        if (isTyping) return
+        e.preventDefault()
+        
+        setSnapToGrid(prev => {
+          const newState = !prev
+          console.log(`📐 Snap to Grid: ${newState ? 'ON' : 'OFF'}`)
+          return newState
+        })
         return
       }
       
@@ -845,13 +859,33 @@ const Canvas: React.FC<CanvasProps> = ({ width, height, stageRef: externalStageR
         key={texturesLoaded ? 'loaded' : 'loading'} // Force re-render when textures load
       >
         <GridLayer width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
-        <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} stageRef={stageRef} onCursorUpdate={updateCursor} isDraggingRef={isDraggingShape} />
+        <ShapeLayer listening={true} isDragSelectingRef={isDragSelecting} stageRef={stageRef} onCursorUpdate={updateCursor} isDraggingRef={isDraggingShape} snapToGrid={snapToGrid} />
         <SelectionLayer listening={false} />
         <SimpleCursorLayer />
       </Stage>
       
-      <div className="absolute top-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow">
-        Scale: {stageRef.current ? (stageRef.current.scaleX() * 100).toFixed(0) : '100'}%
+      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+        <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded shadow">
+          Scale: {stageRef.current ? (stageRef.current.scaleX() * 100).toFixed(0) : '100'}%
+        </div>
+        
+        {/* 📐 SNAP: Visual indicator when snap-to-grid is enabled */}
+        {snapToGrid && (
+          <div className="text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded shadow flex items-center gap-1">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16">
+              <rect x="0" y="0" width="4" height="4" />
+              <rect x="6" y="0" width="4" height="4" />
+              <rect x="12" y="0" width="4" height="4" />
+              <rect x="0" y="6" width="4" height="4" />
+              <rect x="6" y="6" width="4" height="4" />
+              <rect x="12" y="6" width="4" height="4" />
+              <rect x="0" y="12" width="4" height="4" />
+              <rect x="6" y="12" width="4" height="4" />
+              <rect x="12" y="12" width="4" height="4" />
+            </svg>
+            <span className="font-medium">Snap: ON</span>
+          </div>
+        )}
       </div>
       
       {isSpacePressed && (

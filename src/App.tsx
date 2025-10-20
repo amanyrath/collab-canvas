@@ -169,6 +169,7 @@ function App() {
                     <div><strong>Delete</strong> → Delete selected</div>
                     <div><strong>⌘/Ctrl+]</strong> → Move up layer</div>
                     <div><strong>⌘/Ctrl+[</strong> → Move down layer</div>
+                    <div><strong>⌘/Ctrl+'</strong> → Toggle snap-to-grid</div>
                     <div><strong>⌘/Ctrl+Z</strong> → Undo</div>
                     <div><strong>⌘/Ctrl+⇧+Z</strong> → Redo</div>
                     <div><strong>Space+Drag</strong> → Pan canvas</div>
