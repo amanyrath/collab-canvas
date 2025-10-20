@@ -924,7 +924,7 @@ const Canvas: React.FC<CanvasProps> = ({ width, height, stageRef: externalStageR
       {/* AI Agent Chat */}
       <AgentChat isOpen={isAgentChatOpen} onClose={() => setIsAgentChatOpen(false)} />
 
-      {/* 💬 Comments Toggle Button (near shape picker) */}
+      {/* 💬 Comments Toggle Button */}
       {!isCommentsSidebarOpen && (
         <button
           onClick={() => {
@@ -935,18 +935,15 @@ const Canvas: React.FC<CanvasProps> = ({ width, height, stageRef: externalStageR
               setCommentShapeId(selectedShape.id)
             }
           }}
-          className="fixed top-[480px] left-4 w-[216px] px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-lg flex items-center justify-center gap-2 transition-colors z-20"
+          className="fixed top-4 right-4 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded shadow-md flex items-center gap-1.5 transition-colors z-20 text-sm"
           title={lastSelectedShapeId ? `Open Comments${selectedShapeCommentCount > 0 ? ` (${selectedShapeCommentCount})` : ''}` : "Open Comments"}
           aria-label="Open Comments"
         >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-          </svg>
-          <span className="text-sm font-semibold">💬 Comments</span>
+          <span>Comments</span>
           
           {/* Comment count badge (when shape selected with comments) */}
           {lastSelectedShapeId && selectedShapeCommentCount > 0 && (
-            <span className="ml-1 px-2 py-0.5 bg-white text-blue-600 text-xs font-bold rounded-full">
+            <span className="px-1.5 py-0.5 bg-white text-blue-600 text-xs font-bold rounded-full">
               {selectedShapeCommentCount}
             </span>
           )}
