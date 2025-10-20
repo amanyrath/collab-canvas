@@ -22,7 +22,7 @@ export default function LayersPanel() {
   const [expandedLayers, setExpandedLayers] = useState<Set<number>>(new Set())
 
   // Group shapes by layer (zIndex)
-  const layerGroups = useMemo(() => {
+  const layerGroups = useMemo((): LayerGroup[] => {
     const groups = new Map<number, Shape[]>()
     
     shapes.forEach(shape => {
@@ -35,7 +35,7 @@ export default function LayersPanel() {
     
     // Convert to sorted array (highest layer first)
     return Array.from(groups.entries())
-      .map(([zIndex, shapes]) => ({
+      .map(([zIndex, shapes]): LayerGroup => ({
         zIndex,
         shapes,
         isExpanded: expandedLayers.has(zIndex)

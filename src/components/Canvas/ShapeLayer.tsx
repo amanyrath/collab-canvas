@@ -21,8 +21,8 @@ interface ShapeLayerProps {
 
 // ✅ PERFORMANCE: Custom comparison for React.memo to prevent unnecessary re-renders
 const areShapePropsEqual = (
-  prevProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void; isDraggingRef?: React.MutableRefObject<boolean> },
-  nextProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void; isDraggingRef?: React.MutableRefObject<boolean> }
+  prevProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void; isDraggingRef?: React.MutableRefObject<boolean>; snapToGrid?: boolean },
+  nextProps: { shape: Shape; isSelected: boolean; onSelect: (e: any) => void; onDoubleClick: (id: string) => void; shapeRef: React.RefObject<Konva.Shape>; disableDrag?: boolean; onCursorUpdate?: (x: number, y: number) => void; isDraggingRef?: React.MutableRefObject<boolean>; snapToGrid?: boolean }
 ) => {
   // Only re-render if shape properties that affect rendering changed
   const prev = prevProps.shape
@@ -44,7 +44,8 @@ const areShapePropsEqual = (
     prev.lockedByColor === next.lockedByColor &&
     prev.texture === next.texture && // 🎄 CHRISTMAS: Include texture in comparison
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.disableDrag === nextProps.disableDrag
+    prevProps.disableDrag === nextProps.disableDrag &&
+    prevProps.snapToGrid === nextProps.snapToGrid // 📐 SNAP: Include snapToGrid in comparison
     // Note: We don't compare onSelect, onCursorUpdate, isDraggingRef, or shapeRef as they are stable/refs
   )
 }
